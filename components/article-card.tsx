@@ -12,6 +12,15 @@ const CAT_CSS: Record<string, string> = {
   'digital-product': 'cat-digital',
 };
 
+const CAT_LABELS: Record<string, string> = {
+  'micro-saas': '微SaaS',
+  'design-assets': '设计资产',
+  'automation': '自动化',
+  'content-monetize': '内容变现',
+  'indie-tool': '小而美',
+  'digital-product': '虚拟产品',
+};
+
 function BookmarkBtn({ id, title }: { id: string; title: string }) {
   const [faved, setFaved] = useState(false);
 
@@ -55,7 +64,7 @@ function BookmarkBtn({ id, title }: { id: string; title: string }) {
 
 export function ArticleCard({ item, index }: { item: NewsItem; index: number }) {
   const [insightOpen, setInsightOpen] = useState(false);
-  const catLabel = item.category.replace('-', ' ').replace(/\b\w/g, c => c.toUpperCase());
+  const catLabel = CAT_LABELS[item.category] || item.category.replace('-', ' ').replace(/\b\w/g, c => c.toUpperCase());
 
   return (
     <article data-category={item.category} className="article">
