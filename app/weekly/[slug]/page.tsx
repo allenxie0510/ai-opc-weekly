@@ -56,17 +56,6 @@ export default async function WeeklyPage({ params }: { params: Promise<{ slug: s
       <HeroSection issue={issue} dateStr={dateStr} />
       <ShareBar slug={slug} />
 
-      {/* Data source strip */}
-      <div style={{
-        background: 'var(--color-canvas)', borderRadius: 12, padding: '12px 20px',
-        border: '1px solid var(--color-hairline)', marginBottom: 32, fontSize: 13, color: 'var(--color-steel)',
-      }}>
-        <strong style={{ color: 'var(--color-ink)' }}>数据来源：</strong>
-        X / Twitter · GitHub Trending · Product Hunt · Indie Hackers · TrustMRR
-        <span style={{ margin: '0 6px' }}>·</span>
-        {dateStr}
-      </div>
-
       <FilterBar categories={Array.from(new Set(items.map(i => i.category)))} />
       <div className="article-list">
         {items.map((item, idx) => (

@@ -12,7 +12,7 @@ const CAT_CSS: Record<string, string> = {
   'digital-product': 'cat-digital',
 };
 
-function BookmarkBtn({ id }: { id: string }) {
+function BookmarkBtn({ id, title }: { id: string; title: string }) {
   const [faved, setFaved] = useState(false);
 
   useEffect(() => {
@@ -29,7 +29,7 @@ function BookmarkBtn({ id }: { id: string }) {
         const next = favs.filter((f: { id: string }) => f.id !== id);
         localStorage.setItem('ai_trends_favorites', JSON.stringify(next));
       } else {
-        favs.push({ id, savedAt: new Date().toISOString() });
+        favs.push({ id, savedAt: new Date().toISOString(), title });
         localStorage.setItem('ai_trends_favorites', JSON.stringify(favs));
       }
       setFaved(!faved);
@@ -62,7 +62,7 @@ export function ArticleCard({ item, index }: { item: NewsItem; index: number }) 
       <div className="art-header">
         <span className={`art-cat-pill ${CAT_CSS[item.category] || ''}`}>{catLabel}</span>
         <span className="art-idx">{String(index).padStart(2, '0')}</span>
-        <BookmarkBtn id={item.id} />
+        <BookmarkBtn id={item.id} title={item.title} />
       </div>
 
       <h3>{item.title}</h3>
