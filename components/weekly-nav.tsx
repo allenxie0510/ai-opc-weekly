@@ -39,75 +39,43 @@ export function WeeklyNav({
   };
 
   return (
-    <div className="border-b border-[var(--color-hairline)] bg-white sticky top-14 z-40">
-      <div className="max-w-3xl mx-auto px-4 h-12 flex items-center justify-center gap-1">
+    <div className="border-b border-[var(--color-hairline)] bg-white">
+      <div className="container flex items-center justify-center gap-1 py-3">
         {/* Prev */}
         {newer ? (
-          <Link
-            href={`/weekly/${newer.slug}`}
-            className="w-10 h-8 flex items-center justify-center rounded-md hover:bg-[var(--color-surface)] transition-colors text-[var(--color-steel)]"
-            title={fmt(newer)}
-          >
-            ‹
-          </Link>
+          <Link href={`/weekly/${newer.slug}`} title={fmt(newer)} className="text-[var(--color-steel)] hover:text-[var(--color-ink)] px-2">‹</Link>
         ) : (
-          <span className="w-10 h-8 flex items-center justify-center text-[var(--color-hairline)]">‹</span>
+          <span className="px-2 text-[var(--color-hairline)]">‹</span>
         )}
 
-        {/* Current trigger */}
-        <div ref={ref} className="relative">
-          <button
-            onClick={() => setOpen(!open)}
-            className="px-3 py-1.5 text-sm font-semibold text-[var(--color-ink)] hover:bg-[var(--color-surface)] rounded-md transition-colors flex items-center gap-1"
-          >
+        {/* Week picker */}
+        <div ref={ref} className={`week-picker${open ? ' open' : ''}`}>
+          <button onClick={() => setOpen(!open)} className="week-picker-btn">
             {current ? fmt(current) : '...'}
-            <svg width="10" height="6" viewBox="0 0 10 6" fill="none">
-              <path d="M1 1L5 5L9 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-            </svg>
+            <span className="picker-arrow">▾</span>
           </button>
 
-          {open && (
-            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-1.5 bg-white border border-[var(--color-hairline)] rounded-xl shadow-lg min-w-[200px] py-1.5 z-50">
-              {issues.map((i) => (
-                <Link
-                  key={i.slug}
-                  href={`/weekly/${i.slug}`}
-                  onClick={() => setOpen(false)}
-                  className={`block px-4 py-2 text-sm hover:bg-[var(--color-surface)] transition-colors ${
-                    i.slug === currentSlug
-                      ? 'text-[var(--color-coral)] font-semibold'
-                      : 'text-[var(--color-charcoal)]'
-                  }`}
-                >
-                  {i.slug === currentSlug ? '● ' : ''}{fmt(i)}
-                  {i.slug === issues[0].slug && (
-                    <span className="ml-1.5 text-[10px] text-[var(--color-coral)] font-medium">最新</span>
-                  )}
-                </Link>
-              ))}
-              <div className="border-t border-[var(--color-hairline)] my-1" />
+          <div className="week-picker-menu">
+            {issues.map((i) => (
               <Link
-                href="/archive"
+                key={i.slug}
+                href={`/weekly/${i.slug}`}
                 onClick={() => setOpen(false)}
-                className="block px-4 py-2 text-sm text-[var(--color-steel)] hover:bg-[var(--color-surface)] transition-colors"
+                className={i.slug === currentSlug ? 'active' : ''}
               >
-                全部归档 →
+                {fmt(i)}
               </Link>
-            </div>
-          )}
+            ))}
+            <div className="menu-divider" />
+            <Link href="/archive" onClick={() => setOpen(false)}>全部归档 →</Link>
+          </div>
         </div>
 
         {/* Next */}
         {older ? (
-          <Link
-            href={`/weekly/${older.slug}`}
-            className="w-10 h-8 flex items-center justify-center rounded-md hover:bg-[var(--color-surface)] transition-colors text-[var(--color-steel)]"
-            title={fmt(older)}
-          >
-            ›
-          </Link>
+          <Link href={`/weekly/${older.slug}`} title={fmt(older)} className="text-[var(--color-steel)] hover:text-[var(--color-ink)] px-2">›</Link>
         ) : (
-          <span className="w-10 h-8 flex items-center justify-center text-[var(--color-hairline)]">›</span>
+          <span className="px-2 text-[var(--color-hairline)]">›</span>
         )}
       </div>
     </div>

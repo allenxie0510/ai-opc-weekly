@@ -7,7 +7,7 @@ export function FilterBar({ categories }: { categories: string[] }) {
 
   const filterByCat = (cat: string) => {
     setActiveCat(cat);
-    const articles = document.querySelectorAll('.grid > article');
+    const articles = document.querySelectorAll('.article');
     articles.forEach(a => {
       const catEl = a.querySelector('[data-category]');
       const articleCat = catEl?.getAttribute('data-category') || '';
@@ -29,30 +29,17 @@ export function FilterBar({ categories }: { categories: string[] }) {
   };
 
   return (
-    <div className="flex flex-wrap gap-1.5">
-      <button
-        onClick={() => filterByCat('all')}
-        className={`text-xs font-semibold px-3 py-1 rounded-full transition-colors ${
-          activeCat === 'all'
-            ? 'bg-[var(--color-ink)] text-white'
-            : 'bg-white border border-[var(--color-hairline)] text-[var(--color-steel)] hover:border-[var(--color-muted)]'
-        }`}
-      >
-        全部
-      </button>
-      {categories.map(cat => (
-        <button
-          key={cat}
-          onClick={() => filterByCat(cat)}
-          className={`text-xs font-semibold px-3 py-1 rounded-full transition-colors ${
-            activeCat === cat
-              ? 'bg-[var(--color-ink)] text-white'
-              : 'bg-white border border-[var(--color-hairline)] text-[var(--color-steel)] hover:border-[var(--color-muted)]'
-          }`}
-        >
-          {catLabels[cat] || cat}
-        </button>
-      ))}
+    <div className="filter-section">
+      <div className="filter-row">
+        <span className="flabel">分类</span>
+        <span className="vr">|</span>
+        <button onClick={() => filterByCat('all')} className={`fbtn${activeCat === 'all' ? ' on' : ''}`}>全部</button>
+        {categories.map(cat => (
+          <button key={cat} onClick={() => filterByCat(cat)} className={`fbtn${activeCat === cat ? ' on' : ''}`}>
+            {catLabels[cat] || cat}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

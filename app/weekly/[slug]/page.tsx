@@ -55,21 +55,30 @@ export default async function WeeklyPage({ params }: { params: Promise<{ slug: s
     >
       <HeroSection issue={issue} dateStr={dateStr} />
       <ShareBar slug={slug} />
-      <div className="bg-white rounded-xl px-4 py-3 my-4 border border-[var(--color-hairline)] text-xs text-[var(--color-steel)]">
-        <span className="font-semibold text-[var(--color-ink)]">数据来源：</span>
+
+      {/* Data source strip */}
+      <div style={{
+        background: 'var(--color-canvas)', borderRadius: 12, padding: '12px 20px',
+        border: '1px solid var(--color-hairline)', marginBottom: 32, fontSize: 13, color: 'var(--color-steel)',
+      }}>
+        <strong style={{ color: 'var(--color-ink)' }}>数据来源：</strong>
         X / Twitter · GitHub Trending · Product Hunt · Indie Hackers · TrustMRR
-        <span className="mx-2">·</span>
+        <span style={{ margin: '0 6px' }}>·</span>
         {dateStr}
       </div>
+
       <FilterBar categories={Array.from(new Set(items.map(i => i.category)))} />
-      <div className="grid gap-4 mt-4">
+      <div className="article-list">
         {items.map((item, idx) => (
           <ArticleCard key={item.id} item={item} index={idx + 1} />
         ))}
       </div>
-      <footer className="mt-12 pt-6 border-t border-[var(--color-hairline)] text-center text-xs text-[var(--color-stone)]">
+
+      <footer>
         <p>数据来源：X / Twitter · GitHub Trending · Product Hunt · Indie Hackers · TrustMRR</p>
-        <p className="mt-1">本分析仅供方向参考。原创创造价值，不做搬运工。每周一自动更新。</p>
+        <p>本分析仅供方向参考。原创创造价值，不做搬运工。每周一自动更新。</p>
+        <p>© 2026 AI OPC Weekly. All rights reserved.</p>
+        <div className="visitor-count">访问量：<span id="vc">—</span></div>
       </footer>
     </PageShell>
   );
