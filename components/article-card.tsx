@@ -21,25 +21,41 @@ const CAT_LABELS: Record<string, string> = {
   'digital-product': '虚拟产品',
 };
 
-function BookmarkBtn({ id, title }: { id: string; title: string }) {
+function showToast(msg: string) {
+  const existing = document.querySelector('.toast');
+  if (existing) existing.remove();
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.textContent = msg;
+  document.body.appendChild(el);
+  requestAnimationFrame(() => el.classList.add('show'));
+  setTimeout(() => {
+    el.classList.remove('show');
+    setTimeout(() => el.remove(), 300);
+  }, 2000);
+}
+
+function BookmarkBtn({ item }: { item: NewsItem }) {
   const [faved, setFaved] = useState(false);
 
   useEffect(() => {
     try {
       const favs = JSON.parse(localStorage.getItem('ai_trends_favorites') || '[]');
-      setFaved(favs.some((f: { id: string }) => f.id === id));
+      setFaved(favs.some((f: { id: string }) => f.id === item.id));
     } catch {}
-  }, [id]);
+  }, [item.id]);
 
   const toggle = () => {
     try {
-      const favs = JSON.parse(localStorage.getItem('ai_trends_favorites') || '[]');
+      const favs: NewsItem[] = JSON.parse(localStorage.getItem('ai_trends_favorites') || '[]');
       if (faved) {
-        const next = favs.filter((f: { id: string }) => f.id !== id);
+        const next = favs.filter((f) => f.id !== item.id);
         localStorage.setItem('ai_trends_favorites', JSON.stringify(next));
+        showToast('已取消收藏');
       } else {
-        favs.push({ id, savedAt: new Date().toISOString(), title });
+        favs.push(item);
         localStorage.setItem('ai_trends_favorites', JSON.stringify(favs));
+        showToast('已收藏，在收藏页可查看深度拆解');
       }
       setFaved(!faved);
     } catch {}
@@ -50,7 +66,7 @@ function BookmarkBtn({ id, title }: { id: string; title: string }) {
       onClick={toggle}
       title="收藏"
       className={`bookmark-btn${faved ? ' faved' : ''}`}
-      data-id={id}
+      data-id={item.id}
     >
       <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
         <path d="M3.75 2.75C3.75 1.92157 4.42157 1.25 5.25 1.25H12.75C13.5784 1.25 14.25 1.92157 14.25 2.75V15.5L9 12.25L3.75 15.5V2.75Z"
@@ -71,7 +87,7 @@ export function ArticleCard({ item, index }: { item: NewsItem; index: number }) 
       <div className="art-header">
         <span className={`art-cat-pill ${CAT_CSS[item.category] || ''}`}>{catLabel}</span>
         <span className="art-idx">{String(index).padStart(2, '0')}</span>
-        <BookmarkBtn id={item.id} title={item.title} />
+        <BookmarkBtn item={item} />
       </div>
 
       <h3>{item.title}</h3>

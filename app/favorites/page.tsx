@@ -4,10 +4,17 @@ import { useState, useEffect } from 'react';
 import { Header } from '@/components/page-shell';
 import Link from 'next/link';
 
-interface Fav {
+interface FavItem {
   id: string;
-  savedAt: string;
-  title?: string;
+  title: string;
+  category: string;
+  description: string;
+  insight: string;
+  pricing?: string;
+  mrr_range?: string;
+  mvp_time?: string;
+  savedAt?: string;
+  created_at?: string;
 }
 
 const CAT_LABELS: Record<string, string> = {
@@ -19,13 +26,23 @@ const CAT_LABELS: Record<string, string> = {
   'digital-product': '虚拟产品',
 };
 
-function DeepAnalysisModal({ item, onClose }: { item: Fav; onClose: () => void }) {
+function DeepAnalysisModal({ item, onClose }: { item: FavItem; onClose: () => void }) {
   const [copied, setCopied] = useState(false);
+
+  const track = CAT_LABELS[item.category] || item.category;
+  const metrics = [
+    item.mrr_range && `单人收入: ${item.mrr_range}`,
+    item.pricing && `变现: ${item.pricing}`,
+    item.mvp_time && `MVP: ${item.mvp_time}`,
+  ].filter(Boolean).join('、');
 
   const prompt = `请对以下 AI 创业方向进行深度拆解分析：
 
-【项目名称】${item.title || '未知项目'}
-【收藏时间】${new Date(item.savedAt).toLocaleDateString('zh-CN')}
+【项目名称】${item.title}
+【所属赛道】${track}
+【项目描述】${item.description}
+【创作者洞察】落地路径：${item.insight}
+${metrics ? `【关键指标】${metrics}` : ''}
 
 请从以下 10 个维度逐一评估，每个维度给出 2-4 句话的实质性分析：
 
@@ -83,14 +100,19 @@ function DeepAnalysisModal({ item, onClose }: { item: Fav; onClose: () => void }
 }
 
 export default function FavoritesPage() {
-  const [favs, setFavs] = useState<Fav[]>([]);
-  const [analysisItem, setAnalysisItem] = useState<Fav | null>(null);
+  const [favs, setFavs] = useState<FavItem[]>([]);
+  const [analysisItem, setAnalysisItem] = useState<FavItem | null>(null);
 
   useEffect(() => {
     try {
       setFavs(JSON.parse(localStorage.getItem('ai_trends_favorites') || '[]'));
     } catch {}
   }, []);
+
+  const fmtDate = (d?: string) => {
+    if (!d) return '';
+    return new Date(d).toLocaleDateString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' });
+  };
 
   return (
     <>
@@ -111,18 +133,31 @@ export default function FavoritesPage() {
           </div>
         ) : (
           <div className="fav-list">
-            {favs.map((f) => (
-              <div key={f.id} className="fav-item" style={{
-                display: 'flex', alignItems: 'center', gap: 16,
+            {favs.map((f, idx) => (
+              <div key={f.id || idx} className="fav-item" style={{
+                display: 'flex', alignItems: 'flex-start', gap: 16,
                 flexWrap: 'wrap', justifyContent: 'space-between',
               }}>
-                <div>
-                  <h4 style={{ fontSize: 15, fontWeight: 600, color: 'var(--color-ink)', marginBottom: 4 }}>
-                    {f.title || `项目 #${f.id.slice(0, 8)}`}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                    <span className={`art-cat-pill ${f.category ? 'cat-' : ''}${f.category === 'design-assets' ? 'design' : f.category === 'automation' ? 'automation' : f.category === 'content-monetize' ? 'content' : f.category === 'indie-tool' ? 'tool' : f.category === 'digital-product' ? 'digital' : 'microsaas'}`}>
+                      {CAT_LABELS[f.category] || f.category || '—'}
+                    </span>
+                    <span style={{ fontSize: 12, color: 'var(--color-stone)' }}>
+                      {fmtDate(f.savedAt || f.created_at)}
+                    </span>
+                  </div>
+                  <h4 style={{ fontSize: 16, fontWeight: 600, color: 'var(--color-ink)', marginBottom: 4 }}>
+                    {f.title}
                   </h4>
-                  <span style={{ fontSize: 12, color: 'var(--color-stone)' }}>
-                    收藏于 {f.savedAt ? new Date(f.savedAt).toLocaleDateString('zh-CN') : ''}
-                  </span>
+                  <p style={{ fontSize: 14, color: 'var(--color-slate)', lineHeight: 1.5, marginBottom: 8 }}>
+                    {f.description?.slice(0, 120)}{(f.description?.length || 0) > 120 ? '…' : ''}
+                  </p>
+                  <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 12 }}>
+                    {f.mrr_range && <span style={{ color: 'var(--color-steel)' }}>MRR: <strong style={{ color: 'var(--color-ink)' }}>{f.mrr_range}</strong></span>}
+                    {f.pricing && <span style={{ color: 'var(--color-steel)' }}>定价: <strong style={{ color: 'var(--color-ink)' }}>{f.pricing}</strong></span>}
+                    {f.mvp_time && <span style={{ color: 'var(--color-steel)' }}>MVP: <strong style={{ color: 'var(--color-ink)' }}>{f.mvp_time}</strong></span>}
+                  </div>
                 </div>
                 <button
                   onClick={() => setAnalysisItem(f)}
@@ -132,6 +167,7 @@ export default function FavoritesPage() {
                     padding: '6px 16px', borderRadius: 9999, cursor: 'pointer',
                     border: '1px solid var(--color-hairline)', background: 'transparent',
                     color: 'var(--color-blue)', transition: 'all 0.2s ease',
+                    flexShrink: 0,
                   }}
                 >
                   🔍 深度拆解
