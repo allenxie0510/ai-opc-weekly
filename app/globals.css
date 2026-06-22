@@ -196,13 +196,16 @@ a { color: inherit; text-decoration: none; }
 /* Bookmark button */
 .bookmark-btn {
   width: 28px; height: 28px; display: inline-flex; align-items: center; justify-content: center;
-  background: transparent; border: none; cursor: pointer; color: var(--color-stone);
-  border-radius: 6px; transition: all 0.2s ease; flex-shrink: 0; margin-left: auto;
-  padding: 0;
+  background: transparent; border: none; cursor: pointer;
+  color: var(--color-stone);
+  border-radius: 6px; transition: color 0.2s ease;
+  flex-shrink: 0; margin-left: auto; padding: 0;
 }
-.bookmark-btn:hover { color: var(--color-coral); background: #ff55300d; }
-.bookmark-btn.faved { color: var(--color-coral); }
-.bookmark-btn.faved svg path { fill: var(--color-coral); stroke: var(--color-coral); }
+@media(hover: hover) {
+  .bookmark-btn:hover { color: var(--color-coral); background: #ff55300d; }
+}
+.bookmark-btn.faved { color: var(--color-ink); }
+.bookmark-btn.faved svg path { fill: var(--color-ink); stroke: var(--color-ink); }
 
 .article h3 {
   font-size: 24px; font-weight: 600; line-height: 1.30; letter-spacing: -0.01em;
