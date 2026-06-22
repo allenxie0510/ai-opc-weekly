@@ -2,6 +2,15 @@
 
 import { useState } from 'react';
 
+const CAT_LABELS: Record<string, string> = {
+  'micro-saas': '微SaaS',
+  'design-assets': '设计资产',
+  'automation': '自动化',
+  'content-monetize': '内容变现',
+  'indie-tool': '小而美',
+  'digital-product': '虚拟产品',
+};
+
 export function FilterBar({ categories }: { categories: string[] }) {
   const [activeCat, setActiveCat] = useState('all');
 
@@ -17,16 +26,18 @@ export function FilterBar({ categories }: { categories: string[] }) {
         (a as HTMLElement).classList.add('hidden');
       }
     });
+    // Update results hint
+    const visible = document.querySelectorAll('.article:not(.hidden)');
+    const hint = document.querySelector('.results-hint');
+    if (hint) {
+      hint.textContent = cat === 'all' ? '' : `显示 ${visible.length} 个项目`;
+    }
   };
 
-  const catLabels: Record<string, string> = {
-    'micro-saas': '微SaaS',
-    'design-assets': '设计资产',
-    'automation': '自动化',
-    'content-monetize': '内容变现',
-    'indie-tool': '小而美',
-    'digital-product': '虚拟产品',
-  };
+  // Only show categories that actually exist in the data
+  const validCategories = categories.filter(c => CAT_LABELS[c]);
+
+  if (validCategories.length === 0) return null;
 
   return (
     <div className="filter-section">
@@ -34,12 +45,13 @@ export function FilterBar({ categories }: { categories: string[] }) {
         <span className="flabel">分类</span>
         <span className="vr">|</span>
         <button onClick={() => filterByCat('all')} className={`fbtn${activeCat === 'all' ? ' on' : ''}`}>全部</button>
-        {categories.map(cat => (
+        {validCategories.map(cat => (
           <button key={cat} onClick={() => filterByCat(cat)} className={`fbtn${activeCat === cat ? ' on' : ''}`}>
-            {catLabels[cat] || cat}
+            {CAT_LABELS[cat] || cat}
           </button>
         ))}
       </div>
+      <div className="results-hint"></div>
     </div>
   );
 }
