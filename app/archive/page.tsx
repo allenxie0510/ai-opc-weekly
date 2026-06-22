@@ -19,36 +19,41 @@ export default async function ArchivePage() {
   return (
     <>
       <Header />
-      <main className="max-w-3xl mx-auto px-4 py-12">
-        <h1 className="text-2xl font-bold mb-2" style={{ fontFamily: 'var(--font-brand)', letterSpacing: '0.04em' }}>全部周报</h1>
-        <p className="text-sm text-[var(--color-steel)] mb-8">AI OPC Weekly 归档</p>
+      <div className="container" style={{ paddingTop: 48, paddingBottom: 64 }}>
+        <header style={{ marginBottom: 48 }}>
+          <h1 style={{ fontFamily: 'var(--font-brand)', fontSize: '2.2rem', fontWeight: 700, letterSpacing: '-0.03em', marginBottom: 8 }}>全部周报</h1>
+          <p style={{ color: 'var(--color-steel)', fontSize: '0.95rem' }}>AI OPC Weekly 归档</p>
+        </header>
 
-        {Object.keys(byYear).sort((a, b) => Number(b) - Number(a)).map(year => (
-          <div key={year} className="mb-8">
-            <h2 className="text-lg font-semibold mb-3 text-[var(--color-ink)]">{year}</h2>
-            <div className="space-y-1">
-              {byYear[Number(year)].map((i, idx) => (
-                <Link
-                  key={i.slug}
-                  href={`/weekly/${i.slug}`}
-                  className="flex items-center gap-3 py-2 px-3 rounded-lg hover:bg-white transition-colors group"
-                >
-                  <span className="text-sm font-semibold text-[var(--color-coral)] min-w-[48px]">
-                    W{i.week_number}
-                  </span>
-                  <span className="text-sm text-[var(--color-slate)] flex-1">
-                    {fmtDate(i.week_start)}–{fmtDate(i.week_end)}
-                  </span>
-                  {idx === 0 && (
-                    <span className="text-[10px] font-medium text-[var(--color-coral)] bg-[#ff55300d] px-1.5 py-0.5 rounded-full">最新</span>
-                  )}
-                  <span className="text-xs text-[var(--color-muted)] opacity-0 group-hover:opacity-100 transition-opacity">→</span>
-                </Link>
-              ))}
-            </div>
+        {issues.length === 0 ? (
+          <div className="empty" style={{ textAlign: 'center', padding: '60px 0', color: 'var(--color-stone)' }}>
+            暂无已发布的周报
           </div>
-        ))}
-      </main>
+        ) : (
+          Object.keys(byYear).sort((a, b) => Number(b) - Number(a)).map(year => (
+            <div key={year} style={{ marginBottom: 40 }}>
+              <h2 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: 12, color: 'var(--color-ink)' }}>{year}</h2>
+              <div className="archive-list">
+                {byYear[Number(year)].map((i) => (
+                  <Link key={i.slug} href={`/weekly/${i.slug}`} className="archive-item">
+                    <div>
+                      <span className="week-label">W{i.week_number}</span>
+                      <span className="date" style={{ marginLeft: 12 }}>
+                        {fmtDate(i.week_start)}–{fmtDate(i.week_end)}
+                      </span>
+                    </div>
+                    <span className="arrow">→</span>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          ))
+        )}
+
+        <footer style={{ textAlign: 'center', padding: '48px 0', color: 'var(--color-stone)', fontSize: '0.8rem' }}>
+          <p>© 2026 AI OPC Weekly. All rights reserved.</p>
+        </footer>
+      </div>
     </>
   );
 }
