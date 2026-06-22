@@ -11,11 +11,6 @@ export function HeroSection({ issue, dateStr }: { issue: WeeklyIssue; dateStr: s
       <p className="sub">
         12 条精选 AI 创业趋势，聚焦独立设计师/开发者可落地的一人公司机会。每一条都附带真实数据、变现路径和 MVP 周期。
       </p>
-      <div className="meta">
-        <span>{dateStr}</span>
-        <span className="dot-sep"></span>
-        <span>12 个项目</span>
-      </div>
     </section>
   );
 }

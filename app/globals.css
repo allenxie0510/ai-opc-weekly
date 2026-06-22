@@ -248,8 +248,12 @@ a { color: inherit; text-decoration: none; }
 
 /* ═══ FOOTER ═══ */
 footer {
-  background: var(--color-footer-bg); color: var(--color-muted); padding: 56px 32px 48px;
-  text-align: center; font-size: 14px; line-height: 1.8;
+  background: var(--color-footer-bg); color: var(--color-muted);
+  padding: 56px 32px 48px; text-align: center;
+  font-size: 14px; line-height: 1.8;
+  margin-left: calc(-50vw + 50%);
+  margin-right: calc(-50vw + 50%);
+  width: 100vw;
 }
 footer p + p { margin-top: 4px; }
 .visitor-count { font-size: 12px; color: var(--color-stone); margin-top: 12px; }

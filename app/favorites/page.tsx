@@ -131,7 +131,7 @@ export default function FavoritesPage() {
                     fontFamily: 'inherit', fontSize: 13, fontWeight: 500,
                     padding: '6px 16px', borderRadius: 9999, cursor: 'pointer',
                     border: '1px solid var(--color-hairline)', background: 'transparent',
-                    color: 'var(--color-coral)', transition: 'all 0.2s ease',
+                    color: 'var(--color-blue)', transition: 'all 0.2s ease',
                   }}
                 >
                   🔍 深度拆解
