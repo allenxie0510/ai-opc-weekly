@@ -5,12 +5,10 @@ export function Header() {
   return (
     <nav className="nav">
       <div className="nav-inner">
-        <div className="nav-left">
-          <Link href="/" className="brand">AI OPC WEEKLY</Link>
-          <div className="nav-links">
-            <Link href="/archive">归档</Link>
-            <Link href="/favorites" className="fav-link">收藏</Link>
-          </div>
+        <Link href="/" className="brand">AI OPC WEEKLY</Link>
+        <div className="nav-links">
+          <Link href="/archive">归档</Link>
+          <Link href="/favorites" className="fav-link">收藏</Link>
         </div>
       </div>
     </nav>

@@ -39,8 +39,8 @@ export function WeeklyNav({
   };
 
   return (
-    <div className="border-b border-[var(--color-hairline)] bg-white">
-      <div className="container flex items-center justify-center gap-1 py-3">
+    <div style={{ paddingTop: 16 }}>
+      <div className="container flex items-center justify-center gap-1">
         {/* Prev */}
         {newer ? (
           <Link href={`/weekly/${newer.slug}`} title={fmt(newer)} className="text-[var(--color-steel)] hover:text-[var(--color-ink)] px-2">‹</Link>
@@ -55,7 +55,7 @@ export function WeeklyNav({
             <span className="picker-arrow">▾</span>
           </button>
 
-          <div className="week-picker-menu">
+          <div className="week-picker-menu" style={{ minWidth: 220 }}>
             {issues.map((i) => (
               <Link
                 key={i.slug}
@@ -66,8 +66,6 @@ export function WeeklyNav({
                 {fmt(i)}
               </Link>
             ))}
-            <div className="menu-divider" />
-            <Link href="/archive" onClick={() => setOpen(false)}>全部归档 →</Link>
           </div>
         </div>
 
