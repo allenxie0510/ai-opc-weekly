@@ -18,8 +18,7 @@ export function FilterBar({ categories }: { categories: string[] }) {
     setActiveCat(cat);
     const articles = document.querySelectorAll('.article');
     articles.forEach(a => {
-      const catEl = a.querySelector('[data-category]');
-      const articleCat = catEl?.getAttribute('data-category') || '';
+      const articleCat = a.getAttribute('data-category') || '';
       if (cat === 'all' || articleCat === cat) {
         (a as HTMLElement).classList.remove('hidden');
       } else {
