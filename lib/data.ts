@@ -1,29 +1,20 @@
-import { supabase } from './supabase';
+import { supabase, isConfigured } from './supabase';
 import type { WeeklyIssue, NewsItem, IssueNav } from './types';
 
-// Check if Supabase is configured
-function isConfigured(): boolean {
-  return !!process.env.NEXT_PUBLIC_SUPABASE_URL && !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    && !process.env.NEXT_PUBLIC_SUPABASE_URL?.includes('your-project');
-}
-
 export async function getWeeklyIssues(): Promise<WeeklyIssue[]> {
-  if (!isConfigured()) return [];
+  if (!isConfigured() || !supabase) return [];
   const { data, error } = await supabase
     .from('weekly_issues')
     .select('*')
     .eq('status', 'published')
     .order('published_at', { ascending: false });
 
-  if (error) {
-    console.error('Failed to fetch weekly issues:', error.message);
-    return [];
-  }
+  if (error) { console.error('getWeeklyIssues:', error.message); return []; }
   return data || [];
 }
 
 export async function getIssueBySlug(slug: string): Promise<WeeklyIssue | null> {
-  if (!isConfigured()) return null;
+  if (!isConfigured() || !supabase) return null;
   const { data, error } = await supabase
     .from('weekly_issues')
     .select('*')
@@ -36,22 +27,19 @@ export async function getIssueBySlug(slug: string): Promise<WeeklyIssue | null> 
 }
 
 export async function getNewsItems(issueId: string): Promise<NewsItem[]> {
-  if (!isConfigured()) return [];
+  if (!isConfigured() || !supabase) return [];
   const { data, error } = await supabase
     .from('news_items')
     .select('*')
     .eq('weekly_issue_id', issueId)
     .order('rank', { ascending: true });
 
-  if (error) {
-    console.error('Failed to fetch news items:', error.message);
-    return [];
-  }
+  if (error) { console.error('getNewsItems:', error.message); return []; }
   return data || [];
 }
 
 export async function getLatestIssue(): Promise<WeeklyIssue | null> {
-  if (!isConfigured()) return null;
+  if (!isConfigured() || !supabase) return null;
   const { data, error } = await supabase
     .from('weekly_issues')
     .select('*')
@@ -67,7 +55,6 @@ export async function getLatestIssue(): Promise<WeeklyIssue | null> {
 export async function getIssueNav(slug: string): Promise<IssueNav> {
   const issues = await getWeeklyIssues();
   const currentIndex = issues.findIndex(i => i.slug === slug);
-
   return {
     current: currentIndex >= 0 ? issues[currentIndex] : null,
     newer: currentIndex > 0 ? issues[currentIndex - 1] : null,
@@ -78,9 +65,7 @@ export async function getIssueNav(slug: string): Promise<IssueNav> {
 export function formatDateRange(issue: WeeklyIssue): string {
   const start = new Date(issue.week_start);
   const end = new Date(issue.week_end);
-  const startStr = `${start.getMonth() + 1}/${start.getDate()}`;
-  const endStr = `${end.getMonth() + 1}/${end.getDate()}`;
-  return `${startStr}–${endStr}`;
+  return `${start.getMonth() + 1}/${start.getDate()}–${end.getMonth() + 1}/${end.getDate()}`;
 }
 
 export function formatShortLabel(issue: WeeklyIssue): string {
