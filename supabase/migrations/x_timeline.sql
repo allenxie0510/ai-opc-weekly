@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS twitter_accounts (
   username text NOT NULL UNIQUE,
   display_name text,
   avatar_url text,
+  rss_url text,
   enabled boolean DEFAULT true,
   created_at timestamptz DEFAULT now()
 );

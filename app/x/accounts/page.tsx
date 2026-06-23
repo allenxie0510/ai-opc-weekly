@@ -10,6 +10,7 @@ interface Acct {
   display_name: string;
   avatar_url: string;
   enabled: boolean;
+  rss_url?: string;
   created_at: string;
 }
 
@@ -257,6 +258,11 @@ export default function XAccountsPage() {
                       </a>
                       {disabled && <span style={{ fontSize: 12, color: 'var(--color-coral)', fontWeight: 500 }}>已停用</span>}
                     </div>
+                    {a.rss_url ? (
+                      <span style={{ fontSize: 12, color: 'var(--color-success-text)' }}>✓ RSS 已配置</span>
+                    ) : (
+                      <span style={{ fontSize: 12, color: 'var(--color-stone)' }}>⚠ 未配置 RSS（不会被抓取）</span>
+                    )}
                   </div>
                 </article>
               </div>

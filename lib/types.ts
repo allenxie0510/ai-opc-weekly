@@ -39,6 +39,7 @@ export interface TwitterAccount {
   display_name: string;
   avatar_url: string;
   enabled: boolean;
+  rss_url?: string;
   created_at: string;
 }
 
