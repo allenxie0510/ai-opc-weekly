@@ -21,6 +21,22 @@ const CAT_LABELS: Record<string, string> = {
   'digital-product': '虚拟产品',
 };
 
+/**
+ * 为收藏生成稳定 key：基于标题+分类的哈希。
+ * 即使 Supabase 行被重建（UUID 变了），同一内容仍能匹配到旧收藏。
+ */
+function stableKey(item: NewsItem): string {
+  // 简单确定性哈希，无需依赖 crypto
+  let hash = 0;
+  const str = `${item.title}|${item.category}`;
+  for (let i = 0; i < str.length; i++) {
+    const ch = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + ch;
+    hash |= 0; // → 32bit int
+  }
+  return `sk_${Math.abs(hash).toString(36)}`;
+}
+
 function showToast(msg: string) {
   const existing = document.querySelector('.toast');
   if (existing) existing.remove();
@@ -37,23 +53,28 @@ function showToast(msg: string) {
 
 function BookmarkBtn({ item }: { item: NewsItem }) {
   const [faved, setFaved] = useState(false);
+  const sk = stableKey(item);
 
   useEffect(() => {
     try {
       const favs = JSON.parse(localStorage.getItem('ai_trends_favorites') || '[]');
-      setFaved(favs.some((f: { id: string }) => f.id === item.id));
+      // 兼容旧格式（id 匹配）和新格式（stableKey 匹配）
+      setFaved(favs.some((f: { id?: string; _sk?: string }) =>
+        f._sk === sk || (!f._sk && f.id === item.id)
+      ));
     } catch {}
-  }, [item.id]);
+  }, [item.id, sk]);
 
   const toggle = () => {
     try {
-      const favs: NewsItem[] = JSON.parse(localStorage.getItem('ai_trends_favorites') || '[]');
+      const favs: Record<string, unknown>[] = JSON.parse(localStorage.getItem('ai_trends_favorites') || '[]');
       if (faved) {
-        const next = favs.filter((f) => f.id !== item.id);
+        const next = favs.filter((f) => (f._sk as string) !== sk && f.id !== item.id);
         localStorage.setItem('ai_trends_favorites', JSON.stringify(next));
         showToast('已取消收藏');
       } else {
-        favs.push(item);
+        const entry = { ...item, _sk: sk, savedAt: new Date().toISOString() };
+        favs.push(entry);
         localStorage.setItem('ai_trends_favorites', JSON.stringify(favs));
         showToast('已收藏，在收藏页可查看深度拆解');
       }

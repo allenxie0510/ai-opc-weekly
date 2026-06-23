@@ -26,8 +26,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet" />
       </head>
-      <body>{children}</body>
-      <script async src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+      <body>
+        {children}
+        <script
+          async
+          src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"
+          data-no-optimize="1"
+        />
+      </body>
     </html>
   );
 }
