@@ -1,5 +1,6 @@
 import { getTweets, getTwitterAccounts } from '@/lib/data';
 import { Header } from '@/components/page-shell';
+import { TranslateButton } from '@/components/translate-button';
 import Link from 'next/link';
 
 export const revalidate = 300;
@@ -108,6 +109,8 @@ export default async function XTimelinePage() {
                       >
                         {t.content}
                       </a>
+
+                      <TranslateButton text={t.content} />
 
                       {t.media_urls && t.media_urls.length > 0 && (
                         <div className="x-card-media" data-count={Math.min(t.media_urls.length, 4)}>

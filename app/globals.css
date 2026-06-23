@@ -390,6 +390,25 @@ footer p + p { margin-top: 4px; }
 }
 .x-card-text:hover { color: var(--color-ink); }
 
+/* 翻译按钮 */
+.x-translate-btn {
+  display: inline-block; margin-top: 6px; padding: 2px 10px;
+  font-size: 12px; font-family: inherit; font-weight: 500;
+  color: var(--color-blue); background: none; border: 1px solid var(--color-blue);
+  border-radius: 99px; cursor: pointer; transition: all 0.15s ease;
+}
+.x-translate-btn:hover { color: #fff; background: var(--color-blue); }
+.x-translate-btn:disabled { opacity: 0.5; cursor: default; }
+
+.x-translated {
+  margin-top: 8px; padding: 10px 14px;
+  background: var(--color-surface); border-radius: 10px;
+  border-left: 3px solid var(--color-blue);
+}
+.x-translated p {
+  font-size: 14px; line-height: 1.55; color: var(--color-ink); margin: 0;
+}
+
 /* 图片/视频 */
 .x-card-media {
   display: grid;
