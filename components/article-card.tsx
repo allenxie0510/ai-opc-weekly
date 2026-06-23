@@ -79,6 +79,8 @@ function BookmarkBtn({ item }: { item: NewsItem }) {
         showToast('已收藏，在收藏页可查看深度拆解');
       }
       setFaved(!faved);
+      // 通知 Header 收藏数变化
+      window.dispatchEvent(new CustomEvent('fav-count-change'));
     } catch {}
   };
 

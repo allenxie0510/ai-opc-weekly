@@ -6,11 +6,18 @@ import { WeeklyNav } from './weekly-nav';
 
 function FavLinkWithBadge() {
   const [count, setCount] = useState(0);
-  useEffect(() => {
+
+  const refresh = () => {
     try {
       const favs = JSON.parse(localStorage.getItem('ai_trends_favorites') || '[]');
       setCount(favs.length);
     } catch {}
+  };
+
+  useEffect(() => {
+    refresh();
+    window.addEventListener('fav-count-change', refresh);
+    return () => window.removeEventListener('fav-count-change', refresh);
   }, []);
   return (
     <Link href="/favorites" className={`fav-link${count > 0 ? ' has-items' : ''}`}>
