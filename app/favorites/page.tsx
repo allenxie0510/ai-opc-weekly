@@ -17,6 +17,15 @@ interface FavItem {
   created_at?: string;
 }
 
+const CAT_CSS: Record<string, string> = {
+  'micro-saas': 'cat-microsaas',
+  'design-assets': 'cat-design',
+  'automation': 'cat-automation',
+  'content-monetize': 'cat-content',
+  'indie-tool': 'cat-tool',
+  'digital-product': 'cat-digital',
+};
+
 const CAT_LABELS: Record<string, string> = {
   'micro-saas': '微SaaS',
   'design-assets': '设计资产',
@@ -117,72 +126,78 @@ export default function FavoritesPage() {
   return (
     <>
       <Header />
-      <div className="container" style={{ paddingTop: 48, paddingBottom: 64 }}>
-        <header style={{ marginBottom: 48 }}>
-          <h1 style={{ fontFamily: 'var(--font-brand)', fontSize: '2.2rem', fontWeight: 700, letterSpacing: '-0.03em', marginBottom: 8 }}>我的收藏</h1>
-          <p style={{ color: 'var(--color-steel)', fontSize: '0.95rem' }}>
-            已收藏 {favs.length} 个项目
-          </p>
-        </header>
+      <div style={{
+        display: 'flex', flexDirection: 'column', minHeight: 'calc(100vh - var(--header-height, 56px))',
+      }}>
+        <div className="container" style={{ flex: 1, paddingTop: 48, paddingBottom: 64 }}>
+          <header style={{ marginBottom: 48 }}>
+            <h1 style={{ fontFamily: 'var(--font-brand)', fontSize: '2.2rem', fontWeight: 700, letterSpacing: '-0.03em', marginBottom: 8 }}>我的收藏</h1>
+            <p style={{ color: 'var(--color-steel)', fontSize: '0.95rem' }}>
+              已收藏 <strong>{favs.length}</strong> 个项目
+            </p>
+          </header>
 
-        {favs.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--color-stone)' }}>
-            还没有收藏任何项目。浏览周报时点击书签图标即可收藏。
-            <br />
-            <Link href="/" style={{ color: 'var(--color-blue)', fontSize: '0.9rem', textDecoration: 'underline', marginTop: '24px', display: 'inline-block' }}>返回首页</Link>
-          </div>
-        ) : (
-          <div className="fav-list">
-            {favs.map((f, idx) => (
-              <div key={f.id || idx} className="fav-item" style={{
-                display: 'flex', alignItems: 'flex-start', gap: 16,
-                flexWrap: 'wrap', justifyContent: 'space-between',
-              }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                    <span className={`art-cat-pill ${f.category ? 'cat-' : ''}${f.category === 'design-assets' ? 'design' : f.category === 'automation' ? 'automation' : f.category === 'content-monetize' ? 'content' : f.category === 'indie-tool' ? 'tool' : f.category === 'digital-product' ? 'digital' : 'microsaas'}`}>
+          {favs.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--color-stone)' }}>
+              还没有收藏任何项目。浏览周报时点击书签图标即可收藏。
+              <br />
+              <Link href="/" style={{ color: 'var(--color-blue)', fontSize: '0.9rem', textDecoration: 'underline', marginTop: '24px', display: 'inline-block' }}>返回首页</Link>
+            </div>
+          ) : (
+            <div className="fav-list">
+              {favs.map((f, idx) => (
+                <article key={f.id || idx} className="fav-item">
+                  {/* 标签行：分类 + 日期 + 深度拆解 */}
+                  <div className="art-header" style={{ marginBottom: 10 }}>
+                    <span className={`art-cat-pill ${CAT_CSS[f.category] || ''}`}>
                       {CAT_LABELS[f.category] || f.category || '—'}
                     </span>
-                    <span style={{ fontSize: 12, color: 'var(--color-stone)' }}>
-                      {fmtDate(f.savedAt || f.created_at)}
-                    </span>
+                    <span className="art-idx">{fmtDate(f.savedAt || f.created_at)}</span>
+                    <button
+                      onClick={() => setAnalysisItem(f)}
+                      className="pill insight-tgl"
+                      style={{ marginLeft: 'auto', border: '1px solid var(--color-hairline)', background: 'transparent', color: 'var(--color-blue)' }}
+                    >
+                      🔍 深度拆解
+                    </button>
                   </div>
-                  <h4 style={{ fontSize: 16, fontWeight: 600, color: 'var(--color-ink)', marginBottom: 4 }}>
+
+                  <h4 style={{ fontSize: 17, fontWeight: 600, color: 'var(--color-ink)', marginBottom: 6 }}>
                     {f.title}
                   </h4>
-                  <p style={{ fontSize: 14, color: 'var(--color-slate)', lineHeight: 1.5, marginBottom: 8 }}>
-                    {f.description?.slice(0, 120)}{(f.description?.length || 0) > 120 ? '…' : ''}
+                  <p className="desc" style={{ marginBottom: 8 }}>
+                    {f.description?.slice(0, 150)}{(f.description?.length || 0) > 150 ? '…' : ''}
                   </p>
-                  <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 12 }}>
-                    {f.mrr_range && <span style={{ color: 'var(--color-steel)' }}>MRR: <strong style={{ color: 'var(--color-ink)' }}>{f.mrr_range}</strong></span>}
-                    {f.pricing && <span style={{ color: 'var(--color-steel)' }}>定价: <strong style={{ color: 'var(--color-ink)' }}>{f.pricing}</strong></span>}
-                    {f.mvp_time && <span style={{ color: 'var(--color-steel)' }}>MVP: <strong style={{ color: 'var(--color-ink)' }}>{f.mvp_time}</strong></span>}
+
+                  <div className="art-meta">
+                    {f.mrr_range && (
+                      <div className="mi"><span className="ml">单人 MRR</span><span className="mv">{f.mrr_range}</span></div>
+                    )}
+                    {f.pricing && (
+                      <div className="mi"><span className="ml">定价</span><span className="mv">{f.pricing}</span></div>
+                    )}
+                    {f.mvp_time && (
+                      <div className="mi"><span className="ml">MVP</span><span className="mv">{f.mvp_time}</span></div>
+                    )}
                   </div>
-                </div>
-                <button
-                  onClick={() => setAnalysisItem(f)}
-                  style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 4,
-                    fontFamily: 'inherit', fontSize: 13, fontWeight: 500,
-                    padding: '6px 16px', borderRadius: 9999, cursor: 'pointer',
-                    border: '1px solid var(--color-hairline)', background: 'transparent',
-                    color: 'var(--color-blue)', transition: 'all 0.2s ease',
-                    flexShrink: 0,
-                  }}
-                >
-                  🔍 深度拆解
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
 
-        <footer style={{ textAlign: 'center', padding: '48px 0', color: 'var(--color-stone)', fontSize: '0.8rem' }}>
-          <p>© 2026 AI OPC Weekly. All rights reserved.</p>
-        </footer>
+                  {f.insight && (
+                    <div className="insight-panel open" style={{ marginTop: 12 }}>
+                      <strong>落地路径：</strong>{f.insight}
+                    </div>
+                  )}
+                </article>
+              ))}
+            </div>
+          )}
 
-        {analysisItem && <DeepAnalysisModal item={analysisItem} onClose={() => setAnalysisItem(null)} />}
+          <footer style={{ textAlign: 'center', padding: '48px 0', color: 'var(--color-stone)', fontSize: '0.8rem' }}>
+            <p>© 2026 AI OPC Weekly. All rights reserved.</p>
+          </footer>
+        </div>
       </div>
+
+      {analysisItem && <DeepAnalysisModal item={analysisItem} onClose={() => setAnalysisItem(null)} />}
     </>
   );
 }
