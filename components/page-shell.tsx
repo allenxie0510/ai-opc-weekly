@@ -39,8 +39,6 @@ export function Header() {
         <div className="nav-links">
           <Link href="/archive">归档</Link>
           <FavLinkWithBadge />
-          <span className="nav-sep">|</span>
-          <Link href="/x" className="x-link">X</Link>
         </div>
       </div>
     </nav>

@@ -32,6 +32,21 @@ for (const item of xItems) {
     skip++; continue;
   }
 
+  // 尝试从 rawJson 提取图片 URL
+  const rj = item.rawJson || {};
+  const mediaUrls = (rj.media || [])
+    .filter((m) => m.type === 'photo' && m.url)
+    .map((m) => m.url);
+
+  // 如果 rawJson 没有媒体，尝试从 summary 中提取 img 标签（备用）
+  const extraUrls = mediaUrls.length > 0 ? [] : [];
+  if (mediaUrls.length === 0 && content.match(/https?:\/\/[^\s]+\.(jpg|jpeg|png|gif|webp)/gi)) {
+    const imgMatches = content.match(/https?:\/\/[^\s"'>]+\.(jpg|jpeg|png|gif|webp)/gi);
+    if (imgMatches) extraUrls.push(...imgMatches.slice(0, 4));
+  }
+
+  const finalMedia = [...mediaUrls, ...extraUrls];
+
   const { error } = await supabase.from('tweets').upsert({
     tweet_id: tweetId,
     author_username: screenName,
@@ -40,14 +55,14 @@ for (const item of xItems) {
     content: content.slice(0, 2000),
     published_at: item.publishedAt,
     url: item.url,
-    media_urls: [],
+    media_urls: finalMedia,
   }, { onConflict: 'tweet_id' });
 
   if (error) {
     console.warn(`  ⚠️ @${screenName}: ${error.message}`);
     skip++;
   } else {
-    console.log(`  ✅ @${screenName}: ${content.slice(0, 40)}...`);
+    console.log(`  ✅ @${screenName}${finalMedia.length > 0 ? ` [${finalMedia.length}图]` : ''}: ${content.slice(0, 40)}...`);
     ok++;
   }
 }
