@@ -1,74 +1,54 @@
-/**
- * 种子推文脚本 — 从 AI HOT 公开 API 拉取 X 频道推文写入 Supabase
- * 用法：node scripts/seed-tweets.mjs
- */
 import { createClient } from '@supabase/supabase-js';
 
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
 
-if (!SUPABASE_URL || !SUPABASE_KEY) {
-  console.error('请设置 NEXT_PUBLIC_SUPABASE_URL 和 NEXT_PUBLIC_SUPABASE_ANON_KEY 环境变量');
-  process.exit(1);
+const res = await fetch('https://aihot.virxact.com/api/public/items?channel=x&limit=30', {
+  headers: { 'User-Agent': 'ai-opc-weekly-seeder/1.0' },
+});
+const data = await res.json();
+const items = data.items || data || [];
+
+// 只保留 X 来源的推文
+const xItems = items.filter(item => {
+  const src = (item.source || '');
+  return src.startsWith('X：') || src.startsWith('X:');
+});
+
+console.log(`📥 共 ${items.length} 条，其中 X 推文 ${xItems.length} 条`);
+
+let ok = 0, skip = 0;
+for (const item of xItems) {
+  // 从 source 解析：X：卡兹克 (@Khazix0918) 或 X：DisplayName (@username, extra)
+  const srcMatch = item.source?.match(/^X[：:]\s*(.+?)\s*\(@(\w+)/);
+  const displayName = srcMatch?.[1]?.trim() || item.source || '';
+  const screenName = srcMatch?.[2] || '';
+
+  // 用 summary 作为推文内容
+  const content = item.summary || '';
+  const tweetId = item.url?.split('/status/')?.pop() || item.id;
+
+  if (!content || !screenName) {
+    console.log(`  ❌ ${displayName}: no content/username`);
+    skip++; continue;
+  }
+
+  const { error } = await supabase.from('tweets').upsert({
+    tweet_id: tweetId,
+    author_username: screenName,
+    author_display_name: displayName,
+    author_avatar_url: `https://unavatar.io/x/${screenName}`,
+    content: content.slice(0, 2000),
+    published_at: item.publishedAt,
+    url: item.url,
+    media_urls: [],
+  }, { onConflict: 'tweet_id' });
+
+  if (error) {
+    console.warn(`  ⚠️ @${screenName}: ${error.message}`);
+    skip++;
+  } else {
+    console.log(`  ✅ @${screenName}: ${content.slice(0, 40)}...`);
+    ok++;
+  }
 }
-
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-
-async function main() {
-  console.log('🔄 从 AI HOT API 拉取 X 推文...');
-
-  const res = await fetch('https://aihot.virxact.com/api/public/items?channel=x&limit=30', {
-    headers: { 'User-Agent': 'ai-opc-weekly-seeder/1.0' },
-  });
-
-  if (!res.ok) {
-    console.error(`API 请求失败: ${res.status}`);
-    process.exit(1);
-  }
-
-  const data = await res.json();
-  const items = data.items || data || [];
-
-  if (!items.length) {
-    console.log('⚠️ 未获取到推文数据');
-    process.exit(0);
-  }
-
-  console.log(`📥 获取到 ${items.length} 条推文`);
-
-  let inserted = 0, skipped = 0;
-
-  for (const item of items) {
-    const rj = item.rawJson || {};
-    const screenName = rj.author?.screenName || item.author;
-    const content = (rj.content || '').replace(/http:\/\/x\.com\/i\/article\/\d+/g, '').trim();
-    const tweetUrl = item.url;
-    const tweetId = tweetUrl.split('/status/').pop() || item.id;
-    const mediaUrls = (rj.media || [])
-      .filter((m) => m.type === 'photo')
-      .map((m) => m.url);
-
-    if (!content || !screenName) { skipped++; continue; }
-
-    const { error } = await supabase.from('tweets').upsert(
-      {
-        tweet_id: tweetId,
-        author_username: screenName,
-        author_display_name: rj.author?.name || screenName,
-        author_avatar_url: rj.author?.avatar || '',
-        content: content.slice(0, 2000),
-        published_at: item.publishedAt,
-        url: tweetUrl,
-        media_urls: mediaUrls,
-      },
-      { onConflict: 'tweet_id' }
-    );
-
-    if (error) { console.warn(`  ⚠️ ${screenName}: ${error.message}`); skipped++; }
-    else { inserted++; }
-  }
-
-  console.log(`✅ 完成 — 写入 ${inserted} 条, 跳过 ${skipped} 条`);
-}
-
-main().catch(console.error);
+console.log(`✅ 写入 ${ok} 条, 跳过 ${skip} 条`);
