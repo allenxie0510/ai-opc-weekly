@@ -1,5 +1,24 @@
+'use client';
+
 import Link from 'next/link';
+import { useState, useEffect } from 'react';
 import { WeeklyNav } from './weekly-nav';
+
+function FavLinkWithBadge() {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    try {
+      const favs = JSON.parse(localStorage.getItem('ai_trends_favorites') || '[]');
+      setCount(favs.length);
+    } catch {}
+  }, []);
+  return (
+    <Link href="/favorites" className={`fav-link${count > 0 ? ' has-items' : ''}`}>
+      收藏
+      {count > 0 && <span className="fav-badge">{count}</span>}
+    </Link>
+  );
+}
 
 export function Header() {
   return (
@@ -8,7 +27,7 @@ export function Header() {
         <Link href="/" className="brand">AI OPC WEEKLY</Link>
         <div className="nav-links">
           <Link href="/archive">归档</Link>
-          <Link href="/favorites" className="fav-link">收藏</Link>
+          <FavLinkWithBadge />
         </div>
       </div>
     </nav>

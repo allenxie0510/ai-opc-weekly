@@ -148,15 +148,15 @@ export default function FavoritesPage() {
               {favs.map((f, idx) => (
                 <article key={f.id || idx} className="fav-item">
                   {/* 标签行：分类 + 日期 + 深度拆解 */}
-                  <div className="art-header" style={{ marginBottom: 10 }}>
+                  <div className="art-header" style={{ marginBottom: 10, justifyContent: 'flex-start' }}>
                     <span className={`art-cat-pill ${CAT_CSS[f.category] || ''}`}>
                       {CAT_LABELS[f.category] || f.category || '—'}
                     </span>
-                    <span className="art-idx">{fmtDate(f.savedAt || f.created_at)}</span>
+                    <span className="art-idx" style={{ marginLeft: 8 }}>{fmtDate(f.savedAt || f.created_at)}</span>
                     <button
                       onClick={() => setAnalysisItem(f)}
                       className="pill insight-tgl"
-                      style={{ marginLeft: 'auto', border: '1px solid var(--color-hairline)', background: 'transparent', color: 'var(--color-blue)' }}
+                      style={{ marginLeft: 'auto', border: '1px solid var(--color-hairline)', background: 'transparent', color: 'var(--color-blue)', flexShrink: 0 }}
                     >
                       🔍 深度拆解
                     </button>
