@@ -270,16 +270,6 @@ export default function XAccountsPage() {
           })}
         </section>
 
-        <div style={{
-          marginTop: 40, padding: 24,
-          background: 'var(--color-surface)', borderRadius: 12,
-          fontSize: 13, color: 'var(--color-steel)', lineHeight: 1.8,
-        }}>
-          <strong style={{ color: 'var(--color-ink)' }}>操作提示</strong>
-          <p style={{ marginTop: 8 }}>在手机上左滑卡片可删除账号。在桌面端通过 Supabase 后台直接管理。</p>
-          <p style={{ marginTop: 4 }}>每隔 2 小时自动抓取一次新推文。</p>
-        </div>
-
         <footer style={{ textAlign: 'center', padding: '48px 0', color: 'var(--color-stone)', fontSize: '0.8rem', marginTop: 'auto' }}>
           <p>© 2026 AI OPC Weekly. All rights reserved.</p>
         </footer>
