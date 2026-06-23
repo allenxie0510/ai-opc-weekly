@@ -67,18 +67,7 @@ export default async function WeeklyPage({ params }: { params: Promise<{ slug: s
         <p>数据来源：X / Twitter · GitHub Trending · Product Hunt · Indie Hackers · TrustMRR</p>
         <p>本分析仅供方向参考。原创创造价值，不做搬运工。每周一自动更新。</p>
         <p>© 2026 AI OPC Weekly. All rights reserved.</p>
-        <div className="visitor-count">访问量：<span id="vc">—</span></div>
-        <script dangerouslySetInnerHTML={{ __html: `
-          (function(){
-            var k='aiopc_visits';
-            if(!sessionStorage.getItem('v')){
-              sessionStorage.setItem('v','1');
-              var c=parseInt(localStorage.getItem(k)||'0')+1;
-              localStorage.setItem(k,String(c));
-            }
-            document.getElementById('vc').textContent=localStorage.getItem(k);
-          })();
-        ` }} />
+        <div className="visitor-count">访问量：<span id="busuanzi_value_site_uv"></span></div>
       </footer>
     </PageShell>
   );
