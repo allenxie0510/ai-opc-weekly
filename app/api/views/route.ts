@@ -22,10 +22,12 @@ export async function POST(req: Request) {
   
   if (!exist?.length) {
     await supabase.from('page_views_log').insert({ uid, date: today });
-    await supabase.rpc('increment_view_count').catch(async () => {
+    try {
+      await supabase.rpc('increment_view_count');
+    } catch {
       const r = await supabase.from('page_views').select('count').eq('key','total').single();
       await supabase.from('page_views').upsert({ key:'total', count:(r.data?.count||0)+1 }, { onConflict: 'key' });
-    });
+    }
   }
 
   const { data } = await supabase.from('page_views').select('count').eq('key','total').single();
