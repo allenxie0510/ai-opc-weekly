@@ -31,6 +31,7 @@ export default function XAccountsPage() {
   const [authed, setAuthed] = useState(false);
   const [pwInput, setPwInput] = useState('');
   const [newUsername, setNewUsername] = useState('');
+  const [newRssUrl, setNewRssUrl] = useState('');
   const [adding, setAdding] = useState(false);
   const [swipedId, setSwipedId] = useState<string | null>(null);
   const [touchStartX, setTouchStartX] = useState(0);
@@ -40,7 +41,12 @@ export default function XAccountsPage() {
       const res = await fetch('/api/admin/accounts', {
         headers: { 'x-admin-token': getToken() },
       });
-      if (res.status === 401) { setAuthed(false); return; }
+      if (res.status === 401) {
+        // 仅首次加载时清除 auth
+        setToken('');
+        setAuthed(false);
+        return;
+      }
       if (res.ok) {
         const data = await res.json();
         setAccounts(data.accounts || []);
@@ -52,7 +58,6 @@ export default function XAccountsPage() {
   useEffect(() => {
     const t = getToken();
     if (t) {
-      // 先去验证一下 token
       fetchAccounts();
     } else {
       setLoading(false);
@@ -60,10 +65,29 @@ export default function XAccountsPage() {
   }, [fetchAccounts]);
 
   const handleLogin = async () => {
-    setToken(pwInput);
-    await fetchAccounts();
-    if (!authed) setToken(''); // 失败则清除
+    const pw = pwInput;
+    setToken(pw);
     setPwInput('');
+    setLoading(true);
+    try {
+      const res = await fetch('/api/admin/accounts', {
+        headers: { 'x-admin-token': pw },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setAccounts(data.accounts || []);
+        setAuthed(true);
+      } else {
+        setToken('');
+        setAuthed(false);
+        alert('密码错误');
+      }
+    } catch {
+      setToken('');
+      setAuthed(false);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleAdd = async () => {
@@ -71,26 +95,52 @@ export default function XAccountsPage() {
     if (!u) return;
     setAdding(true);
     try {
-      await fetch('/api/admin/accounts', {
+      const res = await fetch('/api/admin/accounts', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'x-admin-token': getToken(),
         },
-        body: JSON.stringify({ username: u }),
+        body: JSON.stringify({
+          username: u,
+          rss_url: newRssUrl.trim() || undefined,
+        }),
       });
-      setNewUsername('');
-      await fetchAccounts();
-    } catch {} finally { setAdding(false); }
+      if (res.ok) {
+        const data = await res.json();
+        // 直接用返回的 account 更新本地状态，不重新 fetch
+        if (data.account) {
+          setAccounts(prev => [...prev, data.account]);
+        }
+        setNewUsername('');
+        setNewRssUrl('');
+      } else if (res.status === 401) {
+        setToken('');
+        setAuthed(false);
+      } else {
+        const err = await res.json().catch(() => ({ error: '添加失败' }));
+        alert(err.error || '添加失败');
+      }
+    } catch {
+      alert('网络错误');
+    } finally { setAdding(false); }
   };
 
   const handleDelete = async (username: string) => {
-    await fetch(`/api/admin/accounts?username=${username}`, {
+    if (!confirm(`确定删除 @${username} 及其所有推文？此操作不可撤销。`)) return;
+    const res = await fetch(`/api/admin/accounts?username=${username}`, {
       method: 'DELETE',
       headers: { 'x-admin-token': getToken() },
     });
+    if (res.ok) {
+      setAccounts(prev => prev.filter(a => a.username !== username));
+    } else if (res.status === 401) {
+      setToken('');
+      setAuthed(false);
+    } else {
+      alert('删除失败');
+    }
     setSwipedId(null);
-    await fetchAccounts();
   };
 
   // 触屏左滑
@@ -107,7 +157,6 @@ export default function XAccountsPage() {
     return <><Header /><div className="container" style={{ paddingTop: 48, textAlign: 'center', color: 'var(--color-stone)' }}>加载中...</div></>;
   }
 
-  // 未登录 → 显示登录表单
   if (!authed) {
     return (
       <>
@@ -155,8 +204,6 @@ export default function XAccountsPage() {
     );
   }
 
-  const enabled = accounts.filter(a => a.enabled);
-
   return (
     <>
       <Header />
@@ -164,48 +211,63 @@ export default function XAccountsPage() {
         <header className="x-pagehead">
           <div>
             <h1 className="x-pagehead-title">X 账号管理</h1>
-            <p className="x-pagehead-meta">追踪 {enabled.length} 个账号 · {accounts.length - enabled.length} 个已停用</p>
+            <p className="x-pagehead-meta">追踪 {accounts.length} 个账号（上限 15）</p>
           </div>
           <Link href="/x" className="x-manage-link">← 返回时间轴</Link>
         </header>
 
-        {/* 添加账号输入框 */}
-        <div style={{ display: 'flex', gap: 8, marginBottom: 32 }}>
+        {/* 添加账号 */}
+        <div style={{ marginBottom: 32 }}>
+          <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+            <input
+              type="text"
+              value={newUsername}
+              onChange={e => setNewUsername(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleAdd()}
+              placeholder="X 用户名（如 sama）"
+              style={{
+                flex: 1, padding: '10px 16px', borderRadius: 12,
+                border: '1px solid var(--color-hairline)', fontSize: 14,
+                outline: 'none', fontFamily: 'inherit',
+              }}
+            />
+            <button
+              onClick={handleAdd}
+              disabled={adding || !newUsername.trim()}
+              style={{
+                padding: '10px 24px', borderRadius: 12, border: 'none',
+                background: newUsername.trim() ? 'var(--color-blue)' : 'var(--color-hairline)',
+                color: '#fff', fontSize: 14, fontWeight: 600,
+                cursor: newUsername.trim() ? 'pointer' : 'default',
+                whiteSpace: 'nowrap', fontFamily: 'inherit',
+              }}
+            >
+              {adding ? '添加中...' : '+ 添加'}
+            </button>
+          </div>
           <input
             type="text"
-            value={newUsername}
-            onChange={e => setNewUsername(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleAdd()}
-            placeholder="输入 X 用户名（如 sama）"
+            value={newRssUrl}
+            onChange={e => setNewRssUrl(e.target.value)}
+            placeholder="RSS.app Feed URL（选填，不填则不会被定时抓取）"
             style={{
-              flex: 1, padding: '10px 16px', borderRadius: 12,
-              border: '1px solid var(--color-hairline)', fontSize: 14,
-              outline: 'none', fontFamily: 'inherit',
+              width: '100%', padding: '10px 16px', borderRadius: 12,
+              border: '1px solid var(--color-hairline)', fontSize: 13,
+              outline: 'none', fontFamily: 'inherit', color: 'var(--color-steel)',
             }}
           />
-          <button
-            onClick={handleAdd}
-            disabled={adding || !newUsername.trim()}
-            style={{
-              padding: '10px 24px', borderRadius: 12, border: 'none',
-              background: newUsername.trim() ? 'var(--color-blue)' : 'var(--color-hairline)',
-              color: '#fff', fontSize: 14, fontWeight: 600, cursor: newUsername.trim() ? 'pointer' : 'default',
-              whiteSpace: 'nowrap', fontFamily: 'inherit',
-            }}
-          >
-            {adding ? '添加中...' : '+ 添加'}
-          </button>
+          <p style={{ fontSize: 12, color: 'var(--color-stone)', marginTop: 6 }}>
+            去 <a href="https://rss.app" target="_blank" rel="noopener" style={{ color: 'var(--color-blue)' }}>rss.app</a> 创建该账号的 RSS feed 后，把 URL 粘贴到这里
+          </p>
         </div>
 
         {/* 账号列表 */}
         <section className="x-timeline">
           {accounts.map((a) => {
             const isSwiped = swipedId === a.id;
-            const disabled = !a.enabled;
 
             return (
               <div key={a.id} style={{ position: 'relative', overflow: 'hidden' }}>
-                {/* 删除按钮（左滑露出） */}
                 <button
                   onClick={() => handleDelete(a.username)}
                   style={{
@@ -222,7 +284,6 @@ export default function XAccountsPage() {
                   删除
                 </button>
 
-                {/* 卡片 */}
                 <article
                   className="x-card"
                   onTouchStart={e => handleTouchStart(a.id, e.touches[0].clientX)}
@@ -230,7 +291,6 @@ export default function XAccountsPage() {
                   style={{
                     transform: isSwiped ? 'translateX(-80px)' : 'translateX(0)',
                     transition: 'transform 0.25s ease',
-                    opacity: disabled ? 0.45 : 1,
                     position: 'relative',
                     zIndex: 1,
                   }}
@@ -256,18 +316,22 @@ export default function XAccountsPage() {
                       >
                         @{a.username}
                       </a>
-                      {disabled && <span style={{ fontSize: 12, color: 'var(--color-coral)', fontWeight: 500 }}>已停用</span>}
                     </div>
                     {a.rss_url ? (
-                      <span style={{ fontSize: 12, color: 'var(--color-success-text)' }}>✓ RSS 已配置</span>
+                      <span style={{ fontSize: 12, color: 'var(--color-success-text)' }}>✓ RSS 已配置 — 定时抓取中</span>
                     ) : (
-                      <span style={{ fontSize: 12, color: 'var(--color-stone)' }}>⚠ 未配置 RSS（不会被抓取）</span>
+                      <span style={{ fontSize: 12, color: 'var(--color-coral)' }}>⚠ 未配置 RSS — 不会被抓取</span>
                     )}
                   </div>
                 </article>
               </div>
             );
           })}
+          {accounts.length === 0 && (
+            <div style={{ textAlign: 'center', padding: '40px 0', color: 'var(--color-stone)' }}>
+              暂无追踪账号
+            </div>
+          )}
         </section>
 
         <footer style={{ textAlign: 'center', padding: '48px 0', color: 'var(--color-stone)', fontSize: '0.8rem', marginTop: 'auto' }}>

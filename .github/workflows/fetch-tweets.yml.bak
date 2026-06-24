@@ -1,0 +1,37 @@
+name: Fetch X Tweets (RSS.app → Supabase)
+
+on:
+  schedule:
+    - cron: '0 */2 * * *'  # 每2小时
+  workflow_dispatch:  # 手动触发
+
+jobs:
+  fetch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Verify Node version
+        run: node -v && npm -v
+
+      - name: Check secrets exist
+        run: |
+          if [ -z "$NEXT_PUBLIC_SUPABASE_URL" ]; then echo "❌ 缺少 NEXT_PUBLIC_SUPABASE_URL"; exit 1; fi
+          if [ -z "$NEXT_PUBLIC_SUPABASE_ANON_KEY" ]; then echo "❌ 缺少 NEXT_PUBLIC_SUPABASE_ANON_KEY"; exit 1; fi
+          echo "✅ Secrets OK"
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+
+      - name: Install dependencies
+        run: npm ci 2>&1
+
+      - name: Fetch RSS feeds & upsert to Supabase
+        run: node scripts/fetch-tweets.mjs 2>&1
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
