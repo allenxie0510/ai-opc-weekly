@@ -22,7 +22,10 @@ async function fetchAihotPage(cursor) {
   const url = `https://aihot.virxact.com/api/public/items?${params}`;
   try {
     const res = await fetch(url, {
-      headers: { 'User-Agent': 'ai-opc-weekly/1.0' },
+      headers: {
+        'User-Agent': 'ai-opc-weekly/1.0',
+        'Referer': 'https://aihot.virxact.com/',
+      },
       signal: AbortSignal.timeout(15000),
     });
     if (!res.ok) {
