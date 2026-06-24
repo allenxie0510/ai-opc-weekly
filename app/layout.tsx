@@ -18,6 +18,19 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Bebas+Neue&display=swap" rel="stylesheet" />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              '@context': 'https://schema.org',
+              '@type': 'Organization',
+              name: 'AI OPC Weekly',
+              url: 'https://www.aiopcnews.com',
+              description: '一人公司 · 独立设计师/开发者 · 可落地的 AI 微创业周报。每周精选 12 条 AI 创业机会。',
+              sameAs: ['https://github.com/allenxie0510/ai-opc-weekly'],
+            }),
+          }}
+        />
       </head>
       <body>
         {children}
