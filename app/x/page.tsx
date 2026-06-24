@@ -1,6 +1,7 @@
 import { getTweets, getTwitterAccounts } from '@/lib/data';
 import { Header } from '@/components/page-shell';
 import { TranslateButton } from '@/components/translate-button';
+import { SafeImg } from '@/components/safe-img';
 import Link from 'next/link';
 
 export const revalidate = 300;
@@ -116,7 +117,7 @@ export default async function XTimelinePage() {
                         <div className="x-card-media" data-count={Math.min(t.media_urls.length, 4)}>
                           {t.media_urls.slice(0, 4).map((url, i) => (
                             <a key={i} href={t.url} target="_blank" rel="noopener noreferrer">
-                              <img src={url} alt="" className="x-card-img" loading="lazy" />
+                              <SafeImg src={url} alt="" className="x-card-img" />
                             </a>
                           ))}
                         </div>
