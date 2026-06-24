@@ -13,7 +13,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - run: npm install @supabase/supabase-js
+      - run: npm ci
       - name: Fetch RSS feeds & upsert to Supabase
         run: node scripts/fetch-tweets.mjs
         env:
