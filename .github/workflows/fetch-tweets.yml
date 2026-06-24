@@ -62,7 +62,7 @@ jobs:
                   let im;
                   // 图片URL替换为国内可访问的代理
                   while ((im = irx.exec(item)) !== null) {
-                    imgs.push(im[1].replace("pbs.twimg.com", "images.weserv.nl"));
+                    imgs.push('https://images.weserv.nl/?url=' + im[1]);
                   }
 
                   await sb.from("tweets").upsert({
