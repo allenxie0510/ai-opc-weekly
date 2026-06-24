@@ -1,4 +1,4 @@
-name: Fetch X Tweets (AI HOT → Supabase)
+name: Fetch X Tweets (RSS.app → Supabase)
 
 on:
   schedule:
@@ -14,7 +14,7 @@ jobs:
         with:
           node-version: 22
       - run: npm install @supabase/supabase-js
-      - name: Fetch tweets from AI HOT API
+      - name: Fetch RSS feeds & upsert to Supabase
         run: node scripts/fetch-tweets.mjs
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
