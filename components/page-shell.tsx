@@ -31,7 +31,11 @@ export function Header() {
   return (
     <nav className="nav">
       <div className="nav-inner">
-        <Link href="/" className="brand">AI OPC WEEKLY</Link>
+        <div className="nav-left">
+          <Link href="/" className="brand">AI OPC WEEKLY</Link>
+          <span className="nav-sep">|</span>
+          <Link href="/x" className="x-link">X</Link>
+        </div>
         <div className="nav-links">
           <Link href="/archive">归档</Link>
           <FavLinkWithBadge />
