@@ -161,20 +161,30 @@ async function main() {
   console.log(`\n📊 同步完成: ${synced} 条写入, ${errors} 个 feed 失败`);
 
   // 清理孤儿推文：删除不属于任何追踪账号的推文
-  const trackedSet = new Set(accounts.map(a => a.username));
-  const { data: allTweets } = await supabase
-    .from('tweets')
-    .select('author_username');
-  if (allTweets) {
-    const orphanAuthors = [...new Set(allTweets.map(t => t.author_username))]
-      .filter(u => !trackedSet.has(u));
-    for (const orphan of orphanAuthors) {
-      const { count: c } = await supabase
-        .from('tweets')
-        .delete({ count: 'exact' })
-        .eq('author_username', orphan);
-      if (c) console.log(`🧹 清理孤儿 @${orphan}: ${c} 条推文`);
+  try {
+    const trackedSet = new Set(accounts.map(a => a.username));
+    const { data: allTweets, error: orphanFetchErr } = await supabase
+      .from('tweets')
+      .select('author_username');
+    if (orphanFetchErr) {
+      console.warn('⚠️ 孤儿查询失败:', orphanFetchErr.message);
+    } else if (allTweets) {
+      const orphanAuthors = [...new Set(allTweets.map(t => t.author_username))]
+        .filter(u => !trackedSet.has(u));
+      for (const orphan of orphanAuthors) {
+        const { count: c, error: orphanDelErr } = await supabase
+          .from('tweets')
+          .delete({ count: 'exact' })
+          .eq('author_username', orphan);
+        if (orphanDelErr) {
+          console.warn(`⚠️ 清理孤儿 @${orphan} 失败:`, orphanDelErr.message);
+        } else if (c) {
+          console.log(`🧹 清理孤儿 @${orphan}: ${c} 条推文`);
+        }
+      }
     }
+  } catch (e) {
+    console.warn('⚠️ 孤儿清理异常:', e.message);
   }
 
   // 按作者统计
@@ -190,16 +200,20 @@ async function main() {
     }
   } catch { /* ignore */ }
 
-  // 14天自动清理
-  const cutoff = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
-  const { error: delErr, count: delCount } = await supabase
-    .from('tweets')
-    .delete({ count: 'exact' })
-    .lt('created_at', cutoff);
-  if (delErr) {
-    console.error('⚠️ 清理失败:', delErr.message);
-  } else if (delCount) {
-    console.log(`🧹 清理 ${delCount} 条超过14天的推文`);
+  // 14天自动清理（非致命，失败仅警告）
+  try {
+    const cutoff = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
+    const { error: delErr, count: delCount } = await supabase
+      .from('tweets')
+      .delete({ count: 'exact' })
+      .lt('created_at', cutoff);
+    if (delErr) {
+      console.warn('⚠️ 14天清理失败:', delErr.message);
+    } else if (delCount) {
+      console.log(`🧹 清理 ${delCount} 条超过14天的推文`);
+    }
+  } catch (e) {
+    console.warn('⚠️ 14天清理异常:', e.message);
   }
 
   console.log('✅ 推文拉取完成');
