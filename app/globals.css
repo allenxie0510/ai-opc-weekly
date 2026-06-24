@@ -396,6 +396,7 @@ footer p + p { margin-top: 4px; }
   font-size: 12px; font-family: inherit; font-weight: 500;
   color: var(--color-blue); background: none; border: none;
   border-radius: 99px; cursor: pointer; transition: all 0.15s ease;
+  align-self: flex-start;
 }
 .x-translate-btn:hover { color: #fff; background: var(--color-blue); }
 .x-translate-btn:disabled { opacity: 0.5; cursor: default; }
