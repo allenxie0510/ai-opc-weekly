@@ -1,4 +1,4 @@
-name: Fetch X Tweets (RSS.app → Supabase)
+name: Fetch X Tweets (AI HOT → Supabase)
 
 on:
   schedule:
@@ -14,78 +14,8 @@ jobs:
         with:
           node-version: 22
       - run: npm install @supabase/supabase-js
-      - name: Fetch RSS & upsert to Supabase
-        run: |
-          node -e '
-          const { createClient } = require("@supabase/supabase-js");
-          const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
-
-          (async () => {
-            const { data: accounts } = await sb.from("twitter_accounts")
-              .select("*").eq("enabled", true).not("rss_url", "is", null);
-            if (!accounts?.length) { console.log("no rss feeds"); process.exit(0); }
-
-            const accByUser = {};
-            for (const a of accounts) accByUser[a.username] = a;
-            const urls = [...new Set(accounts.map(a => a.rss_url))];
-            let sync = 0, err = 0;
-
-            for (const url of urls) {
-              try {
-                const res = await fetch(url, {
-                  headers: { "User-Agent": "gh-actions/ai-opc-weekly" },
-                  signal: AbortSignal.timeout(20000),
-                });
-                if (!res.ok) { err++; continue; }
-                const xml = await res.text();
-                const items = xml.match(/<item>[\s\S]*?<\/item>/g) || [];
-
-                for (const item of items) {
-                  const cm = item.match(/<dc:creator><!\[CDATA\[\s*@?(\w+)/i) || item.match(/<dc:creator>\s*@?(\w+)/i);
-                  const author = cm?.[1] || "";
-                  if (!accByUser[author]) continue;
-
-                  const lm = item.match(/<link>\s*(https?:\/\/x\.com\/\w+\/status\/\d+)[^<]*\s*<\/link>/);
-                  if (!lm) continue;
-
-                  const tm = item.match(/<title><!\[CDATA\[([\s\S]*?)\]\]><\/title>/);
-                  let content = (tm?.[1] || "").trim();
-                  content = content.replace(/^RT by @\w+:\s*/g, "").replace(/^RT by @\w+\s+/g, "").trim();
-                  if (!content) continue;
-
-                  const pm = item.match(/<pubDate>([^<]+)<\/pubDate>/);
-                  const date = pm?.[1] ? new Date(pm[1]).toISOString() : new Date().toISOString();
-                  const tweetId = lm[1].split("/status/").pop().replace(/[?#].*$/, "");
-
-                  const imgs = [];
-                  const irx = /<media:content[^>]+url="([^"]+)"[^>]*\/>/g;
-                  let im;
-                  // 图片URL替换为国内可访问的代理
-                  while ((im = irx.exec(item)) !== null) {
-                    imgs.push('/api/img-proxy?url=' + im[1]);
-                  }
-
-                  await sb.from("tweets").upsert({
-                    tweet_id: tweetId, author_username: author,
-                    author_display_name: accByUser[author].display_name || author,
-                    author_avatar_url: "https://unavatar.io/x/" + author,
-                    content: content.slice(0, 2000), published_at: date, url: lm[1],
-                    media_urls: imgs.slice(0, 4),
-                  }, { onConflict: "tweet_id", ignoreDuplicates: true });
-                  sync++;
-                }
-              } catch { err++; }
-            }
-            console.log(sync + " synced, " + err + " errors, from " + urls.length + " feeds");
-
-            // 14天自动清理
-            const cutoff = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
-            const { error: delErr } = await sb.from("tweets")
-              .delete().lt("created_at", cutoff);
-            if (delErr) console.log("清理失败:", delErr.message);
-            else console.log("清理完成: 删除 created_at < " + cutoff.slice(0,10));
-          })();
-          ' 2>&1
+      - name: Fetch tweets from AI HOT API
+        run: node scripts/fetch-tweets.mjs
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}

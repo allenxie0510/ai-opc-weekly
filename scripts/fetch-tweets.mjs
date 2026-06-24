@@ -1,18 +1,39 @@
 /**
  * 推文抓取 — 从 AI HOT 公开 API 拉取 X 推文，匹配已追踪账号
  * 用法：node scripts/fetch-tweets.mjs
+ *
+ * 由 GitHub Actions 每 2 小时自动执行
  */
 import { createClient } from '@supabase/supabase-js';
 
-const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+if (!SUPABASE_URL || !SUPABASE_KEY) {
+  console.error('❌ 缺少 SUPABASE 环境变量 (NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY)');
+  process.exit(1);
+}
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 async function fetchAihotPage(cursor) {
   const params = new URLSearchParams({ limit: '50' });
   if (cursor) params.set('cursor', cursor);
   const url = `https://aihot.virxact.com/api/public/items?${params}`;
-  const res = await fetch(url, { headers: { 'User-Agent': 'ai-opc-weekly/1.0' } });
-  if (!res.ok) return { items: [], nextCursor: null };
-  return await res.json();
+  try {
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'ai-opc-weekly/1.0' },
+      signal: AbortSignal.timeout(15000),
+    });
+    if (!res.ok) {
+      console.error(`  ⚠️ AI HOT API 返回 ${res.status}`);
+      return { items: [], nextCursor: null };
+    }
+    return await res.json();
+  } catch (e) {
+    console.error(`  ⚠️ AI HOT API 请求失败: ${e.message}`);
+    return { items: [], nextCursor: null };
+  }
 }
 
 // 从 source 字段解析 X 账号：X：DisplayName (@username) ...
@@ -23,9 +44,18 @@ function parseSource(source) {
 }
 
 async function main() {
+  console.log('🔄 开始拉取推文...\n');
+
   // 读取全部追踪账号
-  const { data: accounts } = await supabase.from('twitter_accounts').select('*');
-  if (!accounts?.length) { console.log('⚠️ 无账号'); return; }
+  const { data: accounts, error: acctErr } = await supabase.from('twitter_accounts').select('*');
+  if (acctErr) {
+    console.error('❌ 读取账号列表失败:', acctErr.message);
+    process.exit(1);
+  }
+  if (!accounts?.length) {
+    console.log('⚠️ twitter_accounts 表为空，请先运行迁移或添加种子数据');
+    process.exit(0);
+  }
   const trackedUsernames = new Set(accounts.map(a => a.username));
 
   console.log(`🔍 追踪 ${trackedUsernames.size} 个账号，从 AI HOT 拉取推文...\n`);
@@ -62,23 +92,45 @@ async function main() {
         media_urls: mediaUrls,
       }, { onConflict: 'tweet_id' });
 
-      if (!error) matched++;
+      if (error) {
+        console.warn(`  ⚠️ @${parsed.username} 写入失败: ${error.message}`);
+      } else {
+        matched++;
+      }
       totalFetched++;
     }
 
-    if (totalFetched > 0 && matched > 0) cursor = nextCursor;
-    else cursor = nextCursor;
+    cursor = nextCursor;
   }
 
-  console.log(`\n✅ ${pages} 页, 匹配 ${matched} 条推文`);
+  console.log(`\n📊 ${pages} 页扫描, 匹配写入 ${matched} 条推文`);
 
   // 统计每个账号的推文数
-  const { data: counts } = await supabase.rpc('tweet_count_by_author');
-  if (counts) {
-    for (const c of counts.slice(0, 10)) {
-      console.log(`  @${c.author_username}: ${c.count} 条`);
+  try {
+    const { data: counts } = await supabase.rpc('tweet_count_by_author');
+    if (counts) {
+      for (const c of counts.slice(0, 10)) {
+        console.log(`  @${c.author_username}: ${c.count} 条`);
+      }
     }
+  } catch { /* RPC 可能不存在，忽略 */ }
+
+  // 14天自动清理
+  const cutoff = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
+  const { error: delErr, count: delCount } = await supabase
+    .from('tweets')
+    .delete({ count: 'exact' })
+    .lt('created_at', cutoff);
+  if (delErr) {
+    console.error('⚠️ 清理失败:', delErr.message);
+  } else {
+    console.log(`🧹 清理完成: 删除 ${delCount ?? 0} 条 (created_at < ${cutoff.slice(0, 10)})`);
   }
+
+  console.log('✅ 推文拉取完成');
 }
 
-main().catch(console.error);
+main().catch(err => {
+  console.error('❌ 未捕获异常:', err);
+  process.exit(1);
+});
