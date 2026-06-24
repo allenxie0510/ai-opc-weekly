@@ -28,11 +28,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         {children}
-        <script
-          async
-          src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"
-          data-no-optimize="1"
-        />
       </body>
     </html>
   );

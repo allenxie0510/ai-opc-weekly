@@ -2,6 +2,7 @@ import { getTweets, getTwitterAccounts } from '@/lib/data';
 import { Header } from '@/components/page-shell';
 import { TranslateButton } from '@/components/translate-button';
 import { SafeImg } from '@/components/safe-img';
+import { PageViewCounter } from '@/components/page-view-counter';
 import Link from 'next/link';
 
 export const revalidate = 300;
@@ -131,6 +132,7 @@ export default async function XTimelinePage() {
         )}
 
         <footer style={{ textAlign: 'center', padding: '48px 0', color: 'var(--color-stone)', fontSize: '0.8rem', marginTop: 'auto' }}>
+          <p style={{ marginBottom: 6 }}><PageViewCounter /></p>
           <p>推文来自 X/Twitter，版权归原作者所有。点击正文跳转原始链接。</p>
           <p>© 2026 AI OPC Weekly. All rights reserved.</p>
         </footer>
