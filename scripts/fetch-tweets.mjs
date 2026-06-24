@@ -85,11 +85,10 @@ function parseRSSFeed(xml) {
 async function main() {
   console.log('🔄 开始从 RSS.app 拉取推文...\n');
 
-  // 读取所有启用的、有 rss_url 的账号
+  // 读取所有有 rss_url 的账号（不再过滤 enabled，以管理后台为准）
   const { data: accounts, error: acctErr } = await supabase
     .from('twitter_accounts')
     .select('*')
-    .eq('enabled', true)
     .not('rss_url', 'is', null);
 
   if (acctErr) {
@@ -160,6 +159,23 @@ async function main() {
   }
 
   console.log(`\n📊 同步完成: ${synced} 条写入, ${errors} 个 feed 失败`);
+
+  // 清理孤儿推文：删除不属于任何追踪账号的推文
+  const trackedSet = new Set(accounts.map(a => a.username));
+  const { data: allTweets } = await supabase
+    .from('tweets')
+    .select('author_username');
+  if (allTweets) {
+    const orphanAuthors = [...new Set(allTweets.map(t => t.author_username))]
+      .filter(u => !trackedSet.has(u));
+    for (const orphan of orphanAuthors) {
+      const { count: c } = await supabase
+        .from('tweets')
+        .delete({ count: 'exact' })
+        .eq('author_username', orphan);
+      if (c) console.log(`🧹 清理孤儿 @${orphan}: ${c} 条推文`);
+    }
+  }
 
   // 按作者统计
   try {
