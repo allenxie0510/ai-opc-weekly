@@ -60,7 +60,10 @@ jobs:
                   const imgs = [];
                   const irx = /<media:content[^>]+url="([^"]+)"[^>]*\/>/g;
                   let im;
-                  while ((im = irx.exec(item)) !== null) imgs.push(im[1]);
+                  // 图片URL替换为国内可访问的代理
+                  while ((im = irx.exec(item)) !== null) {
+                    imgs.push(im[1].replace("pbs.twimg.com", "images.weserv.nl"));
+                  }
 
                   await sb.from("tweets").upsert({
                     tweet_id: tweetId, author_username: author,
@@ -74,6 +77,13 @@ jobs:
               } catch { err++; }
             }
             console.log(sync + " synced, " + err + " errors, from " + urls.length + " feeds");
+
+            // 14天自动清理
+            const cutoff = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
+            const { error: delErr } = await sb.from("tweets")
+              .delete().lt("created_at", cutoff);
+            if (delErr) console.log("清理失败:", delErr.message);
+            else console.log("清理完成: 删除 created_at < " + cutoff.slice(0,10));
           })();
           ' 2>&1
         env:

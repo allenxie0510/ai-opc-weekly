@@ -2,15 +2,7 @@
 
 import { useState } from 'react';
 
-async function translateText(text: string): Promise<string> {
-  const res = await fetch(
-    `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=zh-CN&dt=t&q=${encodeURIComponent(text)}`
-  );
-  const data = await res.json();
-  return data[0]?.map((s: [string]) => s[0]).join('') || '';
-}
-
-export function TranslateButton({ text }: { text: string }) {
+export function TranslateButton({ tweetId, text }: { tweetId: string; text: string }) {
   const [translated, setTranslated] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -36,8 +28,17 @@ export function TranslateButton({ text }: { text: string }) {
       onClick={async () => {
         setLoading(true);
         try {
-          const result = await translateText(text);
-          setTranslated(result || '翻译失败');
+          const res = await fetch('/api/translate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tweet_id: tweetId, text }),
+          });
+          const data = await res.json();
+          if (data.translated_text) {
+            setTranslated(data.translated_text);
+          } else {
+            setTranslated('翻译失败');
+          }
         } catch {
           setTranslated('翻译失败');
         } finally {
