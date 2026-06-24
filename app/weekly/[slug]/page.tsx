@@ -72,6 +72,48 @@ export default async function WeeklyPage({ params }: { params: Promise<{ slug: s
           <PageViewCounter label="用户数" />
         </div>
       </footer>
+
+      {/* GEO: JSON-LD structured data for AI search engines */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            '@context': 'https://schema.org',
+            '@type': 'Article',
+            headline: issue.title,
+            description: issue.summary || `AI 一人公司创业机会 · 第 ${issue.week_number} 周`,
+            datePublished: issue.published_at,
+            dateModified: issue.published_at,
+            image: issue.cover_image || undefined,
+            author: {
+              '@type': 'Organization',
+              name: 'AI OPC Weekly 编辑部',
+              url: 'https://www.aiopcnews.com',
+            },
+            publisher: {
+              '@type': 'Organization',
+              name: 'AI OPC Weekly',
+              url: 'https://www.aiopcnews.com',
+            },
+            about: items.map(i => i.title).join(', '),
+            keywords: Array.from(new Set(items.flatMap(i => i.tags || []))).join(', '),
+          }),
+        }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            '@context': 'https://schema.org',
+            '@type': 'BreadcrumbList',
+            itemListElement: [
+              { '@type': 'ListItem', position: 1, name: '首页', item: 'https://www.aiopcnews.com' },
+              { '@type': 'ListItem', position: 2, name: '周报归档', item: 'https://www.aiopcnews.com/archive' },
+              { '@type': 'ListItem', position: 3, name: `第 ${issue.week_number} 周 · ${issue.title}` },
+            ],
+          }),
+        }}
+      />
     </PageShell>
   );
 }
