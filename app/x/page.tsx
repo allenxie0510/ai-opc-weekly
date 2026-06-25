@@ -112,7 +112,7 @@ export default async function XTimelinePage() {
                         {t.content}
                       </a>
 
-                      <TranslateButton tweetId={t.tweet_id} text={t.content} />
+                      <TranslateButton key={t.tweet_id} tweetId={t.tweet_id} text={t.content} />
 
                       {t.media_urls && t.media_urls.length > 0 && (
                         <div className="x-card-media" data-count={Math.min(t.media_urls.length, 4)}>
