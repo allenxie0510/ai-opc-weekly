@@ -40,6 +40,9 @@ export async function POST(request: Request) {
     const body = await request.json();
     const username = (body.username || '').trim().replace(/^@/, '');
     if (!username) return Response.json({ error: '缺少 username' }, { status: 400 });
+    if (/\s/.test(username)) {
+      return Response.json({ error: '用户名不能包含空格，请使用真实 Twitter handle' }, { status: 400 });
+    }
 
     const { data, error } = await supabase
       .from('twitter_accounts')
