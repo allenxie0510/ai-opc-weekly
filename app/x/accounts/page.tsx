@@ -33,6 +33,8 @@ export default function XAccountsPage() {
   const [newUsername, setNewUsername] = useState('');
   const [newRssUrl, setNewRssUrl] = useState('');
   const [adding, setAdding] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshMsg, setRefreshMsg] = useState<string | null>(null);
   const [swipedId, setSwipedId] = useState<string | null>(null);
   const [touchStartX, setTouchStartX] = useState(0);
 
@@ -143,6 +145,28 @@ export default function XAccountsPage() {
     setSwipedId(null);
   };
 
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    setRefreshMsg(null);
+    try {
+      const res = await fetch('/api/admin/refresh', {
+        method: 'POST',
+        headers: { 'x-admin-token': getToken() },
+      });
+      if (res.status === 401) { setToken(''); setAuthed(false); return; }
+      const data = await res.json();
+      if (data.error) {
+        setRefreshMsg('❌ ' + data.error);
+      } else {
+        const fails = data.results?.filter((r: any) => r.status !== 200);
+        setRefreshMsg(`✅ 写入 ${data.total} 条推文` + (fails?.length ? `，${fails.length} 个 feed 失败` : ''));
+        await fetchAccounts();
+      }
+    } catch {
+      setRefreshMsg('❌ 网络错误');
+    } finally { setRefreshing(false); }
+  };
+
   // 触屏左滑
   const handleTouchStart = (id: string, x: number) => {
     setSwipedId(null);
@@ -213,8 +237,31 @@ export default function XAccountsPage() {
             <h1 className="x-pagehead-title">X 账号管理</h1>
             <p className="x-pagehead-meta">追踪 {accounts.length} 个账号（上限 15）</p>
           </div>
-          <Link href="/x" className="x-manage-link">← 返回时间轴</Link>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              style={{
+                padding: '6px 16px', borderRadius: 12,
+                border: '1px solid var(--color-blue)',
+                background: 'none', color: 'var(--color-blue)',
+                fontSize: 13, fontWeight: 500, cursor: refreshing ? 'default' : 'pointer',
+                whiteSpace: 'nowrap', fontFamily: 'inherit', opacity: refreshing ? 0.5 : 1,
+              }}
+            >
+              {refreshing ? '更新中...' : '🔄 手动更新'}
+            </button>
+            <Link href="/x" className="x-manage-link">← 返回时间轴</Link>
+          </div>
         </header>
+        {refreshMsg && (
+          <div style={{
+            marginBottom: 16, padding: '8px 16px', borderRadius: 10,
+            background: refreshMsg.startsWith('✅') ? '#ecfdf5' : '#fef2f2',
+            color: refreshMsg.startsWith('✅') ? '#065f46' : '#991b1b',
+            fontSize: 13, fontWeight: 500,
+          }}>{refreshMsg}</div>
+        )}
 
         {/* 添加账号 */}
         <div style={{ marginBottom: 32 }}>
