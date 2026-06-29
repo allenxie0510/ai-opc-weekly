@@ -1,6 +1,8 @@
 import { redirect } from 'next/navigation';
 import { getLatestIssue } from '@/lib/data';
 
+export const revalidate = 300;
+
 export default async function Home() {
   const latest = await getLatestIssue();
   if (latest) {
