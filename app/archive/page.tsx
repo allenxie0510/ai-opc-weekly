@@ -2,6 +2,8 @@ import { getWeeklyIssues } from '@/lib/data';
 import { Header } from '@/components/page-shell';
 import Link from 'next/link';
 
+export const revalidate = 300;
+
 export default async function ArchivePage() {
   const issues = await getWeeklyIssues();
 
