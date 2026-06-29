@@ -95,6 +95,11 @@ export default function XAccountsPage() {
   const handleAdd = async () => {
     const u = newUsername.trim().replace(/^@/, '');
     if (!u) return;
+    // X 用户名不能有空格
+    if (/\s/.test(u)) {
+      alert('X 用户名不能包含空格，请使用真实 Twitter handle（如 karpathy，不是 Andrej Karpathy）');
+      return;
+    }
     setAdding(true);
     try {
       const res = await fetch('/api/admin/accounts', {

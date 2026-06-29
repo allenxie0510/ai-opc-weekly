@@ -44,3 +44,10 @@
 - **访问量**: 不蒜子 UV 统计，script 在 `layout.tsx`
 - **品牌**: Bebas Neue、22px/600、letter-spacing 0.04em、蓝点 #1456f0
 - **内容语气**: 周报面向公众，不用「你/你的」，客观第三人称
+
+## 定时任务
+
+- **cron job**: `fea1d9cc` — 每周一 09:00 Asia/Shanghai 自动生成周报
+- 子 Agent 搜索趋势 → 生成 12 条内容 → 写入 Supabase → Vercel ISR 刷新
+- **前提**：周一 9:00 MacBook 必须开机且 OpenClaw 运行
+- 完成后推送通知到微信
