@@ -90,7 +90,7 @@ const SEARCH_QUERIES = [
 // ─── 主流程 ─────────────────────────────────────────────
 
 async function main() {
-  console.log('🚀 AI OPC Weekly v3 — 纯智谱 GLM（搜索+生成一体化）');
+  console.log('🚀 AI OPC Weekly — 智谱 GLM-4-Air 自动生成');
   console.log('');
 
   // 1. 查最新期号
@@ -154,13 +154,13 @@ async function main() {
       'Authorization': `Bearer ${ZHIPU_KEY}`,
     },
     body: JSON.stringify({
-      model: 'glm-4-flash',
+      model: 'glm-4-air',
       messages: [
-        { role: 'system', content: '你是一位 AI 创业趋势分析师。请基于你的知识生成内容，只返回 JSON 数组。' },
+        { role: 'system', content: '你是一位 AI 创业趋势分析师。请基于你的知识生成内容，只返回 JSON 数组，不要包含任何额外文字。' },
         { role: 'user', content: prompt },
       ],
       temperature: 0.7,
-      max_tokens: 4096,
+      max_tokens: 8192,
     }),
   });
 
