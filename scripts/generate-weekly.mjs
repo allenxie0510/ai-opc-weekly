@@ -154,13 +154,13 @@ async function main() {
       'Authorization': `Bearer ${ZHIPU_KEY}`,
     },
     body: JSON.stringify({
-      model: 'glm-4-air',
+      model: 'glm-4-flash',
       messages: [
         { role: 'system', content: '你是一位 AI 创业趋势分析师。请基于你的知识生成内容，只返回 JSON 数组。' },
         { role: 'user', content: prompt },
       ],
       temperature: 0.7,
-      max_tokens: 8192,
+      max_tokens: 4096,
     }),
   });
 
