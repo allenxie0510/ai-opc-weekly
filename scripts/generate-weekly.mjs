@@ -1,6 +1,6 @@
 /**
  * AI OPC Weekly 自动生成脚本
- * 智谱 GLM-4-Air，分两次调用生成 12 条内容（每次 6 条），写入 Supabase。
+ * 智谱 GLM-4 旗舰模型，分两次生成 12 条内容，写入 Supabase。
  * 
  * 环境变量: SUPABASE_SERVICE_ROLE_KEY, ZHIPU_API_KEY
  */
@@ -10,8 +10,8 @@ const ZHIPU_API = 'https://open.bigmodel.cn/api/paas/v4/chat/completions';
 
 const SRK = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const ZK = process.env.ZHIPU_API_KEY;
-if (!SRK) { console.error('❌ 缺少 SUPABASE_SERVICE_ROLE_KEY'); process.exit(1); }
-if (!ZK) { console.error('❌ 缺少 ZHIPU_API_KEY'); process.exit(1); }
+if (!SRK) { console.error('❌ SUPABASE_SERVICE_ROLE_KEY'); process.exit(1); }
+if (!ZK) { console.error('❌ ZHIPU_API_KEY'); process.exit(1); }
 
 function getISOWeekNumber(d) {
   const t = new Date(d); t.setHours(0,0,0,0);
@@ -40,7 +40,7 @@ async function callGLM(systemPrompt, userPrompt) {
     method:'POST',
     headers:{ 'Content-Type':'application/json', Authorization:`Bearer ${ZK}` },
     body: JSON.stringify({
-      model:'glm-4-air',
+      model:'glm-4',
       messages: [{ role:'system', content:systemPrompt }, { role:'user', content:userPrompt }],
       temperature:0.7, max_tokens:4096
     })
@@ -57,43 +57,47 @@ async function callGLM(systemPrompt, userPrompt) {
 }
 
 async function main() {
-  console.log('🚀 AI OPC Weekly — 智谱 GLM-4-Air (分两次生成)');
+  console.log('🚀 AI OPC Weekly — 智谱 GLM-4 自动生成');
   console.log('');
 
-  // 1. 期号
+  // 1. 期号 & slug 去重
   console.log('📋 查询最新期号...');
-  const r = await supabaseFetch('/weekly_issues?select=issue_number&order=issue_number.desc&limit=1');
-  const rows = await r.json();
-  const ni = (rows[0]?.issue_number||27) + 1;
+  const r = await supabaseFetch('/weekly_issues?select=id,slug,issue_number&order=issue_number.desc&limit=5');
+  const issues = await r.json();
+  const ni = (issues[0]?.issue_number||27) + 1;
   const year = new Date().getFullYear();
   const wn = getISOWeekNumber(new Date());
   const { start, end } = getWeekRange(wn, year);
-  const slug = `${year}-w${String(wn).toLowerCase()}`;
+  let slug = `${year}-w${String(wn).toLowerCase()}`;
+  
+  // 如果 slug 已存在，加后缀
+  const existingSlugs = issues.map(i => i.slug);
+  if (existingSlugs.includes(slug)) {
+    slug = `${slug}-v2`;
+    if (existingSlugs.includes(slug)) slug = `${slug.replace('-v2','')}-v3`;
+    console.log(`   ⚠️  slug 已存在，使用备用: ${slug}`);
+  }
   console.log(`   #${ni-1} → #${ni} | ${slug} | ${start}~${end}`);
 
-  // 1.5 查历史标题，构建去重列表
+  // 1.5 查历史标题去重
   console.log('');
-  console.log('🔍 查询历史内容用于去重...');
-  const histRes = await supabaseFetch('/news_items?select=title,category&limit=200');
+  console.log('🔍 查询历史内容去重...');
+  const histRes = await supabaseFetch('/news_items?select=title&limit=200');
   const history = await histRes.json();
   const dupTitles = history.map(h => h.title);
-  console.log(`   已有 ${dupTitles.length} 条历史记录，生成时会避开`);
+  console.log(`   已有 ${dupTitles.length} 条历史，生成时会避开`);
 
   // 2. 两次调用
   const sysPrompt = '你是AI创业趋势分析师。只返回 JSON 数组，禁止额外文字。';
   const baseSpec = `日期范围: ${start}~${end}。生成要求: title(项目名称), description(150-300字中文, 禁止用"你/你的"), insight(80-150字落地路径), category, creator_level(high/medium/low), compound_potential(high/medium/low), mrr_range, pricing, mvp_time, refs(2-3个真实URL), tags(2-3个), rank。`;
-
-  const dedupNote = `⚠️ 去重：以下是往期已发布的项目标题，**绝对不要**生成相同或高度相似的内容（换个说法也不行，必须是全新方向）：
-${dupTitles.map((t,i) => `${i+1}. ${t}`).join('\n')}`;
+  const dedupNote = `⚠️ 去重：以下是往期已发布的项目标题，**绝对不要**生成相同或高度相似的内容：\n${dupTitles.map((t,i) => `${i+1}. ${t}`).join('\n')}`;
 
   console.log('');
-  console.log('🤖 第 1 次调用 — 微SaaS、设计资产、自动化 (6条)...');
-  const batch1 = await callGLM(sysPrompt,
-    `${baseSpec}\n${dedupNote}\n请生成以下3个分类各2条:\n- micro-saas\n- design-assets\n- automation\nrank: 1-6。只返回JSON数组。`);
+  console.log('🤖 第 1 次调用 (GLM-4) — 微SaaS、设计资产、自动化 (6条)...');
+  const batch1 = await callGLM(sysPrompt, `${baseSpec}\n${dedupNote}\n请生成3个分类各2条:\n- micro-saas\n- design-assets\n- automation\nrank: 1-6。只返回JSON数组。`);
 
-  console.log('🤖 第 2 次调用 — 内容变现、小而美、虚拟产品 (6条)...');
-  const batch2 = await callGLM(sysPrompt,
-    `${baseSpec}\n${dedupNote}\n请生成以下3个分类各2条:\n- content-monetize\n- indie-tool\n- digital-product\nrank: 7-12。只返回JSON数组。`);
+  console.log('🤖 第 2 次调用 (GLM-4) — 内容变现、小而美、虚拟产品 (6条)...');
+  const batch2 = await callGLM(sysPrompt, `${baseSpec}\n${dedupNote}\n请生成3个分类各2条:\n- content-monetize\n- indie-tool\n- digital-product\nrank: 7-12。只返回JSON数组。`);
 
   const items = [...batch1, ...batch2];
   console.log(`   总计 ${items.length} 条`);
