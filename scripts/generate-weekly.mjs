@@ -31,8 +31,9 @@ async function supabaseFetch(path, opts={}) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1${path}`, { ...opts,
     headers: { apikey:SRK, Authorization:`Bearer ${SRK}`, 'Content-Type':'application/json', ...opts.headers }
   });
-  if (!res.ok) { const t=await res.text(); throw new Error(`Supabase ${res.status}: ${t.slice(0,200)}`); }
-  return res;
+  const text = await res.text();
+  if (!res.ok) throw new Error(`Supabase ${res.status}: ${text.slice(0,200)}`);
+  return { ok:true, text, json: ()=> text ? JSON.parse(text) : null };
 }
 
 async function callGLM(systemPrompt, userPrompt) {
@@ -105,7 +106,9 @@ async function main() {
   // 3. 写入
   console.log('');
   console.log('💾 写入 Supabase...');
-  const ir = await supabaseFetch('/weekly_issues', { method:'POST', body:JSON.stringify({
+  const ir = await supabaseFetch('/weekly_issues', { method:'POST',
+    headers: { Prefer:'return=representation' },
+    body:JSON.stringify({
     slug, issue_number:ni, year, week_number:wn, week_start:start, week_end:end,
     title:`AI OPC Weekly #${ni}`, summary:'本周精选 12 个独立创作者 AI 创业机会。',
     cover_image:'', status:'published', published_at:new Date().toISOString()
