@@ -59,6 +59,34 @@ async function supabaseFetch(path: string, options: RequestInit = {}) {
   return res;
 }
 
+async function braveSearch(query: string): Promise<{ title: string; url: string; snippet: string }[]> {
+  const res = await fetch(`${BRAVE_API}?q=${encodeURIComponent(query)}&count=5&search_lang=en`, {
+    headers: {
+      'Accept': 'application/json',
+      'Accept-Encoding': 'gzip',
+      'X-Subscription-Token': BRAVE_KEY!,
+    },
+  });
+  if (!res.ok) throw new Error(`Brave Search ${res.status}: ${await res.text()}`);
+  const data = await res.json();
+  return (data.web?.results || []).map((r: any) => ({
+    title: r.title || '',
+    url: r.url || '',
+    snippet: r.description || '',
+  }));
+}
+
+// ─── 搜索关键词 ─────────────────────────────────────────
+
+const SEARCH_QUERIES = [
+  { key: 'micro-saas', q: 'AI micro SaaS indie hacker 2026 revenue' },
+  { key: 'design-assets', q: 'AI design assets marketplace digital product 2026' },
+  { key: 'automation', q: 'no code AI automation workflow tool 2026' },
+  { key: 'content-monetize', q: 'AI content monetization solo creator 2026' },
+  { key: 'indie-tool', q: 'indie developer AI tool one person business 2026' },
+  { key: 'digital-product', q: 'AI digital product template notion prompt 2026' },
+];
+
 // ─── 主流程 ─────────────────────────────────────────────
 
 async function main() {
@@ -172,7 +200,7 @@ async function main() {
   console.log(`   Tokens: in=${usage.prompt_tokens} out=${usage.completion_tokens}`);
   console.log(`   Web Search: ${usage.web_search ? '✅ 已使用' : '⚠️ 未触发'}`);
 
-  // 3. 写入 Supabase
+  // 4. 写入 Supabase
   console.log('');
   console.log('💾 写入 Supabase...');
 
