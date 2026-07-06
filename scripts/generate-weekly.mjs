@@ -106,16 +106,17 @@ async function main() {
   // 3. 写入
   console.log('');
   console.log('💾 写入 Supabase...');
-  const ir = await supabaseFetch('/weekly_issues', { method:'POST',
-    headers: { Prefer:'return=representation' },
-    body:JSON.stringify({
+  await supabaseFetch('/weekly_issues', { method:'POST', body:JSON.stringify({
     slug, issue_number:ni, year, week_number:wn, week_start:start, week_end:end,
     title:`AI OPC Weekly #${ni}`, summary:'本周精选 12 个独立创作者 AI 创业机会。',
     cover_image:'', status:'published', published_at:new Date().toISOString()
   })});
-  const idata = await ir.json();
-  const iid = Array.isArray(idata)?idata[0]?.id:idata?.id;
-  if (!iid) throw new Error('创建 weekly_issue 失败');
+
+  // POST 不返 body，回查 id
+  const q = await supabaseFetch(`/weekly_issues?select=id&slug=eq.${slug}&limit=1`);
+  const qdata = q.json();
+  const iid = Array.isArray(qdata) ? qdata[0]?.id : qdata?.id;
+  if (!iid) throw new Error('创建 weekly_issue 后回查 id 失败');
   console.log(`   ✅ weekly_issue: ${iid}`);
 
   const news = items.slice(0,12).map((it,i)=>({...it, weekly_issue_id:iid, rank:it.rank||i+1}));
