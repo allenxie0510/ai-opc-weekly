@@ -2,10 +2,13 @@ name: Weekly Newsletter
 
 on:
   schedule:
-    # 主触发：每周一 09:05 北京时间 (01:05 UTC)
-    # 备用触发：每周一 10:05 北京时间 (02:05 UTC)，防止主触发被 GitHub 跳过
+    # 主触发：每周一 08:05 北京时间 (00:05 UTC)，避开 GitHub Actions 周一早高峰
+    - cron: '5 0 * * 1'
+    # 备用触发：09:05 / 10:05 / 11:05 / 12:05 北京时间，多时段确保至少一个能跑
     - cron: '5 1 * * 1'
     - cron: '5 2 * * 1'
+    - cron: '5 3 * * 1'
+    - cron: '5 4 * * 1'
   workflow_dispatch:
 
 jobs:
