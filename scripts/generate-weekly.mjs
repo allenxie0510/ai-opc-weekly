@@ -172,11 +172,21 @@ async function main() {
   const published = await sb(
     `/radar_items?status=eq.published&published_at=gte.${encodeURIComponent(cutoff)}&order=score.desc&limit=30`
   );
-  console.log(`   线索: ${(published || []).length} 条`);
+  // 原始素材池（HN / GitHub / RSS），拓宽选题面，避免 GLM 只盯着少数快讯
+  const candidates = await sb(
+    `/radar_candidates?fetched_at=gte.${encodeURIComponent(cutoff)}&order=fetched_at.desc&limit=25`
+  );
+  console.log(`   快讯线索: ${(published || []).length} 条 | 原始素材: ${(candidates || []).length} 条`);
 
-  const materialText = (published || []).slice(0, 30).map(r =>
+  const seedText = (published || []).slice(0, 20).map(r =>
     `[${r.source_name}] ${r.title}${r.summary ? ' — ' + String(r.summary).slice(0, 200) : ''}\nURL: ${r.source_url}`
-  ).join('\n---\n') || '（本周雷达暂无线索，请完全依靠联网搜索寻找本周真实案例）';
+  ).join('\n---\n');
+  const candText = (candidates || []).slice(0, 25).map(c =>
+    `[${c.source_name}] ${c.title}${c.snippet ? ' — ' + String(c.snippet).slice(0, 150) : ''}\nURL: ${c.source_url}`
+  ).join('\n---\n');
+  const materialText = [seedText && `【本周雷达快讯】\n${seedText}`, candText && `【原始素材池】\n${candText}`]
+    .filter(Boolean).join('\n\n')
+    || '（本周雷达暂无线索，请完全依靠联网搜索寻找本周真实案例）';
 
   // 3b. 去重：最近 12 条周报标题，避免跨周重复选题
   const hist = await sb('/news_items?select=title&order=created_at.desc&limit=12');
@@ -187,7 +197,7 @@ async function main() {
   // 4. 深度拆解（GLM + 联网搜索，2 批 × 3 篇）
   const sysPrompt = '你是「AI OPC Weekly」的主编，一份面向 AI 一人公司（OPC）创业者的深度周报。你只基于真实素材和联网检索到的公开信息写作，绝不编造。只返回 JSON 数组。';
 
-  function buildPrompt(excludeTitles) {
+  function buildPrompt(excludeTitles, count) {
     const excludeHint = excludeTitles.length > 0
       ? `\n\n本期内已拆解的案例（必须避开，选完全不同的案例）：${excludeTitles.join('、')}`
       : '';
@@ -196,12 +206,12 @@ async function main() {
 ${materialText}
 ${dupHint}${excludeHint}
 
-任务：围绕「AI × 一人公司创业 / 商业模式 / 变现」这个唯一主题，选出 ${DEEPDIVE_BATCH} 个真实案例/产品/事件，通过联网搜索核实细节后，各写一篇深度拆解。选题优先从上方线索中挖掘，线索不足时可自选本周（或近期）有公开报道的真实案例，但必须能通过联网搜索核实。
+任务：围绕「AI × 一人公司创业 / 商业模式 / 变现」这个唯一主题，选出 ${count} 个真实案例/产品/事件，通过联网搜索核实细节后，各写一篇深度拆解。选题优先从上方线索中挖掘，线索不足时可自选本周（或近期）有公开报道的真实案例，但必须能通过联网搜索核实。
 
 只收录这类内容：独立开发者/solo 创业者的真实产品与收入、一人公司可复用的商业模式与定价策略、AI 工具/平台给 solo 创业者带来的新机会、影响一人公司的政策与生态变化。
 不要收录：大公司融资/人事/资本运作（除非直接改变 solo 创业者的机会）、纯技术论文、与商业变现无关的产品更新。
 
-输出一个 JSON 数组（不要输出其他文字），恰好 ${DEEPDIVE_BATCH} 项，每项字段：
+输出一个 JSON 数组（不要输出其他文字），恰好 ${count} 项，每项字段：
 - title: 中文标题（30字以内）
 - description: 250-400字中文，讲清事实与数据（谁做的、商业模式是什么、收入/用户/增长等公开数字、对一人创业者的可复制点），不用「你/你的」
 - insight: 100-150字中文，第一人称编辑判断（我/我看），有明确立场，敢泼冷水也敢给结论
@@ -218,13 +228,15 @@ ${dupHint}${excludeHint}
 - 只返回 JSON 数组本身`;
   }
 
-  console.log('\n🔬 深度拆解（GLM + 联网搜索，2 批 × 3 篇）...');
+  console.log('\n🔬 深度拆解（GLM + 联网搜索，补足 6 篇为止，最多 4 批）...');
   const deepdive = [];
-  for (let b = 0; b < DEEPDIVE_TOTAL / DEEPDIVE_BATCH; b++) {
-    console.log(`\n   批次 ${b + 1}/${DEEPDIVE_TOTAL / DEEPDIVE_BATCH}...`);
+  const MAX_BATCHES = 4;
+  for (let b = 0; b < MAX_BATCHES && deepdive.length < DEEPDIVE_TOTAL; b++) {
+    const need = Math.min(DEEPDIVE_BATCH, DEEPDIVE_TOTAL - deepdive.length);
+    console.log(`\n   批次 ${b + 1}/${MAX_BATCHES}（还需 ${need} 篇）...`);
     try {
-      const raw = await callGLM(sysPrompt, buildPrompt(deepdive.map(d => d.title)));
-      const mapped = raw.slice(0, DEEPDIVE_BATCH).map(it => ({
+      const raw = await callGLM(sysPrompt, buildPrompt(deepdive.map(d => d.title), need));
+      const mapped = raw.slice(0, need).map(it => ({
         title: String(it.title || '').slice(0, 200),
         description: String(it.description || '').slice(0, 900),
         insight: String(it.insight || '').slice(0, 400),
