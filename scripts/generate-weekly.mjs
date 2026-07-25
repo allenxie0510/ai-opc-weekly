@@ -155,6 +155,46 @@ function isIndieRelevant(text) {
   return !BLOCK_KEYWORDS.some(k => t.includes(k));
 }
 
+// ─── 信源 URL 校验 ──────────────────────────────────────
+
+// x.com / twitter.com 状态 ID 是雪花 ID，目前为 18-20 位非连续数字；过短或连续序列视为编造
+function isPlausibleTweetUrl(url) {
+  const m = String(url).match(/(?:x|twitter)\.com\/\w+\/status\/(\d+)/);
+  if (!m) return true; // 非推文链接不校验
+  const id = m[1];
+  if (id.length < 17 || id.length > 20) return false;
+  if (/(\d)\1{5,}|1234567|7654321/.test(id)) return false; // 连续重复/顺序数字
+  return true;
+}
+
+async function checkUrl(url) {
+  try {
+    const res = await fetch(url, {
+      method: 'GET',
+      headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36' },
+      redirect: 'follow',
+      signal: AbortSignal.timeout(8000),
+    });
+    // 2xx/3xx 有效；401/403/405 是反爬拦截不代表不存在；404/410 确认无效
+    return res.status < 400 || [401, 403, 405].includes(res.status);
+  } catch {
+    return true; // 网络错误（超时/被墙）不等于编造，保守保留
+  }
+}
+
+async function validateRefs(refs, title) {
+  const results = await Promise.all(refs.map(async r => {
+    if (!isPlausibleTweetUrl(r.url)) {
+      console.log(`   🔍 丢弃可疑推文链接（${title.slice(0, 15)}）: ${r.url}`);
+      return null;
+    }
+    const ok = await checkUrl(r.url);
+    if (!ok) console.log(`   🔍 丢弃 404 链接（${title.slice(0, 15)}）: ${r.url}`);
+    return ok ? r : null;
+  }));
+  return results.filter(Boolean);
+}
+
 // ─── 主流程 ─────────────────────────────────────────────
 
 async function main() {
@@ -283,8 +323,16 @@ ${taskLine}
         tags: (Array.isArray(it.tags) ? it.tags : []).map(t => String(t).slice(0, 30)).slice(0, 3),
         section: 'deepdive',
       }));
-      // 本期内去重兜底：共享特征词（≥4个字母或≥2个汉字）即视为重复
+      // 信源真实性校验：404/410/假推文 ID 的 ref 直接丢弃；全部 ref 无效则整篇拒收
       for (const m of mapped) {
+        m.refs = await validateRefs(m.refs, m.title);
+      }
+      const noRef = mapped.filter(m => m.refs.length === 0);
+      for (const m of noRef) console.log(`   🚫 终审拒收（无有效信源 URL）: ${m.title}`);
+      const withRefs = mapped.filter(m => m.refs.length > 0);
+
+      // 本期内去重兜底：共享特征词（≥4个字母或≥2个汉字）即视为重复
+      for (const m of withRefs) {
         const tokens = t => (String(t).match(/[A-Za-z]{4,}|[一-龥]{2,}/g) || []);
         const mt = tokens(m.title);
         const dup = deepdive.some(d => {
