@@ -215,16 +215,20 @@ async function main() {
   // 4. 深度拆解（GLM + 联网搜索，2 批 × 3 篇）
   const sysPrompt = '你是「AI OPC Weekly」的主编，一份面向 AI 一人公司（OPC）创业者的深度周报。你只基于真实素材和联网检索到的公开信息写作，绝不编造。只返回 JSON 数组。';
 
-  function buildPrompt(excludeTitles, count) {
+  // mode: 'seeds' 用雷达素材做线索；'search' 完全不给素材，强制联网寻找独立开发者案例
+  function buildPrompt(excludeTitles, count, mode) {
     const excludeHint = excludeTitles.length > 0
       ? `\n\n本期内已拆解的案例（必须避开，选完全不同的案例）：${excludeTitles.join('、')}`
       : '';
-    return `以下是本周（${start}~${end}）OPC Radar 收录的真实快讯，作为选题线索：
+    const materialBlock = mode === 'seeds'
+      ? `以下是本周（${start}~${end}）OPC Radar 收录的真实快讯，作为选题线索：\n\n${materialText}\n`
+      : '本期不提供任何素材，所有案例必须由你通过联网搜索亲自寻找。\n';
+    const taskLine = mode === 'seeds'
+      ? `任务：围绕「AI × 一人公司创业 / 商业模式 / 变现」这个唯一主题，选出 ${count} 个真实案例/产品/事件，通过联网搜索核实细节后，各写一篇深度拆解。选题优先从上方线索中挖掘，线索不足时可自选本周（或近期）有公开报道的真实案例，但必须能通过联网搜索核实。`
+      : `任务：围绕「AI × 一人公司创业 / 商业模式 / 变现」这个唯一主题，通过联网搜索，在 Indie Hackers、Product Hunt、TrustMRR、Hacker News 的 Show HN、X 独立开发者社区中找到 ${count} 个本周（或近期）独立开发者/solo 小团队发布的真实产品——必须有公开的收入/MRR/用户量/定价数据之一，各写一篇深度拆解。不要编造案例，找不到足够真实的就宁可少输出。`;
+    return `${materialBlock}${dupHint}${excludeHint}
 
-${materialText}
-${dupHint}${excludeHint}
-
-任务：围绕「AI × 一人公司创业 / 商业模式 / 变现」这个唯一主题，选出 ${count} 个真实案例/产品/事件，通过联网搜索核实细节后，各写一篇深度拆解。选题优先从上方线索中挖掘，线索不足时可自选本周（或近期）有公开报道的真实案例，但必须能通过联网搜索核实。
+${taskLine}
 
 选题铁律（违反任何一条都坚决不收）：
 1. 主体必须是独立开发者、solo 创始人或不超过 5 人小团队的真实产品/项目；获风投融资（天使轮以上）的公司一律不收——融资金额再大，对一人创业者也没有可复制性
@@ -258,7 +262,9 @@ ${dupHint}${excludeHint}
     const need = Math.min(DEEPDIVE_BATCH, DEEPDIVE_TOTAL - deepdive.length);
     console.log(`\n   批次 ${b + 1}/${MAX_BATCHES}（还需 ${need} 篇）...`);
     try {
-      const raw = await callGLM(sysPrompt, buildPrompt(deepdive.map(d => d.title), need));
+      // 第 1 批用雷达素材做线索；后续批次切换到纯搜索模式，避免模型反复复读素材
+      const mode = b === 0 ? 'seeds' : 'search';
+      const raw = await callGLM(sysPrompt, buildPrompt(deepdive.map(d => d.title), need, mode));
       const mapped = raw.slice(0, need).map(it => ({
         title: String(it.title || '').slice(0, 200),
         description: String(it.description || '').slice(0, 900),
