@@ -54,4 +54,5 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           ZHIPU_API_KEY: ${{ secrets.ZHIPU_API_KEY }}
+          WEEKLY_DRAFT: 'true'  # 周一自动生成先入草稿，人工审核后到 Supabase 改 published
         run: node scripts/generate-weekly.mjs

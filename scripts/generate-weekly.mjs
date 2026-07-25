@@ -148,6 +148,8 @@ const BLOCK_KEYWORDS = [
   'Anthropic', 'Claude', 'Meta', 'NVIDIA', '英伟达', 'Apple', '苹果',
   '字节', '抖音', '阿里', '腾讯', '百度', '华为', '京东', '美团', '小米',
   'Cognition', 'Runway', 'Midjourney', 'Sora',
+  'Perplexity', 'Notion', 'Superhuman', 'Figma', 'Canva', 'Adobe',
+  'Shopify', 'Salesforce', 'HubSpot', 'Zoom', 'Slack', 'Stripe',
 ];
 function isIndieRelevant(text) {
   const t = String(text || '');
@@ -257,7 +259,7 @@ ${taskLine}
 
   console.log('\n🔬 深度拆解（GLM + 联网搜索，补足 6 篇为止，最多 4 批）...');
   const deepdive = [];
-  const MAX_BATCHES = 4;
+  const MAX_BATCHES = 6;  // 终审拒收率高，多给补足机会
   for (let b = 0; b < MAX_BATCHES && deepdive.length < DEEPDIVE_TOTAL; b++) {
     const need = Math.min(DEEPDIVE_BATCH, DEEPDIVE_TOTAL - deepdive.length);
     console.log(`\n   批次 ${b + 1}/${MAX_BATCHES}（还需 ${need} 篇）...`);
@@ -334,7 +336,7 @@ ${taskLine}
     await sb('/weekly_issues', { method: 'POST', body: JSON.stringify({
       slug, issue_number: ni, year, week_number: wn, week_start: start, week_end: end,
       title: `AI OPC Weekly #${ni}`, summary,
-      cover_image: '', status: 'published', published_at: new Date().toISOString()
+      cover_image: '', status: process.env.WEEKLY_DRAFT === 'true' ? 'draft' : 'published', published_at: new Date().toISOString()
     })});
 
     // 回查 id（INSERT 响应可能为空）
