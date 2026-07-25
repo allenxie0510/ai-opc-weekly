@@ -1,0 +1,31 @@
+name: Debug Radar Data (temporary)
+on: workflow_dispatch
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check radar_items state
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+        run: |
+          echo "== 用 service key 查全量状态分布 =="
+          curl -s "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/radar_items?select=status" \
+            -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            | head -c 2000
+          echo ""
+          echo "== 用 service key 查前8行 =="
+          curl -s "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/radar_items?select=status,score,title&order=published_at.desc&limit=8" \
+            -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            | head -c 2500
+          echo ""
+          echo "== 用 anon key 查（模拟前端权限）=="
+          curl -s "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/radar_items?select=status,title&status=eq.published&limit=3" \
+            -H "apikey: $NEXT_PUBLIC_SUPABASE_ANON_KEY" -H "Authorization: Bearer $NEXT_PUBLIC_SUPABASE_ANON_KEY" \
+            | head -c 1000
+          echo ""
+          echo "== 检查 RLS 状态 =="
+          curl -s "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/radar_items?select=id&limit=1" \
+            -H "apikey: $NEXT_PUBLIC_SUPABASE_ANON_KEY" -H "Authorization: Bearer $NEXT_PUBLIC_SUPABASE_ANON_KEY" \
+            -w "HTTP %{http_code}\n" -o /dev/null
