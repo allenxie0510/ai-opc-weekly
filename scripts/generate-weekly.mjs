@@ -276,11 +276,20 @@ ${dupHint}${excludeHint}
         tags: (Array.isArray(it.tags) ? it.tags : []).map(t => String(t).slice(0, 30)).slice(0, 3),
         section: 'deepdive',
       }));
-      // 本期内去重兜底：标题高度相似的跳过
+      // 本期内去重兜底：共享特征词（≥4个字母或≥2个汉字）即视为重复
       for (const m of mapped) {
-        const key = m.title.replace(/[：:].*$/, '').slice(0, 8);
-        const dup = deepdive.some(d => d.title.includes(key) || m.title.includes(d.title.replace(/[：:].*$/, '').slice(0, 8)));
+        const tokens = t => (String(t).match(/[A-Za-z]{4,}|[一-龥]{2,}/g) || []);
+        const mt = tokens(m.title);
+        const dup = deepdive.some(d => {
+          const dt = new Set(tokens(d.title));
+          return mt.some(tok => dt.has(tok));
+        });
         if (dup) { console.log(`   ⚠️ 跳过重复选题: ${m.title}`); continue; }
+        // 成品终审：描述/洞察命中大公司或资本关键词的整篇拒收
+        if (!isIndieRelevant(`${m.title} ${m.description} ${m.insight}`)) {
+          console.log(`   🚫 终审拒收（违反选题铁律）: ${m.title}`);
+          continue;
+        }
         deepdive.push(m);
       }
     } catch (e) {
