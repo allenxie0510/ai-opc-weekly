@@ -123,12 +123,23 @@ async function main() {
   );
   console.log(`   tweets(24h): ${(tweets || []).length} 条`);
 
-  // 3. 拼装素材清单（总量封顶 ~60 条）
+  // 2.5 排重：拉取近 48h 已处理（draft/published/rejected）的 source_url，
+  // 防止手动触发 + 定时补跑在同一天内把同一素材重复生成
+  const seenCutoff = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+  const seen = await sb(
+    `/radar_items?select=source_url&published_at=gte.${encodeURIComponent(seenCutoff)}&limit=500`
+  );
+  const seenUrls = new Set((seen || []).map(r => r.source_url).filter(Boolean));
+  console.log(`   近48h已处理 URL: ${seenUrls.size} 条（将跳过）`);
+
+  // 3. 拼装素材清单（总量封顶 ~60 条），跳过已处理 URL
   const material = [];
   for (const c of candidates || []) {
+    if (c.source_url && seenUrls.has(c.source_url)) continue;
     material.push(`[${c.source_name}] ${c.title}${c.snippet ? ' — ' + c.snippet.slice(0, 200) : ''}\nURL: ${c.source_url}`);
   }
   for (const t of tweets || []) {
+    if (t.url && seenUrls.has(t.url)) continue;
     material.push(`[X/@${t.author_username}] ${(t.content || '').slice(0, 300)}\nURL: ${t.url}`);
   }
   const materialText = material.slice(0, 60).join('\n---\n');
