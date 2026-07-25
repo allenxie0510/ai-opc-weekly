@@ -139,7 +139,7 @@ export default function AdminPage() {
   return (
     <>
       <Header />
-      <main className="page admin-page">
+      <main className="container admin-page" style={{ paddingTop: 48, paddingBottom: 80 }}>
         {!authed ? (
           <form className="admin-login" onSubmit={login}>
             <h1>审核台</h1>
