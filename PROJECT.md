@@ -47,7 +47,6 @@
 
 ## 定时任务
 
-- **cron job**: `fea1d9cc` — 每周一 09:00 Asia/Shanghai 自动生成周报
-- 子 Agent 搜索趋势 → 生成 12 条内容 → 写入 Supabase → Vercel ISR 刷新
-- **前提**：周一 9:00 MacBook 必须开机且 OpenClaw 运行
-- 完成后推送通知到微信
+- **周报**：GitHub Actions `weekly-newsletter.yml` — 每周一 08:05–12:05 北京时间 5 个触发时段（防 scheduled 被跳过），调用 `scripts/generate-weekly.mjs` 生成 12 条内容写入 Supabase，Vercel ISR 刷新
+- **推文**：GitHub Actions 每 2 小时执行 `scripts/fetch-tweets.mjs` 抓取 RSS.app feeds
+- **OPC Radar · 一人雷达**（/radar）：GitHub Actions `daily-radar.yml` — 每天北京时间 06:47 先跑 `scripts/fetch-sources.mjs` 抓取 HN/GitHub/RSS 素材入 `radar_candidates`，再跑 `scripts/generate-radar.mjs` 用 GLM 筛选写入 `radar_items`（默认 draft，人工在 Supabase 后台改为 published 后前台可见）

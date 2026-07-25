@@ -65,6 +65,23 @@ export const CATEGORY_MAP: Record<Category, { label: string; cssClass: string }>
   'digital-product': { label: '虚拟产品', cssClass: 'cat-digital' },
 };
 
+// OPC Radar · 一人雷达
+export interface RadarItem {
+  id: string;
+  title: string;
+  summary: string;
+  source_name: string;
+  source_url: string;
+  score: number;
+  editor_note: string;
+  pick_reason: string;
+  category: Category | null;
+  status: 'draft' | 'published' | 'rejected';
+  reject_reason: string | null;
+  published_at: string;
+  created_at: string;
+}
+
 export interface IssueNav {
   current: WeeklyIssue | null;
   newer: WeeklyIssue | null;
