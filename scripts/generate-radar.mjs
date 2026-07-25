@@ -20,7 +20,8 @@ if (!SUPABASE_URL) { console.error('❌ 缺少 NEXT_PUBLIC_SUPABASE_URL'); proce
 if (!SRK) { console.error('❌ 缺少 SUPABASE_SERVICE_ROLE_KEY'); process.exit(1); }
 if (!ZK) { console.error('❌ 缺少 ZHIPU_API_KEY'); process.exit(1); }
 
-const GLM_MODEL = 'glm-4.7-flash'; // 免费模型，换模型改这里
+// 免费模型按顺序兜底：429/1305 拥挤或持续失败时换下一个
+const GLM_MODELS = ['glm-4.7-flash', 'glm-4.5-flash'];
 const ZHIPU_API = 'https://open.bigmodel.cn/api/paas/v4/chat/completions';
 const AUTO_PUBLISH = process.env.RADAR_AUTO_PUBLISH === 'true';
 
@@ -38,49 +39,70 @@ async function sb(path, opts = {}) {
   try { return txt ? JSON.parse(txt) : null; } catch { return null; }
 }
 
-async function callGLM(sysPrompt, userPrompt, retries = 2) {
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    try {
-      const res = await fetch(ZHIPU_API, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ZK}` },
-        body: JSON.stringify({
-          model: GLM_MODEL,
-          messages: [{ role: 'system', content: sysPrompt }, { role: 'user', content: userPrompt }],
-          temperature: 0.5 + attempt * 0.1,  // 每次重试微调 temperature
-          max_tokens: 4096
-        })
-      });
-      const txt = await res.text();
-      if (!res.ok) {
-        if (txt.includes('1301') && attempt < retries) {
-          console.log(`   ⚠️ 内容审查触发，重试 ${attempt + 1}/${retries}...`);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+async function callGLMOnce(sysPrompt, userPrompt, model, temperature) {
+  const res = await fetch(ZHIPU_API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ZK}` },
+    body: JSON.stringify({
+      model,
+      messages: [{ role: 'system', content: sysPrompt }, { role: 'user', content: userPrompt }],
+      temperature,
+      max_tokens: 4096
+    })
+  });
+  const txt = await res.text();
+  if (!res.ok) {
+    const err = new Error(`GLM ${res.status}: ${txt.slice(0, 200)}`);
+    err.congested = res.status === 429 || txt.includes('1305'); // 模型拥挤，可换模型
+    err.censored = txt.includes('1301'); // 内容审查
+    throw err;
+  }
+  const data = JSON.parse(txt);
+  const content = data.choices?.[0]?.message?.content || '';
+  // 匹配最外层 JSON 对象 {"items": [...], "rejected": [...]}
+  const m = content.match(/\{[\s\S]*\}/);
+  if (!m) throw new Error(`无JSON: ${content.slice(0, 200)}`);
+  const parsed = JSON.parse(m[0]);
+  if (!Array.isArray(parsed.items)) throw new Error('items 字段不是数组');
+  if (!Array.isArray(parsed.rejected)) parsed.rejected = [];
+  console.log(`   ✅ 收录 ${parsed.items.length} 条 / 弃选 ${parsed.rejected.length} 条 | 模型=${model} | tok in=${data.usage?.prompt_tokens} out=${data.usage?.completion_tokens}`);
+  return parsed;
+}
+
+async function callGLM(sysPrompt, userPrompt) {
+  let lastErr;
+  for (const model of GLM_MODELS) {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        return await callGLMOnce(sysPrompt, userPrompt, model, 0.5 + attempt * 0.1);
+      } catch (e) {
+        lastErr = e;
+        if (e.congested) {
+          const wait = 20 + attempt * 20; // 20s / 40s / 60s 退避
+          console.log(`   ⚠️ ${model} 拥挤(429)，${wait}s 后重试 ${attempt + 1}/3...`);
+          await sleep(wait * 1000);
           continue;
         }
-        throw new Error(`GLM ${res.status}: ${txt.slice(0, 200)}`);
+        if (e.censored) {
+          console.log(`   ⚠️ 内容审查触发，重试 ${attempt + 1}/3...`);
+          continue;
+        }
+        console.log(`   ⚠️ ${e.message.slice(0, 80)}，重试 ${attempt + 1}/3...`);
+        await sleep(5000);
       }
-      const data = JSON.parse(txt);
-      const content = data.choices?.[0]?.message?.content || '';
-      // 匹配最外层 JSON 对象 {"items": [...], "rejected": [...]}
-      const m = content.match(/\{[\s\S]*\}/);
-      if (!m) throw new Error(`无JSON: ${content.slice(0, 200)}`);
-      const parsed = JSON.parse(m[0]);
-      if (!Array.isArray(parsed.items)) throw new Error('items 字段不是数组');
-      if (!Array.isArray(parsed.rejected)) parsed.rejected = [];
-      console.log(`   ✅ 收录 ${parsed.items.length} 条 / 弃选 ${parsed.rejected.length} 条 | tok in=${data.usage?.prompt_tokens} out=${data.usage?.completion_tokens}`);
-      return parsed;
-    } catch (e) {
-      if (attempt >= retries) throw e;
-      console.log(`   ⚠️ ${e.message.slice(0, 80)}，重试 ${attempt + 1}/${retries}...`);
     }
+    console.log(`   ⏭️ ${model} 连续失败，切换兜底模型...`);
   }
+  throw lastErr;
 }
 
 // ─── 主流程 ─────────────────────────────────────────────
 
 async function main() {
   console.log('🚀 OPC Radar · 每日生成');
-  console.log(`   模型: ${GLM_MODEL} | 发布模式: ${AUTO_PUBLISH ? '自动 published' : 'draft 待审核'}\n`);
+  console.log(`   模型: ${GLM_MODELS.join(' → ')} | 发布模式: ${AUTO_PUBLISH ? '自动 published' : 'draft 待审核'}\n`);
 
   // 1. 取素材：radar_candidates 最近 36 小时
   console.log('📥 读取素材...');
