@@ -112,6 +112,33 @@ export default function AdminPage() {
     }
   }
 
+  async function trigger(workflow: 'daily-radar' | 'weekly-newsletter') {
+    if (busy) return;
+    setBusy(true);
+    setMessage('');
+    try {
+      const res = await fetch('/api/admin/trigger', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-token': token },
+        body: JSON.stringify({ workflow }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setMessage(data.error || '触发失败');
+      } else {
+        setMessage(
+          workflow === 'daily-radar'
+            ? '已触发雷达抓取 + 生成 ⚡ 约 2–3 分钟后点「刷新」查看新草稿'
+            : '已触发周报生成 ⚡ 约 3–5 分钟后点「刷新」查看草稿',
+        );
+      }
+    } catch {
+      setMessage('网络错误');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function toggle(id: string) {
     setSelected((prev) => {
       const next = new Set(prev);
@@ -160,9 +187,25 @@ export default function AdminPage() {
           <>
             <div className="admin-topbar">
               <h1>审核台</h1>
-              <button className="admin-btn" onClick={() => void load(token)} disabled={loading}>
-                {loading ? '刷新中…' : '刷新'}
-              </button>
+              <div className="admin-actions">
+                <button
+                  className="admin-btn primary"
+                  onClick={() => void trigger('daily-radar')}
+                  disabled={busy}
+                >
+                  ⚡ 立即拉取雷达
+                </button>
+                <button
+                  className="admin-btn"
+                  onClick={() => void trigger('weekly-newsletter')}
+                  disabled={busy}
+                >
+                  ⚡ 生成周报
+                </button>
+                <button className="admin-btn" onClick={() => void load(token)} disabled={loading}>
+                  {loading ? '刷新中…' : '刷新'}
+                </button>
+              </div>
             </div>
             {message && <p className="admin-msg">{message}</p>}
 

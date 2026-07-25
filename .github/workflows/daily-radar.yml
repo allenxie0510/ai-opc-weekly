@@ -4,6 +4,8 @@ on:
   schedule:
     # 每天北京时间 06:47 (22:47 UTC)，避开整点/半点高峰
     - cron: '47 22 * * *'
+    # 每天北京时间 19:47 (11:47 UTC) 傍晚补一轮
+    - cron: '47 11 * * *'
   workflow_dispatch:
 
 jobs:
