@@ -239,7 +239,7 @@ ${taskLine}
 优先选题来源（按优先级）：主动用联网搜索在 Indie Hackers、Product Hunt、TrustMRR、Hacker News 的 Show HN、X 独立开发者社区中寻找本周新发布或披露收入的 solo 产品——这类案例优先级最高；其次才是上方线索中符合铁律的条目。上方线索仅作参考，不符合铁律的一律无视。大公司融资、收购、人事、纯技术论文、与商业变现无关的更新，一律视为废稿。
 
 输出一个 JSON 数组（不要输出其他文字），恰好 ${count} 项，每项字段：
-- title: 中文标题（30字以内）
+- title: 中文标题（30字以内），必须包含产品/项目的真实名称（如 "ShipFast"、"Attie"、「即梦」这类专有名词），只有品类描述没有名字的（如「AI 营销邮件生成器」）说明你没找到真实案例，这种废稿不要输出
 - description: 250-400字中文，讲清事实与数据（谁做的、一个人/小团队怎么做到的、商业模式与变现路径、收入/用户/增长等公开数字、为什么一人可以复刻），不用「你/你的」
 - insight: 100-150字中文，第一人称编辑判断（我/我看），核心回答「独立开发者怎么抄这个作业」：复刻切入点、所需技能、现实的 MVP 周期；有明确立场，敢泼冷水也敢给结论
 - category: 必须是以下之一: ${VALID_CATEGORIES.join(' / ')}
@@ -294,6 +294,12 @@ ${taskLine}
         // 成品终审：描述/洞察命中大公司或资本关键词的整篇拒收
         if (!isIndieRelevant(`${m.title} ${m.description} ${m.insight}`)) {
           console.log(`   🚫 终审拒收（违反选题铁律）: ${m.title}`);
+          continue;
+        }
+        // 真实性终审：标题必须含真实产品名（拉丁专有名词 ≥3 字母，或 《》「」“” 括起的名字），纯品类词视为编造
+        const hasRealName = /[A-Za-z]{3,}/.test(m.title) || /[《「“].+?[》」”]/.test(m.title);
+        if (!hasRealName) {
+          console.log(`   🚫 终审拒收（无真实产品名，疑似编造）: ${m.title}`);
           continue;
         }
         deepdive.push(m);
