@@ -1,5 +1,5 @@
 import { supabase, isConfigured } from './supabase';
-import type { WeeklyIssue, NewsItem, IssueNav, Tweet, TwitterAccount } from './types';
+import type { WeeklyIssue, NewsItem, IssueNav, Tweet, TwitterAccount, RadarItem } from './types';
 
 export async function getWeeklyIssues(): Promise<WeeklyIssue[]> {
   if (!isConfigured() || !supabase) return [];
@@ -91,5 +91,35 @@ export async function getTwitterAccounts(): Promise<TwitterAccount[]> {
     .eq('enabled', true)
     .order('created_at', { ascending: true });
   if (error) { console.error('getTwitterAccounts:', error.message); return []; }
+  return data || [];
+}
+
+// ═══ OPC Radar · 一人雷达 ═══
+
+export async function getRadarItems(): Promise<RadarItem[]> {
+  if (!isConfigured() || !supabase) return [];
+  const cutoff = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
+  const { data, error } = await supabase
+    .from('radar_items')
+    .select('*')
+    .eq('status', 'published')
+    .gte('published_at', cutoff)
+    .order('published_at', { ascending: false });
+
+  if (error) { console.error('getRadarItems:', error.message); return []; }
+  return data || [];
+}
+
+export async function getRadarRejected(): Promise<RadarItem[]> {
+  if (!isConfigured() || !supabase) return [];
+  const cutoff = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
+  const { data, error } = await supabase
+    .from('radar_items')
+    .select('*')
+    .eq('status', 'rejected')
+    .gte('published_at', cutoff)
+    .order('published_at', { ascending: false });
+
+  if (error) { console.error('getRadarRejected:', error.message); return []; }
   return data || [];
 }
