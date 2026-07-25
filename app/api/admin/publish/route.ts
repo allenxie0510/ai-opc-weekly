@@ -62,7 +62,7 @@ export async function POST(request: Request) {
           .from('radar_items')
           .delete({ count: 'exact' })
           .in('id', ids)
-          .eq('status', 'draft');
+          .in('status', ['draft', 'rejected']);  // 草稿和弃选都可删除，published 受保护
         if (error) return Response.json({ error: error.message }, { status: 500 });
         affected = count || 0;
       }

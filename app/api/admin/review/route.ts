@@ -60,5 +60,19 @@ export async function GET(request: Request) {
     weekly.push({ ...iss, items: items || [] });
   }
 
-  return Response.json({ radarDrafts: radarDrafts || [], weeklyDrafts: weekly });
+  // 弃选记录（最近 7 天，供清理）
+  const rejCutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  const { data: radarRejected, error: jErr } = await supabase
+    .from('radar_items')
+    .select('id, title, source_name, source_url, reject_reason, published_at')
+    .eq('status', 'rejected')
+    .gte('published_at', rejCutoff)
+    .order('published_at', { ascending: false });
+  if (jErr) return Response.json({ error: jErr.message }, { status: 500 });
+
+  return Response.json({
+    radarDrafts: radarDrafts || [],
+    weeklyDrafts: weekly,
+    radarRejected: radarRejected || [],
+  });
 }

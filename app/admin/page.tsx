@@ -26,12 +26,22 @@ type WeeklyDraft = {
   items: { id: string; title: string; section: string; rank: number }[];
 };
 
+type RadarRejected = {
+  id: string;
+  title: string;
+  source_name: string;
+  source_url: string;
+  reject_reason: string | null;
+  published_at: string;
+};
+
 export default function AdminPage() {
   const [token, setToken] = useState('');
   const [authed, setAuthed] = useState(false);
   const [passwordInput, setPasswordInput] = useState('');
   const [radarDrafts, setRadarDrafts] = useState<RadarDraft[]>([]);
   const [weeklyDrafts, setWeeklyDrafts] = useState<WeeklyDraft[]>([]);
+  const [radarRejected, setRadarRejected] = useState<RadarRejected[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [expandedNote, setExpandedNote] = useState<Set<string>>(new Set());
   const [expandedIssue, setExpandedIssue] = useState<Set<string>>(new Set());
@@ -60,6 +70,7 @@ export default function AdminPage() {
       }
       setRadarDrafts(data.radarDrafts || []);
       setWeeklyDrafts(data.weeklyDrafts || []);
+      setRadarRejected(data.radarRejected || []);
       setSelected(new Set());
       setAuthed(true);
     } catch {
@@ -370,6 +381,67 @@ export default function AdminPage() {
                           onClick={() => void act('discard', 'weekly', [w.id])}
                         >
                           丢弃本期
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            {/* ---------- 弃选记录 ---------- */}
+            <section className="admin-section">
+              <div className="admin-section-head">
+                <h2>
+                  弃选记录（近 7 天） <span className="admin-count">{radarRejected.length}</span>
+                </h2>
+                {radarRejected.length > 0 && (
+                  <div className="admin-actions">
+                    <button
+                      className="admin-btn danger"
+                      disabled={busy}
+                      onClick={() =>
+                        void act('discard', 'radar', radarRejected.map((r) => r.id))
+                      }
+                    >
+                      清空全部弃选
+                    </button>
+                  </div>
+                )}
+              </div>
+              {radarRejected.length === 0 ? (
+                <p className="admin-empty">没有弃选记录</p>
+              ) : (
+                <div className="admin-list">
+                  {radarRejected.map((r) => (
+                    <div key={r.id} className="admin-item">
+                      <div className="admin-item-main">
+                        <div className="admin-item-body">
+                          <span className="admin-item-title-row">
+                            <a
+                              href={r.source_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="admin-item-title"
+                            >
+                              {r.title}
+                            </a>
+                          </span>
+                          <span className="admin-item-meta">
+                            {r.source_name} · {r.published_at}
+                          </span>
+                          {r.reject_reason && (
+                            <span className="admin-item-reason">✕ {r.reject_reason}</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="admin-item-btns">
+                        <button
+                          className="admin-btn danger sm"
+                          disabled={busy}
+                          onClick={() => void act('discard', 'radar', [r.id])}
+                        >
+                          删除
                         </button>
                       </div>
                     </div>
