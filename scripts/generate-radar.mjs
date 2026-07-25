@@ -12,6 +12,12 @@
  *   RADAR_AUTO_PUBLISH = 'true' 时直接发布，否则写入 draft 待人工审核（默认 draft）
  */
 
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+
+const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
+
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SRK = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const ZK = process.env.ZHIPU_API_KEY;
@@ -40,6 +46,21 @@ async function sb(path, opts = {}) {
 }
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+// 读取主编点评风格样本（scripts/style-samples.md，以 "- " 开头的行为有效样本）
+// 无有效样本时返回空数组，prompt 不注入，行为与之前一致
+function loadStyleSamples() {
+  try {
+    const raw = readFileSync(join(SCRIPT_DIR, 'style-samples.md'), 'utf8');
+    return raw.split('\n')
+      .map(l => l.trim())
+      .filter(l => l.startsWith('- ') && !l.startsWith('#'))
+      .map(l => l.slice(2).trim())
+      .filter(l => l.length >= 20); // 过短的不像真实点评，忽略
+  } catch {
+    return [];
+  }
+}
 
 async function callGLMOnce(sysPrompt, userPrompt, model, temperature) {
   const res = await fetch(ZHIPU_API, {
@@ -153,12 +174,19 @@ async function main() {
   console.log('\n🤖 GLM 筛选...');
   const sys = `你是「OPC Radar · 一人雷达」的编辑，一份面向 AI 一人公司（OPC）创业者的日更快讯。你只从给定素材中筛选，绝不编造素材之外的新闻。只返回一个 JSON 对象。`;
 
+  // 主编风格样本（few-shot）：有样本时注入口吻要求
+  const samples = loadStyleSamples();
+  const styleBlock = samples.length > 0
+    ? `\n写作风格（最高优先级）：以下是主编写过的点评样本。editor_note 必须模仿这些样本的口吻、节奏、用词习惯和立场强度，杜绝 AI 腔（不用"值得注意的是""综上所述""赋能"这类词）：\n${samples.map(s => `- ${s}`).join('\n')}\n`
+    : '';
+  if (samples.length > 0) console.log(`   ✍️ 注入主编风格样本: ${samples.length} 条`);
+
   const user = `以下是今天抓取到的素材（HN / GitHub / RSS / X 推文）：
 
 ${materialText}
 
 任务：从以上素材中筛选与「AI × 一人公司 / 独立开发者 / solo 创业」直接相关的 5–10 条快讯。筛选标准：单人或小团队可复现的商业模式、已验证收入、独立开发者可用的 AI 工具/平台动态、影响 solo 创业者的政策或生态变化。
-
+${styleBlock}
 输出一个 JSON 对象（不要输出其他文字），结构如下：
 {
   "items": [
@@ -168,7 +196,7 @@ ${materialText}
       "source_name": "素材来源名",
       "source_url": "素材中的原始 URL（必须原样复制，不得编造）",
       "score": 0到100的整数（与主题相关度 + 创业参考价值）,
-      "editor_note": "50–100字编辑点评，第一人称（我/我看），有明确立场，不中立和稀泥",
+      "editor_note": "50–100字编辑点评，第一人称（我/我看），有明确立场，不中立和稀泥${samples.length > 0 ? '，口吻严格对齐上方样本' : ''}",
       "pick_reason": "收录理由标签，如：已验证收入 / 单人可复现 / 政策风向标 / 新工具红利 / 模式可迁移",
       "category": "必须是以下之一: micro-saas / design-assets / automation / content-monetize / indie-tool / digital-product"
     }
