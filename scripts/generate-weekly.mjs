@@ -147,9 +147,8 @@ const BLOCK_KEYWORDS = [
   'OpenAI', 'ChatGPT', 'Google', 'Gemini', '微软', 'Microsoft', 'Copilot',
   'Anthropic', 'Claude', 'Meta', 'NVIDIA', '英伟达', 'Apple', '苹果',
   '字节', '抖音', '阿里', '腾讯', '百度', '华为', '京东', '美团', '小米',
-  'Cognition', 'Runway', 'Midjourney', 'Sora',
-  'Perplexity', 'Notion', 'Superhuman', 'Figma', 'Canva', 'Adobe',
-  'Shopify', 'Salesforce', 'HubSpot', 'Zoom', 'Slack', 'Stripe',
+  'Cognition', 'Runway', 'Midjourney', 'Sora', 'Perplexity',
+  // 注意：Stripe/Slack/Notion/Figma 等是 indie 产品常见集成词，不放黑名单（会误杀），由 prompt 铁律把控
 ];
 function isIndieRelevant(text) {
   const t = String(text || '');
