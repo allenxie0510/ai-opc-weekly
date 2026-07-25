@@ -44,6 +44,7 @@
 - **访问量**: 不蒜子 UV 统计，script 在 `layout.tsx`
 - **品牌**: Bebas Neue、22px/600、letter-spacing 0.04em、蓝点 #1456f0
 - **内容语气**: 周报面向公众，不用「你/你的」，客观第三人称
+- **排版规范**: 内容块与黑色 footer 之间必须保留 56px 间距（`footer` 用 `margin-top:auto` 吸底，内容超一屏时 auto 会归零，兜底样式在 globals.css 末尾「内容与 footer 的统一间距」）；新增页面/区块时主动检查上下左右间距是否符合设计系统（`.container` 容器左右 32px / 移动端 20px，区块间距 56px）
 
 ## 定时任务
 

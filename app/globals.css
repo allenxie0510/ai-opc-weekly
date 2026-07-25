@@ -754,3 +754,12 @@ a.admin-item-title:hover { color: var(--color-blue); }
   .admin-field-row { flex-direction: column; }
   .admin-edit-btns .admin-btn { flex: 1; }
 }
+
+/* ═══ 内容与 footer 的统一间距（设计系统兜底）═══
+   footer 用 margin-top:auto 吸底；当内容超过一屏时 auto 归零，
+   最后的内容块会贴上黑色页脚，因此给各页最后的内容块统一 56px 底部间距 */
+.container > section:last-of-type,
+.container > .radar-empty,
+.weekly-section:last-of-type {
+  margin-bottom: 56px;
+}
