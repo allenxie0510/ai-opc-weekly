@@ -42,7 +42,6 @@ function RadarCard({ item }: { item: RadarItem }) {
   return (
     <article className="radar-card">
       <div className="radar-card-top">
-        <span className={scoreClass(item.score)}>{item.score}</span>
         {cat && <span className={`art-cat-pill ${cat.cssClass}`}>{cat.label}</span>}
         {item.pick_reason && <span className="radar-pick">{item.pick_reason}</span>}
         <span className="radar-meta">
@@ -50,6 +49,7 @@ function RadarCard({ item }: { item: RadarItem }) {
           <span className="radar-meta-sep">·</span>
           <time>{timeAgo(item.published_at)}</time>
         </span>
+        <span className={scoreClass(item.score)}>{item.score}</span>
       </div>
 
       <a href={item.source_url} target="_blank" rel="noopener noreferrer" className="radar-title">
@@ -84,7 +84,7 @@ export default async function RadarPage() {
   return (
     <>
       <Header />
-      <div className="container" style={{ paddingTop: 48, paddingBottom: 80 }}>
+      <div className="container" style={{ paddingTop: 48, paddingBottom: 80, display: 'flex', flexDirection: 'column', minHeight: '100svh' }}>
         <header className="x-pagehead">
           <div>
             <h1 className="x-pagehead-title">OPC RADAR</h1>
