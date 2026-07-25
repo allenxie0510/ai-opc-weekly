@@ -35,6 +35,7 @@ export function Header() {
           <Link href="/" className="brand">AI OPC WEEKLY</Link>
           <span className="nav-sep">|</span>
           <Link href="/x" className="x-link">X</Link>
+          <Link href="/radar" className="x-link">Radar</Link>
         </div>
         <div className="nav-links">
           <Link href="/archive">归档</Link>
