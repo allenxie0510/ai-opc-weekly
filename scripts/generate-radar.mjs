@@ -70,8 +70,7 @@ async function callGLMOnce(sysPrompt, userPrompt, model, temperature) {
   }
   const parsed = JSON.parse(m[0]);
   if (!Array.isArray(parsed.items)) throw new Error('items 字段不是数组');
-  if (!Array.isArray(parsed.rejected)) parsed.rejected = [];
-  console.log(`   ✅ 收录 ${parsed.items.length} 条 / 弃选 ${parsed.rejected.length} 条 | 模型=${model} | tok in=${data.usage?.prompt_tokens} out=${data.usage?.completion_tokens}`);
+  console.log(`   ✅ 收录 ${parsed.items.length} 条 | 模型=${model} | tok in=${data.usage?.prompt_tokens} out=${data.usage?.completion_tokens}`);
   return parsed;
 }
 
@@ -173,19 +172,11 @@ ${materialText}
       "pick_reason": "收录理由标签，如：已验证收入 / 单人可复现 / 政策风向标 / 新工具红利 / 模式可迁移",
       "category": "必须是以下之一: micro-saas / design-assets / automation / content-monetize / indie-tool / digital-product"
     }
-  ],
-  "rejected": [
-    {
-      "title": "被弃选素材的标题",
-      "source_name": "来源",
-      "source_url": "原始 URL",
-      "reject_reason": "一句话说明为什么弃选，如：大公司新闻与 solo 创业无关 / 纯技术论文无商业信号"
-    }
   ]
 }
 
 要求：
-- items 恰好 5–10 条，rejected 恰好 2–3 条（从剩余素材中选有代表性的弃选案例，用于显性化筛选逻辑）
+- items 恰好 5–10 条；不符合筛选标准的素材直接忽略，不输出、不解释（弃选即舍弃）
 - 所有 source_url 必须来自素材清单原文，不得编造
 - summary 和 editor_note 用中文，不用「你/你的」
 - 只返回 JSON 对象本身`;
@@ -210,31 +201,13 @@ ${materialText}
     published_at: now,
   }));
 
-  const rejected = (result.rejected || []).map(rj => ({
-    title: String(rj.title || '').slice(0, 200),
-    summary: '',
-    source_name: String(rj.source_name || ''),
-    source_url: String(rj.source_url || ''),
-    score: 0,
-    editor_note: '',
-    pick_reason: '',
-    category: null,
-    status: 'rejected',
-    reject_reason: String(rj.reject_reason || '').slice(0, 300),
-    published_at: now,
-  }));
-
   if (items.length > 0) {
     await sb('/radar_items', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(items) });
-  }
-  if (rejected.length > 0) {
-    await sb('/radar_items', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(rejected) });
   }
 
   // 6. 汇总
   console.log('\n📊 汇总:');
   console.log(`   收录 ${items.length} 条 → status = '${itemStatus}'`);
-  console.log(`   弃选 ${rejected.length} 条 → status = 'rejected'`);
   if (!AUTO_PUBLISH) {
     console.log('\n⏳ 当前为 draft 模式：请到 Supabase 后台 radar_items 表人工审核，');
     console.log('   把 status 从 draft 改为 published 后才会出现在 /radar 页面。');

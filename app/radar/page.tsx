@@ -1,4 +1,4 @@
-import { getRadarItems, getRadarRejected } from '@/lib/data';
+import { getRadarItems } from '@/lib/data';
 import { Header } from '@/components/page-shell';
 import { PageViewCounter } from '@/components/page-view-counter';
 import { RadarCard, dayKey, dayLabel } from '@/components/radar-card';
@@ -8,7 +8,6 @@ export const revalidate = 300;
 
 export default async function RadarPage() {
   const items = await getRadarItems();
-  const rejected = await getRadarRejected();
 
   // 按日期分组
   const byDate: Record<string, RadarItem[]> = {};
@@ -44,20 +43,6 @@ export default async function RadarPage() {
               </div>
             </section>
           ))
-        )}
-
-        {rejected.length > 0 && (
-          <details className="radar-rejected">
-            <summary className="radar-rejected-summary">今日弃选（{rejected.length} 条）· 看看雷达为什么没收录它们</summary>
-            <div className="radar-rejected-list">
-              {rejected.map(rj => (
-                <div key={rj.id} className="radar-rejected-item">
-                  <span className="radar-rejected-title">{rj.title}</span>
-                  <span className="radar-rejected-reason">{rj.reject_reason}</span>
-                </div>
-              ))}
-            </div>
-          </details>
         )}
 
         <footer style={{ textAlign: 'center', padding: '48px 0', color: 'var(--color-stone)', fontSize: '0.8rem', marginTop: 'auto' }}>

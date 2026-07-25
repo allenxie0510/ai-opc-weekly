@@ -58,11 +58,10 @@ export default async function WeeklyPage({ params }: { params: Promise<{ slug: s
       <ShareBar slug={slug} />
 
       {(() => {
-        // P2 三段式：存在 deepdive/rejected 条目 → 新版分区布局；否则（旧期数）保持平铺
+        // P2 三段式：存在 deepdive 条目 → 新版分区布局；否则（旧期数）保持平铺
         const picks = items.filter(i => !i.section || i.section === 'picks');
         const deepdive = items.filter(i => i.section === 'deepdive');
-        const rejected = items.filter(i => i.section === 'rejected');
-        const isSectioned = deepdive.length > 0 || rejected.length > 0;
+        const isSectioned = deepdive.length > 0;
 
         if (!isSectioned) {
           return (
@@ -108,30 +107,6 @@ export default async function WeeklyPage({ params }: { params: Promise<{ slug: s
                   ))}
                 </div>
               </section>
-            )}
-
-            {rejected.length > 0 && (
-              <details className="radar-rejected">
-                <summary className="radar-rejected-summary">本周弃选（{rejected.length} 条）· 看看雷达为什么没收录它们</summary>
-                <div className="radar-rejected-list">
-                  {rejected.map(rj => (
-                    <div key={rj.id} className="radar-rejected-item">
-                      <span className="radar-rejected-title">{rj.title}</span>
-                      <span className="radar-rejected-reason">
-                        {rj.description}
-                        {rj.refs?.[0]?.url && (
-                          <>
-                            {' · '}
-                            <a href={rj.refs[0].url} target="_blank" rel="noopener noreferrer">
-                              {rj.refs[0].label || '来源'}
-                            </a>
-                          </>
-                        )}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </details>
             )}
           </>
         );
