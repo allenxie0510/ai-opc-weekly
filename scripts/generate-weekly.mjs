@@ -139,6 +139,21 @@ async function callGLM(sysPrompt, userPrompt) {
   throw lastErr;
 }
 
+// 大公司/资本事件关键词黑名单：命中即从选题素材中剔除（确定性过滤，不靠 LLM 自觉）
+const BLOCK_KEYWORDS = [
+  // 资本事件
+  '融资', '获投', '领投', '跟投', '估值', '收购', '并购', 'IPO', '上市', '万美元', '亿美元',
+  // 巨头及其产品（周报只聚焦 solo/小团队，巨头动态归 Radar）
+  'OpenAI', 'ChatGPT', 'Google', 'Gemini', '微软', 'Microsoft', 'Copilot',
+  'Anthropic', 'Claude', 'Meta', 'NVIDIA', '英伟达', 'Apple', '苹果',
+  '字节', '抖音', '阿里', '腾讯', '百度', '华为', '京东', '美团', '小米',
+  'Cognition', 'Runway', 'Midjourney', 'Sora',
+];
+function isIndieRelevant(text) {
+  const t = String(text || '');
+  return !BLOCK_KEYWORDS.some(k => t.includes(k));
+}
+
 // ─── 主流程 ─────────────────────────────────────────────
 
 async function main() {
@@ -169,14 +184,17 @@ async function main() {
   // 3. 取素材：本周 Radar 已发布快讯作为选题线索（仅线索，不做快讯展示）
   console.log('\n📥 读取 Radar 选题线索（近 7 天）...');
   const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
-  const published = await sb(
+  const publishedRaw = await sb(
     `/radar_items?status=eq.published&published_at=gte.${encodeURIComponent(cutoff)}&order=score.desc&limit=30`
   );
   // 原始素材池（HN / GitHub / RSS），拓宽选题面，避免 GLM 只盯着少数快讯
-  const candidates = await sb(
-    `/radar_candidates?fetched_at=gte.${encodeURIComponent(cutoff)}&order=fetched_at.desc&limit=25`
+  const candidatesRaw = await sb(
+    `/radar_candidates?fetched_at=gte.${encodeURIComponent(cutoff)}&order=fetched_at.desc&limit=60`
   );
-  console.log(`   快讯线索: ${(published || []).length} 条 | 原始素材: ${(candidates || []).length} 条`);
+  // 确定性过滤：剔除大公司/资本事件素材，只留独立开发者相关
+  const published = (publishedRaw || []).filter(r => isIndieRelevant(`${r.title} ${r.summary}`));
+  const candidates = (candidatesRaw || []).filter(c => isIndieRelevant(`${c.title} ${c.snippet}`));
+  console.log(`   快讯线索: ${(publishedRaw || []).length} → 过滤后 ${published.length} 条 | 原始素材: ${(candidatesRaw || []).length} → 过滤后 ${candidates.length} 条`);
 
   const seedText = (published || []).slice(0, 20).map(r =>
     `[${r.source_name}] ${r.title}${r.summary ? ' — ' + String(r.summary).slice(0, 200) : ''}\nURL: ${r.source_url}`
@@ -214,7 +232,7 @@ ${dupHint}${excludeHint}
 3. 必须有公开可核实的商业数据：收入 / MRR / 用户量 / 定价至少其一，查不到就写"未披露"，严禁推测编造
 4. 每篇必须能回答「一个独立开发者如何复刻或利用这个机会」：复刻路径、所需技能、预估 MVP 周期；回答不了的选题不收
 
-优先选题来源：Indie Hackers、Product Hunt、TrustMRR、X 独立开发者社区、GitHub 热门个人项目，以及上方线索中符合铁律的条目。大公司融资、收购、人事、纯技术论文、与商业变现无关的更新，一律视为废稿。
+优先选题来源（按优先级）：主动用联网搜索在 Indie Hackers、Product Hunt、TrustMRR、Hacker News 的 Show HN、X 独立开发者社区中寻找本周新发布或披露收入的 solo 产品——这类案例优先级最高；其次才是上方线索中符合铁律的条目。上方线索仅作参考，不符合铁律的一律无视。大公司融资、收购、人事、纯技术论文、与商业变现无关的更新，一律视为废稿。
 
 输出一个 JSON 数组（不要输出其他文字），恰好 ${count} 项，每项字段：
 - title: 中文标题（30字以内）
