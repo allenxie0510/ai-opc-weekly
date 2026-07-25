@@ -732,3 +732,25 @@ a.admin-item-title:hover { color: var(--color-blue); }
   .admin-item-btns { flex-direction: row; }
   .admin-item-btns .admin-btn { flex: 1; }
 }
+
+/* ═══ 审核台 · 编辑表单 ═══ */
+.admin-edit-form { display: flex; flex-direction: column; gap: 12px; flex: 1; min-width: 0; }
+.admin-field { display: flex; flex-direction: column; gap: 5px; flex: 1; min-width: 0; }
+.admin-field > span { font-size: 12px; font-weight: 600; color: var(--color-stone); }
+.admin-field input,
+.admin-field textarea,
+.admin-field select {
+  padding: 10px 12px; border: 1px solid var(--color-mist); border-radius: 9px;
+  font-size: 14px; font-family: var(--font-body); color: var(--color-ink);
+  background: #fff; width: 100%; box-sizing: border-box;
+}
+.admin-field textarea { resize: vertical; line-height: 1.55; }
+.admin-field input:focus,
+.admin-field textarea:focus,
+.admin-field select:focus { outline: none; border-color: var(--color-blue); }
+.admin-field-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.admin-edit-btns { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 2px; }
+@media (max-width: 640px) {
+  .admin-field-row { flex-direction: column; }
+  .admin-edit-btns .admin-btn { flex: 1; }
+}

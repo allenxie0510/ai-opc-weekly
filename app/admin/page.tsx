@@ -48,6 +48,9 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  // 编辑态：editing = { type, id } | null；editForm 为正在编辑的字段副本
+  const [editing, setEditing] = useState<{ type: 'radar' | 'weekly'; id: string } | null>(null);
+  const [editForm, setEditForm] = useState<Record<string, string | number>>({});
 
   const load = useCallback(async (t: string) => {
     setLoading(true);
@@ -142,6 +145,48 @@ export default function AdminPage() {
             ? '已触发雷达抓取 + 生成 ⚡ 约 2–3 分钟后点「刷新」查看新草稿'
             : '已触发周报生成 ⚡ 约 3–5 分钟后点「刷新」查看草稿',
         );
+      }
+    } catch {
+      setMessage('网络错误');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function startEdit(type: 'radar' | 'weekly', id: string, fields: Record<string, string | number>) {
+    setEditing({ type, id });
+    setEditForm(fields);
+    setMessage('');
+  }
+
+  function cancelEdit() {
+    setEditing(null);
+    setEditForm({});
+  }
+
+  async function saveEdit(thenPublish: boolean) {
+    if (!editing || busy) return;
+    setBusy(true);
+    setMessage('');
+    try {
+      const res = await fetch('/api/admin/edit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-token': token },
+        body: JSON.stringify({ type: editing.type, id: editing.id, fields: editForm }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setMessage(data.error || '保存失败');
+        return;
+      }
+      const editId = editing.id;
+      const editType = editing.type;
+      cancelEdit();
+      if (thenPublish) {
+        await act('publish', editType, [editId]); // act 内部会 reload
+      } else {
+        setMessage('已保存 ✓');
+        await load(token);
       }
     } catch {
       setMessage('网络错误');
@@ -262,64 +307,155 @@ export default function AdminPage() {
                 <div className="admin-list">
                   {radarDrafts.map((d) => (
                     <div key={d.id} className={`admin-item${selected.has(d.id) ? ' checked' : ''}`}>
-                      <label className="admin-item-main">
-                        <input
-                          type="checkbox"
-                          checked={selected.has(d.id)}
-                          onChange={() => toggle(d.id)}
-                        />
-                        <span className="admin-item-body">
-                          <span className="admin-item-title-row">
-                            <span className="admin-score">{d.score}</span>
-                            <a
-                              href={d.source_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="admin-item-title"
-                            >
-                              {d.title}
-                            </a>
-                          </span>
-                          <span className="admin-item-meta">
-                            {d.source_name} · {d.category} · {d.published_at}
-                          </span>
-                          {d.pick_reason && (
-                            <span className="admin-item-reason">✦ {d.pick_reason}</span>
-                          )}
-                          <span className="admin-item-summary">{d.summary}</span>
-                          {d.editor_note && (
-                            <button
-                              type="button"
-                              className="admin-note-toggle"
-                              onClick={(e) => {
-                                e.preventDefault();
-                                toggleSet(setExpandedNote, d.id);
-                              }}
-                            >
-                              {expandedNote.has(d.id) ? '收起点评 ▲' : '编辑点评 ▼'}
+                      {editing?.type === 'radar' && editing.id === d.id ? (
+                        /* ─── 雷达编辑表单 ─── */
+                        <div className="admin-edit-form">
+                          <label className="admin-field">
+                            <span>标题</span>
+                            <input
+                              value={String(editForm.title ?? '')}
+                              onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                            />
+                          </label>
+                          <label className="admin-field">
+                            <span>摘要</span>
+                            <textarea
+                              rows={3}
+                              value={String(editForm.summary ?? '')}
+                              onChange={(e) => setEditForm({ ...editForm, summary: e.target.value })}
+                            />
+                          </label>
+                          <label className="admin-field">
+                            <span>编辑点评</span>
+                            <textarea
+                              rows={3}
+                              value={String(editForm.editor_note ?? '')}
+                              onChange={(e) => setEditForm({ ...editForm, editor_note: e.target.value })}
+                            />
+                          </label>
+                          <div className="admin-field-row">
+                            <label className="admin-field">
+                              <span>评分（0–100）</span>
+                              <input
+                                type="number"
+                                min={0}
+                                max={100}
+                                value={String(editForm.score ?? 0)}
+                                onChange={(e) => setEditForm({ ...editForm, score: e.target.value })}
+                              />
+                            </label>
+                            <label className="admin-field">
+                              <span>收录理由</span>
+                              <input
+                                value={String(editForm.pick_reason ?? '')}
+                                onChange={(e) => setEditForm({ ...editForm, pick_reason: e.target.value })}
+                              />
+                            </label>
+                            <label className="admin-field">
+                              <span>分类</span>
+                              <select
+                                value={String(editForm.category ?? 'indie-tool')}
+                                onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
+                              >
+                                <option value="micro-saas">micro-saas</option>
+                                <option value="design-assets">design-assets</option>
+                                <option value="automation">automation</option>
+                                <option value="content-monetize">content-monetize</option>
+                                <option value="indie-tool">indie-tool</option>
+                                <option value="digital-product">digital-product</option>
+                              </select>
+                            </label>
+                          </div>
+                          <div className="admin-edit-btns">
+                            <button className="admin-btn primary" disabled={busy} onClick={() => void saveEdit(true)}>
+                              保存并发布
                             </button>
-                          )}
-                          {d.editor_note && expandedNote.has(d.id) && (
-                            <span className="admin-item-note">{d.editor_note}</span>
-                          )}
-                        </span>
-                      </label>
-                      <div className="admin-item-btns">
-                        <button
-                          className="admin-btn primary sm"
-                          disabled={busy}
-                          onClick={() => void act('publish', 'radar', [d.id])}
-                        >
-                          发布
-                        </button>
-                        <button
-                          className="admin-btn danger sm"
-                          disabled={busy}
-                          onClick={() => void act('discard', 'radar', [d.id])}
-                        >
-                          丢弃
-                        </button>
-                      </div>
+                            <button className="admin-btn" disabled={busy} onClick={() => void saveEdit(false)}>
+                              仅保存
+                            </button>
+                            <button className="admin-btn" disabled={busy} onClick={cancelEdit}>
+                              取消
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <label className="admin-item-main">
+                            <input
+                              type="checkbox"
+                              checked={selected.has(d.id)}
+                              onChange={() => toggle(d.id)}
+                            />
+                            <span className="admin-item-body">
+                              <span className="admin-item-title-row">
+                                <span className="admin-score">{d.score}</span>
+                                <a
+                                  href={d.source_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="admin-item-title"
+                                >
+                                  {d.title}
+                                </a>
+                              </span>
+                              <span className="admin-item-meta">
+                                {d.source_name} · {d.category} · {d.published_at}
+                              </span>
+                              {d.pick_reason && (
+                                <span className="admin-item-reason">✦ {d.pick_reason}</span>
+                              )}
+                              <span className="admin-item-summary">{d.summary}</span>
+                              {d.editor_note && (
+                                <button
+                                  type="button"
+                                  className="admin-note-toggle"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    toggleSet(setExpandedNote, d.id);
+                                  }}
+                                >
+                                  {expandedNote.has(d.id) ? '收起点评 ▲' : '编辑点评 ▼'}
+                                </button>
+                              )}
+                              {d.editor_note && expandedNote.has(d.id) && (
+                                <span className="admin-item-note">{d.editor_note}</span>
+                              )}
+                            </span>
+                          </label>
+                          <div className="admin-item-btns">
+                            <button
+                              className="admin-btn sm"
+                              disabled={busy}
+                              onClick={() =>
+                                startEdit('radar', d.id, {
+                                  title: d.title,
+                                  summary: d.summary,
+                                  editor_note: d.editor_note || '',
+                                  pick_reason: d.pick_reason || '',
+                                  category: d.category,
+                                  score: d.score,
+                                })
+                              }
+                            >
+                              编辑
+                            </button>
+                            <button
+                              className="admin-btn primary sm"
+                              disabled={busy}
+                              onClick={() => void act('publish', 'radar', [d.id])}
+                            >
+                              发布
+                            </button>
+                            <button
+                              className="admin-btn danger sm"
+                              disabled={busy}
+                              onClick={() => void act('discard', 'radar', [d.id])}
+                            >
+                              丢弃
+                            </button>
+                          </div>
+                        </>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -339,50 +475,91 @@ export default function AdminPage() {
                 <div className="admin-list">
                   {weeklyDrafts.map((w) => (
                     <div key={w.id} className="admin-item weekly">
-                      <div className="admin-item-main">
-                        <div className="admin-item-body">
-                          <span className="admin-item-title-row">
-                            <span className="admin-score">#{w.issue_no}</span>
-                            <span className="admin-item-title">{w.title}</span>
-                          </span>
-                          <span className="admin-item-meta">
-                            /weekly/{w.slug} · {w.items.length} 条 · {w.published_at}
-                          </span>
-                          <span className="admin-item-summary">{w.summary}</span>
-                          <button
-                            type="button"
-                            className="admin-note-toggle"
-                            onClick={() => toggleSet(setExpandedIssue, w.id)}
-                          >
-                            {expandedIssue.has(w.id) ? '收起条目 ▲' : '查看条目 ▼'}
-                          </button>
-                          {expandedIssue.has(w.id) && (
-                            <ol className="admin-weekly-items">
-                              {w.items.map((it) => (
-                                <li key={it.id}>
-                                  <em>{it.section}</em> {it.title}
-                                </li>
-                              ))}
-                            </ol>
-                          )}
+                      {editing?.type === 'weekly' && editing.id === w.id ? (
+                        /* ─── 周报编辑表单 ─── */
+                        <div className="admin-edit-form">
+                          <label className="admin-field">
+                            <span>标题</span>
+                            <input
+                              value={String(editForm.title ?? '')}
+                              onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                            />
+                          </label>
+                          <label className="admin-field">
+                            <span>摘要</span>
+                            <textarea
+                              rows={4}
+                              value={String(editForm.summary ?? '')}
+                              onChange={(e) => setEditForm({ ...editForm, summary: e.target.value })}
+                            />
+                          </label>
+                          <div className="admin-edit-btns">
+                            <button className="admin-btn primary" disabled={busy} onClick={() => void saveEdit(true)}>
+                              保存并发布
+                            </button>
+                            <button className="admin-btn" disabled={busy} onClick={() => void saveEdit(false)}>
+                              仅保存
+                            </button>
+                            <button className="admin-btn" disabled={busy} onClick={cancelEdit}>
+                              取消
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                      <div className="admin-item-btns">
-                        <button
-                          className="admin-btn primary sm"
-                          disabled={busy}
-                          onClick={() => void act('publish', 'weekly', [w.id])}
-                        >
-                          发布本期
-                        </button>
-                        <button
-                          className="admin-btn danger sm"
-                          disabled={busy}
-                          onClick={() => void act('discard', 'weekly', [w.id])}
-                        >
-                          丢弃本期
-                        </button>
-                      </div>
+                      ) : (
+                        <>
+                          <div className="admin-item-main">
+                            <div className="admin-item-body">
+                              <span className="admin-item-title-row">
+                                <span className="admin-score">#{w.issue_no}</span>
+                                <span className="admin-item-title">{w.title}</span>
+                              </span>
+                              <span className="admin-item-meta">
+                                /weekly/{w.slug} · {w.items.length} 条 · {w.published_at}
+                              </span>
+                              <span className="admin-item-summary">{w.summary}</span>
+                              <button
+                                type="button"
+                                className="admin-note-toggle"
+                                onClick={() => toggleSet(setExpandedIssue, w.id)}
+                              >
+                                {expandedIssue.has(w.id) ? '收起条目 ▲' : '查看条目 ▼'}
+                              </button>
+                              {expandedIssue.has(w.id) && (
+                                <ol className="admin-weekly-items">
+                                  {w.items.map((it) => (
+                                    <li key={it.id}>
+                                      <em>{it.section}</em> {it.title}
+                                    </li>
+                                  ))}
+                                </ol>
+                              )}
+                            </div>
+                          </div>
+                          <div className="admin-item-btns">
+                            <button
+                              className="admin-btn sm"
+                              disabled={busy}
+                              onClick={() => startEdit('weekly', w.id, { title: w.title, summary: w.summary })}
+                            >
+                              编辑
+                            </button>
+                            <button
+                              className="admin-btn primary sm"
+                              disabled={busy}
+                              onClick={() => void act('publish', 'weekly', [w.id])}
+                            >
+                              发布本期
+                            </button>
+                            <button
+                              className="admin-btn danger sm"
+                              disabled={busy}
+                              onClick={() => void act('discard', 'weekly', [w.id])}
+                            >
+                              丢弃本期
+                            </button>
+                          </div>
+                        </>
+                      )}
                     </div>
                   ))}
                 </div>
