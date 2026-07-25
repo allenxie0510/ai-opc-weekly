@@ -187,11 +187,14 @@ async function main() {
   // 4. 深度拆解（GLM + 联网搜索，2 批 × 3 篇）
   const sysPrompt = '你是「AI OPC Weekly」的主编，一份面向 AI 一人公司（OPC）创业者的深度周报。你只基于真实素材和联网检索到的公开信息写作，绝不编造。只返回 JSON 数组。';
 
-  function buildPrompt(batchIdx) {
+  function buildPrompt(excludeTitles) {
+    const excludeHint = excludeTitles.length > 0
+      ? `\n\n本期内已拆解的案例（必须避开，选完全不同的案例）：${excludeTitles.join('、')}`
+      : '';
     return `以下是本周（${start}~${end}）OPC Radar 收录的真实快讯，作为选题线索：
 
 ${materialText}
-${dupHint}
+${dupHint}${excludeHint}
 
 任务：围绕「AI × 一人公司创业 / 商业模式 / 变现」这个唯一主题，选出 ${DEEPDIVE_BATCH} 个真实案例/产品/事件，通过联网搜索核实细节后，各写一篇深度拆解。选题优先从上方线索中挖掘，线索不足时可自选本周（或近期）有公开报道的真实案例，但必须能通过联网搜索核实。
 
@@ -220,7 +223,7 @@ ${dupHint}
   for (let b = 0; b < DEEPDIVE_TOTAL / DEEPDIVE_BATCH; b++) {
     console.log(`\n   批次 ${b + 1}/${DEEPDIVE_TOTAL / DEEPDIVE_BATCH}...`);
     try {
-      const raw = await callGLM(sysPrompt, buildPrompt(b));
+      const raw = await callGLM(sysPrompt, buildPrompt(deepdive.map(d => d.title)));
       const mapped = raw.slice(0, DEEPDIVE_BATCH).map(it => ({
         title: String(it.title || '').slice(0, 200),
         description: String(it.description || '').slice(0, 900),
@@ -238,7 +241,13 @@ ${dupHint}
         tags: (Array.isArray(it.tags) ? it.tags : []).map(t => String(t).slice(0, 30)).slice(0, 3),
         section: 'deepdive',
       }));
-      deepdive.push(...mapped);
+      // 本期内去重兜底：标题高度相似的跳过
+      for (const m of mapped) {
+        const key = m.title.replace(/[：:].*$/, '').slice(0, 8);
+        const dup = deepdive.some(d => d.title.includes(key) || m.title.includes(d.title.replace(/[：:].*$/, '').slice(0, 8)));
+        if (dup) { console.log(`   ⚠️ 跳过重复选题: ${m.title}`); continue; }
+        deepdive.push(m);
+      }
     } catch (e) {
       // 单批失败不阻塞整期：保留已成功的批次
       console.log(`   ❌ 批次 ${b + 1} 生成失败（含无工具降级）：${e.message.slice(0, 120)}`);
