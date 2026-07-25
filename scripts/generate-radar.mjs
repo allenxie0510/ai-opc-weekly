@@ -49,7 +49,8 @@ async function callGLMOnce(sysPrompt, userPrompt, model, temperature) {
       model,
       messages: [{ role: 'system', content: sysPrompt }, { role: 'user', content: userPrompt }],
       temperature,
-      max_tokens: 4096
+      max_tokens: 8192,  // 10条快讯+弃选的JSON约4-6K tokens，4096 会截断导致解析失败
+      thinking: { type: 'disabled' }  // 关闭推理模式：否则思考过程吃光 token，正文 content 为空
     })
   });
   const txt = await res.text();
@@ -63,7 +64,10 @@ async function callGLMOnce(sysPrompt, userPrompt, model, temperature) {
   const content = data.choices?.[0]?.message?.content || '';
   // 匹配最外层 JSON 对象 {"items": [...], "rejected": [...]}
   const m = content.match(/\{[\s\S]*\}/);
-  if (!m) throw new Error(`无JSON: ${content.slice(0, 200)}`);
+  if (!m) {
+    const fr = data.choices?.[0]?.finish_reason;
+    throw new Error(`无JSON(finish=${fr}): ${(content || txt).slice(0, 150)}`);
+  }
   const parsed = JSON.parse(m[0]);
   if (!Array.isArray(parsed.items)) throw new Error('items 字段不是数组');
   if (!Array.isArray(parsed.rejected)) parsed.rejected = [];
