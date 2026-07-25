@@ -1,11 +1,14 @@
 /**
- * AI OPC Weekly 自动生成脚本 (P2 · grounded 版)
- * 周报不再凭空生成：全部素材来自 OPC Radar 数据池。
+ * AI OPC Weekly 自动生成脚本 (P3 · 深度版)
  *
- * 三段式结构（news_items.section）：
- *   picks    — 本周快讯精选：radar_items(published, 近7天) 按 score 取前 6，确定性映射，不用 LLM
- *   deepdive — 深度拆解：GLM + 联网搜索，从本周雷达素材选 2 个真实案例核实细节后撰写
- *   rejected — 本周弃选：radar_items(rejected, 近7天) 最多 3 条，显性化筛选逻辑
+ * 内容定位（与 Radar 分工）：
+ *   Radar  = 每日时效快讯（含弃选，显性化筛选）
+ *   Weekly = 只聚焦 AI × OPC 一人公司「创业 / 商业 / 变现」的深度拆解，不含快讯
+ *
+ * 生成方式（grounded，严禁编造）：
+ *   GLM + 联网搜索，以本周 Radar 已发布快讯为选题线索，
+ *   结合联网检索核实真实案例（真实产品 / 真实收入 / 真实信源 URL），
+ *   产出 6 篇深度拆解（分 2 批 × 3 篇，防输出截断）。
  *
  * 用法：node scripts/generate-weekly.mjs
  * 由 GitHub Actions 每周一执行（weekly-newsletter.yml）
@@ -34,9 +37,8 @@ const DRY_RUN = process.env.WEEKLY_DRY_RUN === 'true';
 // 免费模型按顺序兜底：429/1305 拥挤或持续失败时换下一个（与 generate-radar.mjs 一致）
 const GLM_MODELS = ['glm-4.7-flash', 'glm-4.5-flash'];
 
-const PICKS_LIMIT = 6;     // 快讯精选最多 6 条
-const DEEPDIVE_COUNT = 2;  // 深度拆解 2 条
-const REJECTED_LIMIT = 3;  // 本周弃选最多 3 条
+const DEEPDIVE_TOTAL = 6;  // 深度拆解总数（2 批 × 3 篇）
+const DEEPDIVE_BATCH = 3;
 
 const VALID_CATEGORIES = ['micro-saas', 'design-assets', 'automation', 'content-monetize', 'indie-tool', 'digital-product'];
 
@@ -140,7 +142,7 @@ async function callGLM(sysPrompt, userPrompt) {
 // ─── 主流程 ─────────────────────────────────────────────
 
 async function main() {
-  console.log('🚀 AI OPC Weekly — P2 grounded 版（Radar 素材 + GLM 联网检索）');
+  console.log('🚀 AI OPC Weekly — P3 深度版（只做 AI × OPC 创业/商业/变现深度拆解）');
   console.log(`   模式: ${DRY_RUN ? '🔸 DRY_RUN 只打印不写入' : '生产写入'}\n`);
 
   // 1. 期号 / slug
@@ -164,62 +166,42 @@ async function main() {
     }
   }
 
-  // 3. 取素材：时间窗 = 运行时刻往前 7 天
-  console.log('\n📥 读取 Radar 素材（近 7 天）...');
+  // 3. 取素材：本周 Radar 已发布快讯作为选题线索（仅线索，不做快讯展示）
+  console.log('\n📥 读取 Radar 选题线索（近 7 天）...');
   const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
   const published = await sb(
-    `/radar_items?status=eq.published&published_at=gte.${encodeURIComponent(cutoff)}&order=score.desc&limit=50`
+    `/radar_items?status=eq.published&published_at=gte.${encodeURIComponent(cutoff)}&order=score.desc&limit=30`
   );
-  const rejectedPool = await sb(
-    `/radar_items?status=eq.rejected&published_at=gte.${encodeURIComponent(cutoff)}&order=published_at.desc&limit=20`
-  );
-  console.log(`   published: ${(published || []).length} 条 | rejected: ${(rejectedPool || []).length} 条`);
+  console.log(`   线索: ${(published || []).length} 条`);
 
-  if (!published || published.length === 0) {
-    console.log('\n⚠️ 时间窗内没有 published 雷达快讯，无法生成 grounded 周报，退出');
-    return;
-  }
-
-  // 4. 快讯精选（确定性，不用 LLM）：按 score 降序取前 6
-  console.log('\n📌 快讯精选（picks）...');
-  const picks = published.slice(0, PICKS_LIMIT).map((r, i) => ({
-    title: r.title,
-    description: r.summary || '',
-    insight: r.editor_note || '',
-    category: VALID_CATEGORIES.includes(r.category) ? r.category : 'indie-tool',
-    creator_level: 'medium',
-    compound_potential: 'medium',
-    mrr_range: '',
-    pricing: '',
-    mvp_time: '',
-    refs: r.source_url ? [{ label: r.source_name || '来源', url: r.source_url }] : [],
-    tags: [],
-    rank: i + 1,
-    section: 'picks',
-  }));
-  if (picks.length < 3) {
-    console.log(`   ⚠️ 精选仅 ${picks.length} 条（< 3），雷达上线初期数据少属正常，继续`);
-  } else {
-    console.log(`   ✅ ${picks.length} 条`);
-  }
-
-  // 5. 深度拆解（GLM + 联网搜索，2 条）
-  console.log('\n🔬 深度拆解（deepdive，GLM + 联网搜索）...');
-  const materialText = published.slice(0, 30).map(r =>
+  const materialText = (published || []).slice(0, 30).map(r =>
     `[${r.source_name}] ${r.title}${r.summary ? ' — ' + String(r.summary).slice(0, 200) : ''}\nURL: ${r.source_url}`
-  ).join('\n---\n');
+  ).join('\n---\n') || '（本周雷达暂无线索，请完全依靠联网搜索寻找本周真实案例）';
 
-  const sysPrompt = '你是「AI OPC Weekly」的主编，一份面向 AI 一人公司（OPC）创业者的周报。你只基于给定的真实素材和联网检索到的公开信息写作，绝不编造。只返回 JSON 数组。';
-  const userPrompt = `以下是本周（${start}~${end}）OPC Radar 收录的真实快讯素材：
+  // 3b. 去重：最近 12 条周报标题，避免跨周重复选题
+  const hist = await sb('/news_items?select=title&order=created_at.desc&limit=12');
+  const dupHint = (hist || []).length > 0
+    ? `\n\n往期已拆解过的案例（请避开，不要重复选题）：${(hist || []).map(h => String(h.title).slice(0, 20)).join('、')}`
+    : '';
+
+  // 4. 深度拆解（GLM + 联网搜索，2 批 × 3 篇）
+  const sysPrompt = '你是「AI OPC Weekly」的主编，一份面向 AI 一人公司（OPC）创业者的深度周报。你只基于真实素材和联网检索到的公开信息写作，绝不编造。只返回 JSON 数组。';
+
+  function buildPrompt(batchIdx) {
+    return `以下是本周（${start}~${end}）OPC Radar 收录的真实快讯，作为选题线索：
 
 ${materialText}
+${dupHint}
 
-任务：从中选出 2 个与「AI × 一人公司创业」最相关的真实案例/产品/事件，通过联网搜索核实细节后，各写一篇深度拆解。
+任务：围绕「AI × 一人公司创业 / 商业模式 / 变现」这个唯一主题，选出 ${DEEPDIVE_BATCH} 个真实案例/产品/事件，通过联网搜索核实细节后，各写一篇深度拆解。选题优先从上方线索中挖掘，线索不足时可自选本周（或近期）有公开报道的真实案例，但必须能通过联网搜索核实。
 
-输出一个 JSON 数组（不要输出其他文字），恰好 2 项，每项字段：
+只收录这类内容：独立开发者/solo 创业者的真实产品与收入、一人公司可复用的商业模式与定价策略、AI 工具/平台给 solo 创业者带来的新机会、影响一人公司的政策与生态变化。
+不要收录：大公司融资/人事/资本运作（除非直接改变 solo 创业者的机会）、纯技术论文、与商业变现无关的产品更新。
+
+输出一个 JSON 数组（不要输出其他文字），恰好 ${DEEPDIVE_BATCH} 项，每项字段：
 - title: 中文标题（30字以内）
-- description: 200-350字中文，讲清事实与数据（发生了什么、谁做的、规模/收入/增长等公开数字），不用「你/你的」
-- insight: 100-150字中文，第一人称编辑判断（我/我看），有明确立场，不中立和稀泥
+- description: 250-400字中文，讲清事实与数据（谁做的、商业模式是什么、收入/用户/增长等公开数字、对一人创业者的可复制点），不用「你/你的」
+- insight: 100-150字中文，第一人称编辑判断（我/我看），有明确立场，敢泼冷水也敢给结论
 - category: 必须是以下之一: ${VALID_CATEGORIES.join(' / ')}
 - mrr_range: 用搜索到的真实公开收入数据（如 "$10K/月"），查不到填 "未披露"
 - pricing: 真实定价信息，查不到填 "未披露"
@@ -228,61 +210,54 @@ ${materialText}
 - tags: 2-3个中文标签
 
 要求：
-- 严禁编造 URL 和数字；所有数字必须能在公开来源中找到
+- 严禁编造 URL 和数字；所有数字必须能在公开来源中找到，查不到就写"未披露"
 - description 和 insight 用中文
 - 只返回 JSON 数组本身`;
-
-  let deepdive = [];
-  try {
-    const raw = await callGLM(sysPrompt, userPrompt);
-    deepdive = raw.slice(0, DEEPDIVE_COUNT).map((it, i) => ({
-      title: String(it.title || '').slice(0, 200),
-      description: String(it.description || '').slice(0, 800),
-      insight: String(it.insight || '').slice(0, 400),
-      category: VALID_CATEGORIES.includes(it.category) ? it.category : 'indie-tool',
-      creator_level: 'medium',
-      compound_potential: 'medium',
-      mrr_range: String(it.mrr_range || '未披露').slice(0, 100),
-      pricing: String(it.pricing || '未披露').slice(0, 100),
-      mvp_time: String(it.mvp_time || '未披露').slice(0, 100),
-      refs: (Array.isArray(it.refs) ? it.refs : [])
-        .filter(r => r && r.url && /^https?:\/\//.test(r.url))
-        .slice(0, 3)
-        .map(r => ({ label: String(r.label || '来源').slice(0, 50), url: String(r.url) })),
-      tags: (Array.isArray(it.tags) ? it.tags : []).map(t => String(t).slice(0, 30)).slice(0, 3),
-      rank: picks.length + i + 1,  // 接着精选编号：通常 7-8
-      section: 'deepdive',
-    }));
-    if (deepdive.length === 0) console.log('   ⚠️ GLM 返回为空，本期无深度拆解');
-  } catch (e) {
-    // 深度拆解失败不阻塞整期：精选 + 弃选仍可发布
-    console.log(`   ❌ 深度拆解生成失败（含无工具降级）：${e.message.slice(0, 120)}`);
-    console.log('   ⚠️ 本期将只包含快讯精选 + 本周弃选');
   }
 
-  // 6. 本周弃选（确定性，不用 LLM）：窗口内 rejected 最多 3 条
-  console.log('\n🚫 本周弃选（rejected）...');
-  const rejected = (rejectedPool || []).slice(0, REJECTED_LIMIT).map((r, i) => ({
-    title: r.title,
-    description: r.reject_reason || '',
-    insight: '',
-    category: 'indie-tool', // news_items.category 有 NOT NULL 约束；弃选条目前端不走 ArticleCard，分类不参与展示
-    creator_level: 'medium',
-    compound_potential: 'medium',
-    mrr_range: '',
-    pricing: '',
-    mvp_time: '',
-    refs: r.source_url ? [{ label: r.source_name || '来源', url: r.source_url }] : [],
-    tags: [],
-    rank: 90 + i,
-    section: 'rejected',
-  }));
-  console.log(`   ✅ ${rejected.length} 条`);
+  console.log('\n🔬 深度拆解（GLM + 联网搜索，2 批 × 3 篇）...');
+  const deepdive = [];
+  for (let b = 0; b < DEEPDIVE_TOTAL / DEEPDIVE_BATCH; b++) {
+    console.log(`\n   批次 ${b + 1}/${DEEPDIVE_TOTAL / DEEPDIVE_BATCH}...`);
+    try {
+      const raw = await callGLM(sysPrompt, buildPrompt(b));
+      const mapped = raw.slice(0, DEEPDIVE_BATCH).map(it => ({
+        title: String(it.title || '').slice(0, 200),
+        description: String(it.description || '').slice(0, 900),
+        insight: String(it.insight || '').slice(0, 400),
+        category: VALID_CATEGORIES.includes(it.category) ? it.category : 'indie-tool',
+        creator_level: 'medium',
+        compound_potential: 'medium',
+        mrr_range: String(it.mrr_range || '未披露').slice(0, 100),
+        pricing: String(it.pricing || '未披露').slice(0, 100),
+        mvp_time: String(it.mvp_time || '未披露').slice(0, 100),
+        refs: (Array.isArray(it.refs) ? it.refs : [])
+          .filter(r => r && r.url && /^https?:\/\//.test(r.url))
+          .slice(0, 3)
+          .map(r => ({ label: String(r.label || '来源').slice(0, 50), url: String(r.url) })),
+        tags: (Array.isArray(it.tags) ? it.tags : []).map(t => String(t).slice(0, 30)).slice(0, 3),
+        section: 'deepdive',
+      }));
+      deepdive.push(...mapped);
+    } catch (e) {
+      // 单批失败不阻塞整期：保留已成功的批次
+      console.log(`   ❌ 批次 ${b + 1} 生成失败（含无工具降级）：${e.message.slice(0, 120)}`);
+    }
+  }
+  deepdive.forEach((it, i) => { it.rank = i + 1; });
 
-  const news = [...picks, ...deepdive, ...rejected];
-  const summary = `本周 ${picks.length} 条快讯精选 + ${deepdive.length} 个深度拆解，全部来自真实信源。`;
+  if (deepdive.length === 0) {
+    console.log('\n⚠️ 深度拆解全部失败，本期不生成（避免发布空周报）');
+    return;
+  }
+  if (deepdive.length < DEEPDIVE_TOTAL) {
+    console.log(`\n⚠️ 仅 ${deepdive.length}/${DEEPDIVE_TOTAL} 篇成功，按实际数量发布`);
+  }
 
-  // 7. 写入（DRY_RUN 跳过）
+  const news = deepdive;
+  const summary = `本周 ${deepdive.length} 个深度拆解：AI × 一人公司创业 / 商业 / 变现，全部经联网核实。`;
+
+  // 5. 写入（DRY_RUN 跳过）
   console.log('\n💾 Supabase...');
   if (DRY_RUN) {
     console.log('   🔸 DRY_RUN：跳过 weekly_issues / news_items 写入');
@@ -308,11 +283,9 @@ ${materialText}
     console.log(`   ✅ ${rows.length} 条 news_items`);
   }
 
-  // 8. 汇总
+  // 6. 汇总
   console.log('\n📊 汇总:');
-  console.log(`   picks(快讯精选): ${picks.length} 条`);
   console.log(`   deepdive(深度拆解): ${deepdive.length} 条`);
-  console.log(`   rejected(本周弃选): ${rejected.length} 条`);
   console.log(`   DRY_RUN: ${DRY_RUN ? '是（未写入数据库）' : '否（已写入）'}`);
   console.log(`\n✅ W${ni} 完成！\n🌐 https://www.aiopcnews.com/weekly/${slug}`);
 }
