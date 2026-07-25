@@ -35,3 +35,13 @@ CREATE TABLE IF NOT EXISTS radar_items (
 -- 索引
 CREATE INDEX IF NOT EXISTS idx_radar_items_status ON radar_items(status);
 CREATE INDEX IF NOT EXISTS idx_radar_items_published_at ON radar_items(published_at DESC);
+
+-- RLS：快讯对公众只读（仅已发布/弃选），草稿不可见；写入一律走 service key
+ALTER TABLE radar_items ENABLE ROW LEVEL SECURITY;
+CREATE POLICY IF NOT EXISTS "public read radar items"
+  ON radar_items FOR SELECT
+  TO anon, authenticated
+  USING (status IN ('published', 'rejected'));
+
+-- 素材池不公开读，仅 service key 访问
+ALTER TABLE radar_candidates ENABLE ROW LEVEL SECURITY;
