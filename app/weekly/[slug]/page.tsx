@@ -57,15 +57,88 @@ export default async function WeeklyPage({ params }: { params: Promise<{ slug: s
       <HeroSection issue={issue} dateStr={dateStr} />
       <ShareBar slug={slug} />
 
-      <FilterBar categories={Array.from(new Set(items.map(i => i.category)))} />
-      <div className="article-list">
-        {items.map((item, idx) => (
-          <ArticleCard key={item.id} item={item} index={idx + 1} />
-        ))}
-      </div>
+      {(() => {
+        // P2 三段式：存在 deepdive/rejected 条目 → 新版分区布局；否则（旧期数）保持平铺
+        const picks = items.filter(i => !i.section || i.section === 'picks');
+        const deepdive = items.filter(i => i.section === 'deepdive');
+        const rejected = items.filter(i => i.section === 'rejected');
+        const isSectioned = deepdive.length > 0 || rejected.length > 0;
+
+        if (!isSectioned) {
+          return (
+            <>
+              <FilterBar categories={Array.from(new Set(items.map(i => i.category).filter(Boolean)))} />
+              <div className="article-list">
+                {items.map((item, idx) => (
+                  <ArticleCard key={item.id} item={item} index={idx + 1} />
+                ))}
+              </div>
+            </>
+          );
+        }
+
+        const filterable = [...picks, ...deepdive];
+        return (
+          <>
+            <FilterBar categories={Array.from(new Set(filterable.map(i => i.category).filter(Boolean)))} />
+
+            {picks.length > 0 && (
+              <section className="weekly-section">
+                <h2 className="weekly-section-title">
+                  本周快讯精选
+                  <span className="weekly-section-sub">来自 OPC Radar 每日信源 · 按相关度排序</span>
+                </h2>
+                <div className="article-list">
+                  {picks.map((item, idx) => (
+                    <ArticleCard key={item.id} item={item} index={idx + 1} />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {deepdive.length > 0 && (
+              <section className="weekly-section">
+                <h2 className="weekly-section-title">
+                  深度拆解
+                  <span className="weekly-section-sub">GLM 联网检索核实 · 真实数据与信源</span>
+                </h2>
+                <div className="article-list">
+                  {deepdive.map((item, idx) => (
+                    <ArticleCard key={item.id} item={item} index={picks.length + idx + 1} />
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {rejected.length > 0 && (
+              <details className="radar-rejected">
+                <summary className="radar-rejected-summary">本周弃选（{rejected.length} 条）· 看看雷达为什么没收录它们</summary>
+                <div className="radar-rejected-list">
+                  {rejected.map(rj => (
+                    <div key={rj.id} className="radar-rejected-item">
+                      <span className="radar-rejected-title">{rj.title}</span>
+                      <span className="radar-rejected-reason">
+                        {rj.description}
+                        {rj.refs?.[0]?.url && (
+                          <>
+                            {' · '}
+                            <a href={rj.refs[0].url} target="_blank" rel="noopener noreferrer">
+                              {rj.refs[0].label || '来源'}
+                            </a>
+                          </>
+                        )}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            )}
+          </>
+        );
+      })()}
 
       <footer>
-        <p>数据来源：X / Twitter · GitHub Trending · Product Hunt · Indie Hackers · TrustMRR</p>
+        <p>数据来源：OPC Radar 每日信源（HN / GitHub / RSS / X）· 智谱 GLM 联网检索</p>
         <p>本分析仅供方向参考。原创创造价值，不做搬运工。每周一自动更新。</p>
         <p>© 2026 AI OPC Weekly. All rights reserved.</p>
         <div className="visitor-count">

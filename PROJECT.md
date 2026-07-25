@@ -47,6 +47,6 @@
 
 ## 定时任务
 
-- **周报**：GitHub Actions `weekly-newsletter.yml` — 每周一 08:05–12:05 北京时间 5 个触发时段（防 scheduled 被跳过），调用 `scripts/generate-weekly.mjs` 生成 12 条内容写入 Supabase，Vercel ISR 刷新
+- **周报**：GitHub Actions `weekly-newsletter.yml` — 每周一 08:05–12:05 北京时间 5 个触发时段（防 scheduled 被跳过），调用 `scripts/generate-weekly.mjs` 写入 Supabase，Vercel ISR 刷新。自 W31 起改为三段式（快讯精选 + 深度拆解 + 本周弃选），素材来自 Radar 数据池（radar_items 近 7 天 published/rejected）+ GLM 联网检索，不再凭空生成；`WEEKLY_DRY_RUN=true` 可只打印不写入
 - **推文**：GitHub Actions 每 2 小时执行 `scripts/fetch-tweets.mjs` 抓取 RSS.app feeds
 - **OPC Radar · 一人雷达**（/radar）：GitHub Actions `daily-radar.yml` — 每天北京时间 06:47 先跑 `scripts/fetch-sources.mjs` 抓取 HN/GitHub/RSS 素材入 `radar_candidates`，再跑 `scripts/generate-radar.mjs` 用 GLM 筛选写入 `radar_items`（默认 draft，人工在 Supabase 后台改为 published 后前台可见）

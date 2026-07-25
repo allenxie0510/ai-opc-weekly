@@ -140,7 +140,7 @@ export function ArticleCard({ item, index }: { item: NewsItem; index: number }) 
       </div>
 
       <div className={`insight-panel${insightOpen ? ' open' : ''}`}>
-        <strong>落地路径：</strong>{item.insight}
+        <strong>{item.section === 'picks' ? '编辑点评：' : item.section === 'deepdive' ? '编辑判断：' : '落地路径：'}</strong>{item.insight}
       </div>
     </article>
   );

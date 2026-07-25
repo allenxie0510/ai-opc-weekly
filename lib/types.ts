@@ -28,6 +28,8 @@ export interface NewsItem {
   refs: { label: string; url: string }[];
   tags: string[];
   rank: number;
+  /** P2 三段式分区；旧期数无此字段（undefined），前端按旧平铺布局兼容 */
+  section?: 'picks' | 'deepdive' | 'rejected';
 }
 
 export type Category = 'micro-saas' | 'design-assets' | 'automation' | 'content-monetize' | 'indie-tool' | 'digital-product';

@@ -624,3 +624,17 @@ footer p + p { margin-top: 4px; }
   .home-weekly-card { padding: 22px; }
   .home-weekly-title { font-size: 19px; }
 }
+
+/* ═══ 周报三段式分区（P2）═══ */
+.weekly-section { margin-top: 56px; }
+.weekly-section:first-of-type { margin-top: 8px; }
+.weekly-section-title {
+  font-family: var(--font-brand); font-size: 22px; font-weight: 600;
+  letter-spacing: 0.04em; color: var(--color-ink);
+  display: flex; align-items: baseline; gap: 12px;
+  margin: 0 0 20px;
+}
+.weekly-section-sub {
+  font-family: var(--font-body); font-size: 13px; font-weight: 400;
+  color: var(--color-stone); letter-spacing: 0;
+}
