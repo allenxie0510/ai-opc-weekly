@@ -1,0 +1,43 @@
+name: Regenerate Current Weekly (temporary)
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: '只打印不写库 (true/false)'
+        default: 'true'
+        required: true
+
+jobs:
+  regen:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check news_items.section column exists
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          CODE=$(curl -s -o /tmp/colcheck.json -w "%{http_code}" \
+            "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/news_items?select=section&limit=1" \
+            -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY")
+          echo "HTTP $CODE"; cat /tmp/colcheck.json; echo ""
+          if [ "$CODE" != "200" ]; then
+            echo "❌ news_items.section 不存在，请先在 Supabase SQL Editor 执行 supabase/migrations/news_sections.sql"
+            exit 1
+          fi
+          echo "✅ section 字段就绪"
+
+      - name: Regenerate weekly (grounded)
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ZHIPU_API_KEY: ${{ secrets.ZHIPU_API_KEY }}
+          WEEKLY_DRY_RUN: ${{ inputs.dry_run }}
+        run: node scripts/generate-weekly.mjs
