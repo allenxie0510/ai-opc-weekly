@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { getRadarItems, getLatestIssue, getWeeklyIssues, formatShortLabel } from '@/lib/data';
+import { getRadarItems, getLatestIssue, formatShortLabel } from '@/lib/data';
 import { Header } from '@/components/page-shell';
 import { PageViewCounter } from '@/components/page-view-counter';
 import { RadarCard, dayKey, dayLabel } from '@/components/radar-card';
@@ -7,10 +7,9 @@ import { RadarCard, dayKey, dayLabel } from '@/components/radar-card';
 export const revalidate = 300;
 
 export default async function Home() {
-  const [items, latest, issues] = await Promise.all([
+  const [items, latest] = await Promise.all([
     getRadarItems(),
     getLatestIssue(),
-    getWeeklyIssues(),
   ]);
 
   // 今日雷达：取最近一天的快讯，首页最多展示 4 条
@@ -18,8 +17,6 @@ export default async function Home() {
   const todayItems = latestDay
     ? items.filter(it => dayKey(it.published_at) === latestDay).slice(0, 4)
     : [];
-
-  const recentIssues = issues.slice(1, 4); // 最新一期走大卡片，这里取稍早的几期
 
   return (
     <>
@@ -62,24 +59,12 @@ export default async function Home() {
           </div>
 
           {latest ? (
-            <>
-              <Link href={`/weekly/${latest.slug}`} className="home-weekly-card">
-                <span className="home-weekly-label">{formatShortLabel(latest)}</span>
-                <span className="home-weekly-title">{latest.title}</span>
-                {latest.summary && <span className="home-weekly-summary">{latest.summary}</span>}
-                <span className="home-weekly-cta">阅读本期 →</span>
-              </Link>
-
-              {recentIssues.length > 0 && (
-                <div className="home-issues-row">
-                  {recentIssues.map(iss => (
-                    <Link key={iss.slug} href={`/weekly/${iss.slug}`} className="home-issue-link">
-                      {formatShortLabel(iss)} · {iss.title}
-                    </Link>
-                  ))}
-                </div>
-              )}
-            </>
+            <Link href={`/weekly/${latest.slug}`} className="home-weekly-card">
+              <span className="home-weekly-label">{formatShortLabel(latest)}</span>
+              <span className="home-weekly-title">{latest.title}</span>
+              {latest.summary && <span className="home-weekly-summary">{latest.summary}</span>}
+              <span className="home-weekly-cta">阅读本期 →</span>
+            </Link>
           ) : (
             <div className="radar-empty">
               <p className="radar-empty-title">暂无已发布的周报</p>
