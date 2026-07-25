@@ -51,6 +51,7 @@ jobs:
       - name: Generate & Publish
         if: steps.check.outputs.skip != 'true'
         env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           ZHIPU_API_KEY: ${{ secrets.ZHIPU_API_KEY }}
         run: node scripts/generate-weekly.mjs
