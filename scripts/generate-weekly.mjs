@@ -266,7 +266,7 @@ ${materialText}
     title: r.title,
     description: r.reject_reason || '',
     insight: '',
-    category: null,
+    category: 'indie-tool', // news_items.category 有 NOT NULL 约束；弃选条目前端不走 ArticleCard，分类不参与展示
     creator_level: 'medium',
     compound_potential: 'medium',
     mrr_range: '',
