@@ -69,7 +69,7 @@ export async function POST(request: Request) {
       .from(table)
       .update(update)
       .eq('id', id)
-      .eq('status', 'draft'); // 只允许草稿被编辑
+      .in('status', ['draft', 'published']); // 草稿与已发布均可编辑（管理员权限）
     if (error) return Response.json({ error: error.message }, { status: 500 });
 
     return Response.json({ status: 'ok' });

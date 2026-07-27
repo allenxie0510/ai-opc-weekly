@@ -70,9 +70,30 @@ export async function GET(request: Request) {
     .order('published_at', { ascending: false });
   if (jErr) return Response.json({ error: jErr.message }, { status: 500 });
 
+  // 已发布雷达（最近 7 天，供在线编辑/下架）
+  const { data: radarPublished, error: pErr } = await supabase
+    .from('radar_items')
+    .select('id, title, summary, source_name, source_url, score, category, pick_reason, editor_note, published_at')
+    .eq('status', 'published')
+    .gte('published_at', rejCutoff)
+    .order('published_at', { ascending: false })
+    .limit(50);
+  if (pErr) return Response.json({ error: pErr.message }, { status: 500 });
+
+  // 已发布周报（最近 4 期，供在线编辑/下架）
+  const { data: weeklyPublishedRows, error: wpErr } = await supabase
+    .from('weekly_issues')
+    .select('id, slug, issue_number, title, summary, week_start, week_end')
+    .eq('status', 'published')
+    .order('published_at', { ascending: false })
+    .limit(4);
+  if (wpErr) return Response.json({ error: wpErr.message }, { status: 500 });
+
   return Response.json({
     radarDrafts: radarDrafts || [],
     weeklyDrafts: weekly,
     radarRejected: radarRejected || [],
+    radarPublished: radarPublished || [],
+    weeklyPublished: weeklyPublishedRows || [],
   });
 }

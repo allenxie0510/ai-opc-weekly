@@ -35,8 +35,8 @@ export async function POST(request: Request) {
 
   try {
     const { action, type, ids } = await request.json();
-    if (!['publish', 'discard'].includes(action)) {
-      return Response.json({ error: 'action 必须是 publish 或 discard' }, { status: 400 });
+    if (!['publish', 'discard', 'unpublish'].includes(action)) {
+      return Response.json({ error: 'action 必须是 publish / discard / unpublish' }, { status: 400 });
     }
     if (!['radar', 'weekly'].includes(type)) {
       return Response.json({ error: 'type 必须是 radar 或 weekly' }, { status: 400 });
@@ -57,6 +57,15 @@ export async function POST(request: Request) {
           .select('id');
         if (error) return Response.json({ error: error.message }, { status: 500 });
         affected = data?.length || 0;
+      } else if (action === 'unpublish') {
+        const { data, error } = await supabase
+          .from('radar_items')
+          .update({ status: 'draft' })  // 下架退回草稿箱，可编辑后重新发布
+          .in('id', ids)
+          .eq('status', 'published')
+          .select('id');
+        if (error) return Response.json({ error: error.message }, { status: 500 });
+        affected = data?.length || 0;
       } else {
         const { error, count } = await supabase
           .from('radar_items')
@@ -74,6 +83,15 @@ export async function POST(request: Request) {
           .update({ status: 'published' })
           .in('id', ids)
           .eq('status', 'draft')
+          .select('id');
+        if (error) return Response.json({ error: error.message }, { status: 500 });
+        affected = data?.length || 0;
+      } else if (action === 'unpublish') {
+        const { data, error } = await supabase
+          .from('weekly_issues')
+          .update({ status: 'draft' })
+          .in('id', ids)
+          .eq('status', 'published')
           .select('id');
         if (error) return Response.json({ error: error.message }, { status: 500 });
         affected = data?.length || 0;
