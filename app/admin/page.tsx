@@ -59,8 +59,7 @@ export default function AdminPage() {
       const res = await fetch('/api/admin/review', {
         headers: { 'x-admin-token': t },
         cache: 'no-store',
-      });
-      if (res.status === 401) {
+      });      if (res.status === 401) {
         localStorage.removeItem('ai_opc_admin_token');
         setAuthed(false);
         setMessage('密码错误，请重新输入');
@@ -99,6 +98,18 @@ export default function AdminPage() {
     void load(passwordInput);
   }
 
+  async function revalidateSite() {
+    // 发布/下架/丢弃后立即清除前台 ISR 缓存，访客即时看到变化
+    try {
+      await fetch('/api/admin/revalidate', {
+        method: 'POST',
+        headers: { 'x-admin-token': token },
+      });
+    } catch {
+      // 失败不阻塞，退化为 5 分钟周期生效
+    }
+  }
+
   async function act(action: 'publish' | 'discard' | 'unpublish', type: 'radar' | 'weekly', ids: string[]) {
     if (ids.length === 0 || busy) return;
     if (action === 'discard' && !window.confirm(`确认丢弃 ${ids.length} 条？不可恢复。`)) return;
@@ -117,11 +128,12 @@ export default function AdminPage() {
       } else {
         setMessage(
           action === 'publish'
-            ? `已发布 ${data.affected} 条 ✓`
+            ? `已发布 ${data.affected} 条 ✓（前台即时生效）`
             : action === 'unpublish'
               ? `已下架 ${data.affected} 条（已退回草稿区）`
               : `已丢弃 ${data.affected} 条`,
         );
+        await revalidateSite();
         await load(token);
       }
     } catch {

@@ -77,6 +77,18 @@ export function AdminEditButton({
 
   if (!isAdmin) return null;
 
+  async function revalidate() {
+    // 按需清除 ISR 缓存，让刷新立即拿到最新数据
+    try {
+      await fetch('/api/admin/revalidate', {
+        method: 'POST',
+        headers: { 'x-admin-token': localStorage.getItem('ai_opc_admin_token') || '' },
+      });
+    } catch {
+      // 缓存清除失败不阻塞，退化为 5 分钟周期生效
+    }
+  }
+
   async function save() {
     if (busy) return;
     setBusy(true);
@@ -101,8 +113,9 @@ export function AdminEditButton({
         setMsg(data.error || '保存失败');
         return;
       }
+      await revalidate();
       setOpen(false);
-      router.refresh(); // ISR 页面最长 5 分钟内生效
+      router.refresh();
     } catch {
       setMsg('网络错误');
     } finally {
@@ -128,6 +141,7 @@ export function AdminEditButton({
         setMsg(data.error || '下架失败');
         return;
       }
+      await revalidate();
       setOpen(false);
       router.refresh();
     } catch {
@@ -238,7 +252,7 @@ export function AdminEditButton({
                     取消
                   </button>
                 </div>
-                <p className="admin-modal-hint">保存后前台最长约 5 分钟生效（页面缓存）</p>
+                <p className="admin-modal-hint">保存后立即生效（已自动清除页面缓存）</p>
               </>
             )}
             {msg && <p className="admin-msg">{msg}</p>}
