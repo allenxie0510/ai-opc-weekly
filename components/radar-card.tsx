@@ -1,5 +1,6 @@
 import { CATEGORY_MAP } from '@/lib/types';
 import type { RadarItem } from '@/lib/types';
+import { AdminEditButton } from '@/components/admin-edit';
 
 export function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -36,6 +37,18 @@ export function RadarCard({ item }: { item: RadarItem }) {
   const cat = item.category ? CATEGORY_MAP[item.category] : null;
   return (
     <article className="radar-card">
+      <AdminEditButton
+        type="radar"
+        id={item.id}
+        initial={{
+          title: item.title,
+          summary: item.summary || '',
+          editor_note: item.editor_note || '',
+          pick_reason: item.pick_reason || '',
+          category: item.category || 'indie-tool',
+          score: item.score,
+        }}
+      />
       <div className="radar-card-top">
         {cat && <span className={`art-cat-pill ${cat.cssClass}`}>{cat.label}</span>}
         {item.pick_reason && <span className="radar-pick">{item.pick_reason}</span>}

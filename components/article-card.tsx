@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import type { NewsItem } from '@/lib/types';
+import { AdminEditButton } from '@/components/admin-edit';
 
 const CAT_CSS: Record<string, string> = {
   'micro-saas': 'cat-microsaas',
@@ -106,7 +107,19 @@ export function ArticleCard({ item, index }: { item: NewsItem; index: number }) 
   const catLabel = CAT_LABELS[item.category] || item.category.replace('-', ' ').replace(/\b\w/g, c => c.toUpperCase());
 
   return (
-    <article data-category={item.category} className="article">
+    <article data-category={item.category} className="article" style={{ position: 'relative' }}>
+      <AdminEditButton
+        type="news_item"
+        id={item.id}
+        initial={{
+          title: item.title,
+          description: item.description || '',
+          insight: item.insight || '',
+          mrr_range: item.mrr_range || '',
+          pricing: item.pricing || '',
+          mvp_time: item.mvp_time || '',
+        }}
+      />
       <div className="art-header">
         <span className={`art-cat-pill ${CAT_CSS[item.category] || ''}`}>{catLabel}</span>
         <span className="art-idx">{String(index).padStart(2, '0')}</span>

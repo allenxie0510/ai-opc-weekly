@@ -25,6 +25,7 @@ function isAdmin(request: Request): boolean {
 
 const RADAR_FIELDS = ['title', 'summary', 'editor_note', 'pick_reason', 'category', 'score'] as const;
 const WEEKLY_FIELDS = ['title', 'summary'] as const;
+const NEWS_ITEM_FIELDS = ['title', 'description', 'insight', 'mrr_range', 'pricing', 'mvp_time'] as const;
 const CATEGORIES = ['micro-saas', 'design-assets', 'automation', 'content-monetize', 'indie-tool', 'digital-product'];
 
 export async function POST(request: Request) {
@@ -38,15 +39,16 @@ export async function POST(request: Request) {
 
   try {
     const { type, id, fields } = await request.json();
-    if (!['radar', 'weekly'].includes(type)) {
-      return Response.json({ error: 'type 必须是 radar 或 weekly' }, { status: 400 });
+    if (!['radar', 'weekly', 'news_item'].includes(type)) {
+      return Response.json({ error: 'type 必须是 radar / weekly / news_item' }, { status: 400 });
     }
     if (!id || typeof fields !== 'object' || fields === null) {
       return Response.json({ error: 'id 和 fields 必填' }, { status: 400 });
     }
 
     // 只保留白名单字段，并做长度/取值约束
-    const allowed = type === 'radar' ? RADAR_FIELDS : WEEKLY_FIELDS;
+    const allowed =
+      type === 'radar' ? RADAR_FIELDS : type === 'weekly' ? WEEKLY_FIELDS : NEWS_ITEM_FIELDS;
     const update: Record<string, unknown> = {};
     for (const key of allowed) {
       if (!(key in fields)) continue;
@@ -57,19 +59,20 @@ export async function POST(request: Request) {
         if (!CATEGORIES.includes(v)) return Response.json({ error: 'category 非法' }, { status: 400 });
         update.category = v;
       } else {
-        update[key] = String(v ?? '').slice(0, key === 'title' ? 200 : key === 'pick_reason' ? 100 : 500);
+        update[key] = String(v ?? '').slice(0, key === 'title' ? 200 : key === 'pick_reason' ? 100 : key === 'mrr_range' || key === 'pricing' || key === 'mvp_time' ? 100 : 1000);
       }
     }
     if (Object.keys(update).length === 0) {
       return Response.json({ error: '没有可更新的字段' }, { status: 400 });
     }
 
-    const table = type === 'radar' ? 'radar_items' : 'weekly_issues';
-    const { error } = await supabase
-      .from(table)
-      .update(update)
-      .eq('id', id)
-      .in('status', ['draft', 'published']); // 草稿与已发布均可编辑（管理员权限）
+    const table = type === 'radar' ? 'radar_items' : type === 'weekly' ? 'weekly_issues' : 'news_items';
+    let query = supabase.from(table).update(update).eq('id', id);
+    if (type !== 'news_item') {
+      // news_items 无 status 列；radar/weekly 草稿与已发布均可编辑（管理员权限）
+      query = query.in('status', ['draft', 'published']);
+    }
+    const { error } = await query;
     if (error) return Response.json({ error: error.message }, { status: 500 });
 
     return Response.json({ status: 'ok' });

@@ -763,3 +763,36 @@ a.admin-item-title:hover { color: var(--color-blue); }
 .weekly-section:last-of-type {
   margin-bottom: 56px;
 }
+
+/* ═══ Notion 式就地编辑（仅管理员可见）═══ */
+.admin-inline-edit {
+  position: absolute; top: 10px; right: 10px; z-index: 5;
+  width: 30px; height: 30px; border-radius: 8px;
+  border: 1px solid var(--color-mist); background: rgba(255, 255, 255, 0.92);
+  color: var(--color-stone); font-size: 14px; line-height: 1; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0.55; transition: opacity 0.15s, color 0.15s, border-color 0.15s;
+}
+.admin-inline-edit:hover { opacity: 1; color: var(--color-blue); border-color: var(--color-blue); }
+.radar-card { position: relative; }
+
+.admin-modal-mask {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(10, 10, 10, 0.45);
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: 48px 16px; overflow-y: auto;
+}
+.admin-modal {
+  background: #fff; border-radius: 14px; padding: 22px;
+  width: 100%; max-width: 520px;
+  display: flex; flex-direction: column; gap: 12px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+}
+.admin-modal-head { display: flex; align-items: center; justify-content: space-between; }
+.admin-modal-head strong { font-size: 16px; color: var(--color-ink); }
+.admin-modal-close {
+  border: none; background: none; font-size: 22px; line-height: 1;
+  color: var(--color-stone); cursor: pointer; padding: 0 4px;
+}
+.admin-modal-close:hover { color: var(--color-ink); }
+.admin-modal-hint { font-size: 12px; color: var(--color-stone); margin: 0; }
