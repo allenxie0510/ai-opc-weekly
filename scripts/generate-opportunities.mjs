@@ -153,6 +153,28 @@ async function urlOk(url) {
 
 const clamp = v => Math.max(0, Math.min(100, parseInt(v, 10) || 0));
 
+// ─── Stage 3 主编判断：抽象风格规则（不进样本原文，防抄写）───
+const TAKE_STYLE_RULES = `你是一个 AI 一人公司创业情报站的主编，刚调研完一个方向，写下你的判断。风格：
+- 第一人称"我"，克制书面语，长短句交错
+- 有明确立场：看好什么、担心什么、什么条件下判断成立
+- 可以泛化联系独立开发者的真实工作场景，但不点名自己用过任何具体产品/功能
+- 不喊口号、不用营销词、不重复摘要已有信息，只写"判断"
+- 80–120 字`;
+
+/** 相似度校验：take 若与任一样本共享 ≥12 字连续片段（忽略空白标点），判为抄写 */
+function tooSimilarToSamples(take, samples) {
+  const norm = s => (s || '').replace(/[\s，。、！？；：""''（）()—…·\-.,!?;:]/g, '');
+  const t = norm(take);
+  if (t.length < 12) return false;
+  for (const smp of samples) {
+    const n = norm(smp);
+    for (let i = 0; i + 12 <= t.length; i++) {
+      if (n.includes(t.slice(i, i + 12))) return true;
+    }
+  }
+  return false;
+}
+
 // ─── 主流程 ─────────────────────────────────────────────
 
 async function main() {
@@ -217,14 +239,11 @@ ${digest}
   }
 
   // 3. Stage 2：逐聚类深度调研（联网）
-  const samples = loadStyleSamples();
-  const styleHint = samples.length > 0
-    ? `\n以下是主编过往点评的口吻样本，只用于学习语气与节奏（克制书面语、第一人称、敢下判断）：
-${samples.slice(0, 2).map(s => `- ${s}`).join('\n')}
-【严禁】复制样本中的任何句子、事例、产品名或经历（如 Computer use、iPad 等）。editor_take 必须 100% 围绕本机会展开，提及本机会的具体实体（产品/公司/数据），读起来像主编刚调研完这个方向写下的判断。\n`
-    : '';
+  // 注意：editor_take 不在本阶段生成（Stage 3 独立一轮）——
+  // 口吻样本与正文同 prompt 会诱发模型抄样本，结构隔离才根治
 
   let created = 0;
+  const samples = loadStyleSamples();  // 仅用于 Stage 3 相似度校验，不进任何 prompt
   for (const [ci, cluster] of clusters.entries()) {
     console.log(`\n🔬 Stage 2 [${ci + 1}/${clusters.length}]: ${cluster.theme}（${cluster.signal_indexes.length} 条信号）...`);
     const clusterSignals = cluster.signal_indexes.map(i => `#${i} ${signals[i].title}\n   ${signals[i].summary || ''}\n   URL: ${signals[i].source_url}`).join('\n');
@@ -240,7 +259,6 @@ ${clusterSignals}
 - 调研 Indie Hackers / Product Hunt / Show HN 上是否已有 solo 开发者在做并披露收入
 - 调研竞争格局与被 OpenAI/Google 等平台直接吃掉的风险
 - 所有 MRR/用户/定价数字必须给出来源 URL 和原文摘录；查不到就写 "未披露"
-${styleHint}
 【具体性铁律——这是本任务最重要的要求】
 - 每个文字字段都必须锚定本方向的具体实体：信号或调研中出现的真实产品名、公司名、创始人名、数字、URL、社区名。不允许写"换个方向也成立"的通用分析
 - 自检方法：每写完一段，把它套到另一个 AI 创业方向上读一遍，如果依然成立，说明是废话，必须重写到不成立为止
@@ -290,7 +308,6 @@ ${styleHint}
   "evidence": [
     { "claim": "该证据支撑的判断", "source_name": "来源名", "source_url": "https://...", "quote": "原文摘录(80字内)", "tier": "S/A/B/C/D" }
   ],
-  "editor_take": "80-120字主编判断草稿，第一人称，有明确立场",
   "editor_conviction": "high / medium / low 之一",
   "cases": [
     {
@@ -397,6 +414,37 @@ ${styleHint}
       }
     }
 
+    // Stage 3：主编判断独立生成（结构隔离：prompt 里只有本机会材料 + 抽象风格规则，无样本原文）
+    let editorTake = '';
+    const takeUser = `以下是一个 AI 一人公司创业机会的核心材料：
+
+机会：${String(opp.title || cluster.theme)}
+论断：${String(opp.thesis || '')}
+为什么是现在：${String(opp.why_now || '')}
+为什么能成：${String(opp.bull_case || '')}
+为什么会败：${String(opp.bear_case || '')}
+结论：${String(opp.recommendation || '')}（${String(opp.recommendation_reason || '')}）
+证据：${evidence.map(e => `${e.source_name}：${e.claim}`).join('；')}
+
+任务：写下你作为主编的判断。要求：必须提及本机会的具体实体（产品/公司/数据/社区中的至少一个），聚焦"我怎么看这个机会"而不是复述材料。
+只返回 JSON 对象 {"editor_take": "..."}`;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const r = await callGLM(TAKE_STYLE_RULES, takeUser, false);
+        const t = String(r.editor_take || '').trim().slice(0, 300);
+        if (!t) continue;
+        if (tooSimilarToSamples(t, samples)) {
+          console.log(`   ⚠️ editor_take 与口吻样本雷同${attempt === 0 ? '，重写一轮' : '（重试仍雷同，保留待人工改）'}`);
+          if (attempt === 0) continue;
+        }
+        editorTake = t;
+        break;
+      } catch (e) {
+        console.log(`   ⚠️ editor_take 生成失败: ${e.message.slice(0, 60)}`);
+        break;
+      }
+    }
+
     const row = {
       slug,
       title: String(opp.title || cluster.theme).slice(0, 100),
@@ -429,7 +477,7 @@ ${styleHint}
         recommendation_reason: String(opp.recommendation_reason || '').slice(0, 150),
       },
       evidence,
-      editor_take: String(opp.editor_take || '').slice(0, 300),
+      editor_take: editorTake,
       editor_conviction: ['high', 'medium', 'low'].includes(opp.editor_conviction) ? opp.editor_conviction : 'medium',
       category: VALID_CATEGORIES.includes(opp.category) ? opp.category : 'indie-tool',
       signal_ids: cluster.signal_indexes.map(i => signals[i].id),
