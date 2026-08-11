@@ -89,6 +89,104 @@ export interface RadarItem {
   created_at: string;
 }
 
+// ═══ Opportunities · 机会情报（重构 P1） ═══
+
+export type Recommendation = 'BUILD' | 'WATCH' | 'NICHE_ONLY' | 'SKIP';
+export type EvidenceGrade = 'A' | 'B' | 'C' | 'D';
+
+export interface OpportunityEvidence {
+  claim: string;
+  source_name: string;
+  source_url: string;
+  quote: string;
+  tier: 'S' | 'A' | 'B' | 'C' | 'D';
+}
+
+export interface ValidationPlan {
+  hypothesis: string;
+  steps: string[];
+  success_threshold: string;
+  kill_condition: string;
+  niche_hint?: string;
+  recommendation_reason?: string;
+}
+
+export interface Opportunity {
+  id: string;
+  slug: string;
+  title: string;
+  thesis: string;
+  why_now: string;
+  customer: string;
+  pain: string;
+  who_pays: string;
+  business_model: string;
+  pricing_hint: string;
+  mvp_weeks: string;
+  distribution: string;
+  competition: string;
+  platform_risk: string;
+  bull_case: string;
+  bear_case: string;
+  mvp_wedge: string;
+  first_10_customers: string;
+  score_demand: number;
+  score_solo_fit: number;
+  score_monetization: number;
+  score_distribution: number;
+  score_timing: number;
+  score_defensibility: number;
+  score_operating: number;
+  score_total: number;
+  evidence_grade: EvidenceGrade;
+  recommendation: Recommendation;
+  timing: 'early' | 'right-time' | 'late';
+  validation_plan: ValidationPlan;
+  evidence: OpportunityEvidence[];
+  editor_take: string;
+  editor_conviction: 'high' | 'medium' | 'low';
+  category: Category;
+  signal_ids: string[];
+  case_ids: string[];
+  status: 'draft' | 'published' | 'archived';
+  published_at: string;
+  created_at: string;
+}
+
+export interface OpportunityCase {
+  id: string;
+  name: string;
+  url: string;
+  founder: string;
+  team_size: string;
+  mrr: string;
+  arr?: string;
+  revenue_type: 'founder_disclosed' | 'ai_estimate' | 'undisclosed';
+  revenue_source_url: string;
+  claim_quote: string;
+  pricing: string;
+  distribution: string;
+  source_name: string;
+  source_tier: string;
+}
+
+export const RECOMMENDATION_MAP: Record<Recommendation, { label: string; cssClass: string; desc: string }> = {
+  BUILD: { label: 'BUILD', cssClass: 'rec-build', desc: '值得立即动手' },
+  WATCH: { label: 'WATCH', cssClass: 'rec-watch', desc: '持续观察，等信号' },
+  NICHE_ONLY: { label: 'NICHE ONLY', cssClass: 'rec-niche', desc: '只建议垂直切入' },
+  SKIP: { label: 'SKIP', cssClass: 'rec-skip', desc: '不建议进入' },
+};
+
+export const SCORE_DIMENSIONS: { key: keyof Opportunity; label: string; weight: number }[] = [
+  { key: 'score_demand', label: '需求真实性', weight: 20 },
+  { key: 'score_solo_fit', label: '单人可行性', weight: 20 },
+  { key: 'score_monetization', label: '付费意愿', weight: 15 },
+  { key: 'score_distribution', label: '获客可行性', weight: 15 },
+  { key: 'score_timing', label: '时机', weight: 15 },
+  { key: 'score_defensibility', label: '防御性', weight: 10 },
+  { key: 'score_operating', label: '运营简单度', weight: 5 },
+];
+
 export interface IssueNav {
   current: WeeklyIssue | null;
   newer: WeeklyIssue | null;

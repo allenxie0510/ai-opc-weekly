@@ -1,5 +1,5 @@
 import { supabase, isConfigured } from './supabase';
-import type { WeeklyIssue, NewsItem, IssueNav, Tweet, TwitterAccount, RadarItem } from './types';
+import type { WeeklyIssue, NewsItem, IssueNav, Tweet, TwitterAccount, RadarItem, Opportunity, OpportunityCase } from './types';
 
 export async function getWeeklyIssues(): Promise<WeeklyIssue[]> {
   if (!isConfigured() || !supabase) return [];
@@ -94,7 +94,54 @@ export async function getTwitterAccounts(): Promise<TwitterAccount[]> {
   return data || [];
 }
 
-// ═══ OPC Radar · 一人雷达 ═══
+// ═══ Opportunities · 机会情报 ═══
+
+export async function getOpportunities(): Promise<Opportunity[]> {
+  if (!isConfigured() || !supabase) return [];
+  const { data, error } = await supabase
+    .from('opportunities')
+    .select('*')
+    .eq('status', 'published')
+    .order('score_total', { ascending: false });
+
+  if (error) { console.error('getOpportunities:', error.message); return []; }
+  return data || [];
+}
+
+export async function getOpportunityBySlug(slug: string): Promise<Opportunity | null> {
+  if (!isConfigured() || !supabase) return null;
+  const { data, error } = await supabase
+    .from('opportunities')
+    .select('*')
+    .eq('slug', slug)
+    .eq('status', 'published')
+    .single();
+
+  if (error) return null;
+  return data;
+}
+
+export async function getOpportunityCases(ids: string[]): Promise<OpportunityCase[]> {
+  if (!isConfigured() || !supabase || ids.length === 0) return [];
+  const { data, error } = await supabase
+    .from('cases')
+    .select('*')
+    .in('id', ids);
+
+  if (error) { console.error('getOpportunityCases:', error.message); return []; }
+  return data || [];
+}
+
+export async function getOpportunitySignals(ids: string[]): Promise<Pick<RadarItem, 'id' | 'title' | 'source_url' | 'source_name'>[]> {
+  if (!isConfigured() || !supabase || ids.length === 0) return [];
+  const { data, error } = await supabase
+    .from('radar_items')
+    .select('id, title, source_url, source_name')
+    .in('id', ids);
+
+  if (error) { console.error('getOpportunitySignals:', error.message); return []; }
+  return data || [];
+}
 
 export async function getRadarItems(): Promise<RadarItem[]> {
   if (!isConfigured() || !supabase) return [];

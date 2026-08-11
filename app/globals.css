@@ -845,3 +845,142 @@ a.admin-item-title:hover { color: var(--color-blue); }
   color: #b25e09; background: rgba(178, 94, 9, 0.08);
   border: 1px solid rgba(178, 94, 9, 0.25);
 }
+
+/* ═══ Opportunities · 机会情报（P1.2）═══ */
+
+/* — 列表页 — */
+.opp-list { display: flex; flex-direction: column; gap: 16px; margin-top: 32px; }
+.opp-card {
+  display: block; background: var(--color-canvas); border: 1px solid var(--color-hairline-soft);
+  border-radius: 16px; padding: 22px 24px; text-decoration: none; color: inherit;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.opp-card:hover { border-color: var(--color-muted); box-shadow: 0 4px 20px rgba(0,0,0,0.05); }
+.opp-card-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.opp-card-title { font-size: 1.25rem; font-weight: 700; color: var(--color-ink); margin: 0 0 6px; line-height: 1.35; }
+.opp-card-thesis { font-size: 0.95rem; color: var(--color-slate); margin: 0 0 8px; line-height: 1.55; }
+.opp-card-take {
+  font-size: 0.85rem; color: var(--color-steel); line-height: 1.55; margin: 0 0 10px;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.opp-card-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; font-size: 0.8rem; color: var(--color-stone); }
+.opp-score { font-size: 1.6rem; font-weight: 800; color: var(--color-blue); font-variant-numeric: tabular-nums; }
+
+/* — Recommendation 徽章 — */
+.opp-rec {
+  display: inline-block; padding: 3px 12px; font-size: 0.75rem; font-weight: 800;
+  letter-spacing: 0.06em; border-radius: 9999px;
+}
+.opp-rec.lg { padding: 5px 16px; font-size: 0.85rem; }
+.rec-build { color: #0a7d4f; background: rgba(10,125,79,0.1); border: 1px solid rgba(10,125,79,0.3); }
+.rec-watch { color: #b45309; background: rgba(180,83,9,0.1); border: 1px solid rgba(180,83,9,0.3); }
+.rec-niche { color: #7c3aed; background: rgba(124,58,237,0.1); border: 1px solid rgba(124,58,237,0.3); }
+.rec-skip  { color: var(--color-steel); background: var(--color-surface); border: 1px solid var(--color-hairline); }
+.opp-rec-desc { font-size: 0.85rem; color: var(--color-stone); }
+
+/* — Evidence Grade 徽章 — */
+.opp-evidence {
+  display: inline-block; padding: 1px 8px; font-size: 0.72rem; font-weight: 700;
+  border-radius: 6px; border: 1px solid;
+}
+.opp-evidence.grade-A { color: #0a7d4f; border-color: rgba(10,125,79,0.35); background: rgba(10,125,79,0.07); }
+.opp-evidence.grade-B { color: var(--color-blue-deep); border-color: rgba(29,78,216,0.3); background: rgba(29,78,216,0.06); }
+.opp-evidence.grade-C, .opp-evidence.grade-D { color: var(--color-steel); border-color: var(--color-hairline); background: var(--color-surface); }
+
+/* — 详情页 — */
+.opp-breadcrumb { margin-bottom: 20px; }
+.opp-breadcrumb a { font-size: 0.85rem; color: var(--color-steel); text-decoration: none; }
+.opp-breadcrumb a:hover { color: var(--color-ink); }
+.opp-hero { margin-bottom: 40px; }
+.opp-hero-badges { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+.opp-hero-title { font-size: 2rem; font-weight: 800; color: var(--color-ink); margin: 0 0 10px; line-height: 1.3; }
+.opp-hero-thesis { font-size: 1.1rem; color: var(--color-slate); line-height: 1.6; margin: 0 0 14px; }
+
+.opp-section { margin-bottom: 48px; }
+.opp-section-title {
+  font-size: 0.85rem; font-weight: 800; letter-spacing: 0.08em; color: var(--color-ink);
+  margin: 0 0 16px; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
+}
+.opp-section-sub { font-size: 0.75rem; font-weight: 500; letter-spacing: 0; color: var(--color-stone); }
+.opp-total { font-size: 1.4rem; color: var(--color-blue); font-variant-numeric: tabular-nums; }
+.opp-conviction { font-size: 0.72rem; font-weight: 600; color: var(--color-stone); letter-spacing: 0; }
+
+/* 七维评分条 */
+.opp-scorebars { display: flex; flex-direction: column; gap: 10px; max-width: 640px; }
+.opp-scorebar { display: flex; align-items: center; gap: 12px; font-size: 0.85rem; }
+.opp-scorebar-label { width: 140px; flex-shrink: 0; color: var(--color-charcoal); font-weight: 600; }
+.opp-scorebar-label em { font-style: normal; font-size: 0.72rem; color: var(--color-stone); font-weight: 500; margin-left: 4px; }
+.opp-scorebar-track { flex: 1; height: 8px; background: var(--color-surface-soft); border-radius: 9999px; overflow: hidden; }
+.opp-scorebar-fill { display: block; height: 100%; background: var(--color-blue); border-radius: 9999px; }
+.opp-scorebar-value { width: 32px; text-align: right; font-weight: 700; color: var(--color-ink); font-variant-numeric: tabular-nums; }
+
+/* 主编判断 */
+.opp-editor { background: var(--color-surface); border-radius: 16px; padding: 24px; }
+.opp-editor .opp-section-title { margin-bottom: 10px; }
+.opp-editor-take { font-size: 1rem; color: var(--color-charcoal); line-height: 1.7; margin: 0; }
+
+/* 机会分析字段 */
+.opp-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 20px 32px; }
+.opp-field-label { font-size: 0.75rem; font-weight: 700; color: var(--color-stone); letter-spacing: 0.04em; margin-bottom: 5px; }
+.opp-field-value { font-size: 0.92rem; color: var(--color-charcoal); line-height: 1.65; }
+.opp-bullbear { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 28px; }
+.opp-bull, .opp-bear { border-radius: 14px; padding: 18px 20px; }
+.opp-bull { background: rgba(10,125,79,0.05); border: 1px solid rgba(10,125,79,0.18); }
+.opp-bear { background: rgba(178,83,9,0.05); border: 1px solid rgba(178,83,9,0.18); }
+.opp-bull h3, .opp-bear h3 { font-size: 0.85rem; font-weight: 700; margin: 0 0 8px; }
+.opp-bull h3 { color: #0a7d4f; }
+.opp-bear h3 { color: #b45309; }
+.opp-bull p, .opp-bear p { font-size: 0.9rem; color: var(--color-charcoal); line-height: 1.65; margin: 0; }
+
+/* 验证计划 */
+.opp-vp-hypothesis { font-size: 0.95rem; font-weight: 600; color: var(--color-ink); margin: 0 0 12px; }
+.opp-vp-steps { margin: 0 0 14px; padding-left: 22px; display: flex; flex-direction: column; gap: 8px; }
+.opp-vp-steps li { font-size: 0.92rem; color: var(--color-charcoal); line-height: 1.6; }
+.opp-vp-thresholds { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; }
+.opp-vp-pass, .opp-vp-kill { font-size: 0.8rem; font-weight: 600; padding: 4px 12px; border-radius: 8px; }
+.opp-vp-pass { color: #0a7d4f; background: rgba(10,125,79,0.08); }
+.opp-vp-kill { color: #b91c1c; background: rgba(185,28,28,0.07); }
+.opp-vp-niche { font-size: 0.88rem; color: #7c3aed; margin: 0; }
+
+/* 案例卡 */
+.opp-cases { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.opp-case { border: 1px solid var(--color-hairline-soft); border-radius: 14px; padding: 18px 20px; }
+.opp-case-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 6px; }
+.opp-case-name { font-size: 1rem; font-weight: 700; color: var(--color-ink); text-decoration: none; }
+a.opp-case-name:hover { color: var(--color-blue); }
+.opp-case-mrr { font-size: 0.95rem; font-weight: 800; color: var(--color-blue); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.opp-case-meta { font-size: 0.8rem; color: var(--color-stone); margin-bottom: 10px; }
+
+/* 证据链 */
+.opp-evidences { display: flex; flex-direction: column; gap: 14px; }
+.opp-evi { border: 1px solid var(--color-hairline-soft); border-radius: 14px; padding: 16px 20px; }
+.opp-evi-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.opp-tier {
+  display: inline-block; width: 24px; height: 24px; line-height: 24px; text-align: center;
+  font-size: 0.75rem; font-weight: 800; border-radius: 7px; color: #fff; flex-shrink: 0;
+}
+.opp-tier.tier-S { background: #0a7d4f; }
+.opp-tier.tier-A { background: var(--color-blue); }
+.opp-tier.tier-B { background: var(--color-slate); }
+.opp-tier.tier-C, .opp-tier.tier-D { background: var(--color-muted); }
+.opp-evi-source { font-size: 0.85rem; font-weight: 700; color: var(--color-ink); text-decoration: none; }
+.opp-evi-source:hover { color: var(--color-blue); }
+.opp-evi-claim { font-size: 0.9rem; color: var(--color-charcoal); line-height: 1.6; margin: 0 0 6px; }
+.opp-evi-quote {
+  font-size: 0.82rem; color: var(--color-steel); line-height: 1.6; margin: 0;
+  padding-left: 12px; border-left: 3px solid var(--color-hairline);
+}
+
+/* 支撑信号 */
+.opp-signals { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 10px; }
+.opp-signals li { display: flex; align-items: baseline; gap: 10px; font-size: 0.9rem; }
+.opp-signals a { color: var(--color-charcoal); text-decoration: none; }
+.opp-signals a:hover { color: var(--color-blue); }
+.opp-signal-source { font-size: 0.75rem; color: var(--color-stone); white-space: nowrap; }
+
+@media (max-width: 768px) {
+  .opp-fields, .opp-bullbear, .opp-cases { grid-template-columns: 1fr; }
+  .opp-hero-title { font-size: 1.55rem; }
+  .opp-scorebar-label { width: 108px; font-size: 0.8rem; }
+  .opp-card { padding: 18px 20px; }
+}

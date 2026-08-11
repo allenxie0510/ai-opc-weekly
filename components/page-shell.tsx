@@ -36,6 +36,7 @@ export function Header() {
           <span className="nav-sep">|</span>
           <Link href="/x" className="x-link">X</Link>
           <Link href="/radar" className="x-link">Radar</Link>
+          <Link href="/opportunities" className="x-link">机会</Link>
         </div>
         <div className="nav-links">
           <Link href="/archive">归档</Link>
