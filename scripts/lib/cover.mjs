@@ -36,7 +36,8 @@ async function deriveScene(zk, { title, thesis, category }) {
     `要求：`,
     `1. 用可识别的现实物体或场景做视觉隐喻，画面内容必须直接呼应主题（例如"AI 成本优化"可以画沙漏与芯片）；`,
     `2. 画面只有一个清晰的主体，构图简洁；`,
-    `3. 只输出 1-2 句英文场景描述本身，不要任何解释、前缀、引号或换行。`,
+    `3. 避免以屏幕、文档、报纸、书籍、网页界面为主体（这些元素容易带出文字）；`,
+    `4. 只输出 1-2 句英文场景描述本身，不要任何解释、前缀、引号或换行。`,
     ``,
     `机会标题：${title || ''}`,
     `机会论断：${String(thesis || '').slice(0, 200)}`,
@@ -73,10 +74,10 @@ async function deriveScene(zk, { title, thesis, category }) {
 export function buildCoverPrompt({ scene, category }) {
   const catHint = category ? ` Domain context: ${String(category).replace(/-/g, ' ')}.` : '';
   return [
-    `Flat vector editorial illustration, modern tech magazine cover art.`,
+    `Flat vector editorial spot illustration.`,
     `Scene: ${scene}.${catHint}`,
     `Style: clean flat shapes with soft subtle gradients, muted calm background (light grey, pale blue, or warm beige), one vivid accent color (amber orange or electric blue), a single clear central subject made of recognizable real-world objects, metaphorical storytelling composition, balanced layout with generous breathing space, crisp vector edges, gentle ambient light.`,
-    `No text, no letters, no words, no numbers, no watermark, no logo, not photorealistic.`,
+    `CRITICAL: the image must contain absolutely no text whatsoever — no letters, no words, no numbers, no typography, no headlines, no captions, no documents or screens or newspapers with writing on them, no logo, no watermark. Pure wordless visual scene only. Not photorealistic.`,
   ].join(' ');
 }
 
