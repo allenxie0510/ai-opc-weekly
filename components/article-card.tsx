@@ -131,7 +131,28 @@ export function ArticleCard({ item, index }: { item: NewsItem; index: number }) 
 
       <div className="art-meta">
         {item.mrr_range && (
-          <div className="mi"><span className="ml">单人 MRR</span><span className="mv">{item.mrr_range}</span></div>
+          <div className="mi">
+            <span className="ml">单人 MRR</span>
+            <span className="mv">
+              {item.mrr_range}
+              {item.revenue_type === 'founder_disclosed' && item.revenue_source_url && (
+                <a
+                  className="provenance-badge verified"
+                  href={item.revenue_source_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title={item.claim_quote ? `原文：${item.claim_quote}` : '创始人/官方披露，点击查看来源'}
+                >
+                  ✓ 创始人披露
+                </a>
+              )}
+              {item.revenue_type === 'ai_estimate' && (
+                <span className="provenance-badge estimate" title="有公开依据的间接估算，非官方披露">
+                  ⚠ 估算
+                </span>
+              )}
+            </span>
+          </div>
         )}
         {item.pricing && (
           <div className="mi"><span className="ml">定价</span><span className="mv">{item.pricing}</span></div>

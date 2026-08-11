@@ -285,6 +285,9 @@ ${taskLine}
 - insight: 100-150字中文，第一人称编辑判断（我/我看），核心回答「独立开发者怎么抄这个作业」：复刻切入点、所需技能、现实的 MVP 周期；有明确立场，敢泼冷水也敢给结论
 - category: 必须是以下之一: ${VALID_CATEGORIES.join(' / ')}
 - mrr_range: 用搜索到的真实公开收入数据（如 "$10K/月"），查不到填 "未披露"
+- revenue_type: 必须是以下之一: founder_disclosed（创始人/官方公开披露的收入数字）/ ai_estimate（有公开依据的间接估算）/ undisclosed（查不到，即 mrr_range 为"未披露"）
+- revenue_source_url: 直接支撑 mrr_range 数字的来源页面 URL（创始人原帖/官方页面/采访报道）；mrr_range 为"未披露"时必须填空字符串
+- claim_quote: 上述来源中包含该数字的原文句子（照抄原文，80字以内）；无来源时填空字符串
 - pricing: 真实定价信息，查不到填 "未披露"
 - mvp_time: 真实开发周期信息，查不到填 "未披露"
 - refs: 2-3个真实 URL，格式 [{"label":"来源名","url":"https://..."}]，必须来自搜索结果或上方素材，严禁编造
@@ -292,6 +295,7 @@ ${taskLine}
 
 要求：
 - 严禁编造 URL 和数字；所有数字必须能在公开来源中找到，查不到就写"未披露"
+- 【数字三件套铁律】mrr_range 填了具体数字时，revenue_source_url 和 claim_quote 必须同时给出且互相印证（quote 中应能找到对应数字）；给不出三件套的，mrr_range 一律改填"未披露"、revenue_type 填 undisclosed——宁可不显示数字，也绝不写没出处的数字
 - description 和 insight 用中文
 - 只返回 JSON 数组本身`;
   }
@@ -314,6 +318,9 @@ ${taskLine}
         creator_level: 'medium',
         compound_potential: 'medium',
         mrr_range: String(it.mrr_range || '未披露').slice(0, 100),
+        revenue_type: ['founder_disclosed', 'ai_estimate', 'undisclosed'].includes(it.revenue_type) ? it.revenue_type : 'undisclosed',
+        revenue_source_url: /^https?:\/\//.test(String(it.revenue_source_url || '')) ? String(it.revenue_source_url) : '',
+        claim_quote: String(it.claim_quote || '').slice(0, 200),
         pricing: String(it.pricing || '未披露').slice(0, 100),
         mvp_time: String(it.mvp_time || '未披露').slice(0, 100),
         refs: (Array.isArray(it.refs) ? it.refs : [])
@@ -326,6 +333,30 @@ ${taskLine}
       // 信源真实性校验：404/410/假推文 ID 的 ref 直接丢弃；全部 ref 无效则整篇拒收
       for (const m of mapped) {
         m.refs = await validateRefs(m.refs, m.title);
+
+        // 【数字三件套终审】mrr_range 有具体数字 → revenue_source_url 必须 HTTP 可达且 claim_quote 非空，
+        // 否则抹掉数字降级为"未披露"（宁可没数字，不要没出处的数字——Textify 教训）
+        const hasNumber = /\d/.test(m.mrr_range) && !m.mrr_range.includes('未披露');
+        if (hasNumber) {
+          let verified = false;
+          if (m.revenue_source_url && m.claim_quote) {
+            const okRefs = await validateRefs([{ label: 'revenue', url: m.revenue_source_url }], m.title);
+            verified = okRefs.length > 0;
+          }
+          if (!verified) {
+            console.log(`   ⚠️ 抹除无出处数字: ${m.title}（mrr="${m.mrr_range}" → 未披露）`);
+            m.mrr_range = '未披露';
+            m.revenue_type = 'undisclosed';
+            m.revenue_source_url = '';
+            m.claim_quote = '';
+          } else {
+            console.log(`   ✓ 收入数字已核实[${m.revenue_type}]: ${m.title} ${m.mrr_range}`);
+          }
+        } else {
+          m.revenue_type = 'undisclosed';
+          m.revenue_source_url = '';
+          m.claim_quote = '';
+        }
       }
       const noRef = mapped.filter(m => m.refs.length === 0);
       for (const m of noRef) console.log(`   🚫 终审拒收（无有效信源 URL）: ${m.title}`);
@@ -393,7 +424,18 @@ ${taskLine}
     console.log(`   ✅ issue: ${iid}`);
 
     const rows = news.map(it => ({ ...it, weekly_issue_id: iid }));
-    await sb('/news_items', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates' }, body: JSON.stringify(rows) });
+    try {
+      await sb('/news_items', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates' }, body: JSON.stringify(rows) });
+    } catch (e) {
+      // 兼容：news_items 缺可信度新列时剥离重试（请执行 scripts/migration-001.sql）
+      if (/revenue_type|revenue_source_url|claim_quote/.test(String(e.message))) {
+        console.log('   ⚠️ news_items 缺少可信度新列，降级写入（请执行 scripts/migration-001.sql）');
+        const stripped = rows.map(({ revenue_type, revenue_source_url, claim_quote, ...rest }) => rest);
+        await sb('/news_items', { method: 'POST', headers: { Prefer: 'resolution=merge-duplicates' }, body: JSON.stringify(stripped) });
+      } else {
+        throw e;
+      }
+    }
     console.log(`   ✅ ${rows.length} 条 news_items`);
   }
 

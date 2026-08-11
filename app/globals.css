@@ -829,3 +829,19 @@ a.admin-item-title:hover { color: var(--color-blue); }
     aspect-ratio: 16 / 9;
   }
 }
+
+/* ═══ 数字可信度标注（P0 provenance）═══ */
+.provenance-badge {
+  display: inline-block; margin-left: 6px; padding: 1px 7px;
+  font-size: 11px; font-weight: 600; border-radius: 6px;
+  text-decoration: none; vertical-align: 1px; white-space: nowrap;
+}
+.provenance-badge.verified {
+  color: #0a7d4f; background: rgba(10, 125, 79, 0.08);
+  border: 1px solid rgba(10, 125, 79, 0.25);
+}
+.provenance-badge.verified:hover { background: rgba(10, 125, 79, 0.15); }
+.provenance-badge.estimate {
+  color: #b25e09; background: rgba(178, 94, 9, 0.08);
+  border: 1px solid rgba(178, 94, 9, 0.25);
+}

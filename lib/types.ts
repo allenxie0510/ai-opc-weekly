@@ -30,6 +30,10 @@ export interface NewsItem {
   rank: number;
   /** P2 三段式分区；旧期数无此字段（undefined），前端按旧平铺布局兼容 */
   section?: 'picks' | 'deepdive' | 'rejected';
+  /** P0 可信度：收入数字出处类型与证据（旧期数无此字段） */
+  revenue_type?: 'founder_disclosed' | 'ai_estimate' | 'undisclosed';
+  revenue_source_url?: string;
+  claim_quote?: string;
 }
 
 export type Category = 'micro-saas' | 'design-assets' | 'automation' | 'content-monetize' | 'indie-tool' | 'digital-product';
