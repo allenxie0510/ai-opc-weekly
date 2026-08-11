@@ -23,6 +23,12 @@ const SOURCES = [
     url: 'https://hn.algolia.com/api/v1/search?tags=front_page',
   },
   {
+    kind: 'hackernews',
+    name: 'Show HN',
+    // 创始人一手发布的 0→1 新产品，OPC 最对口信号源
+    url: 'https://hn.algolia.com/api/v1/search?tags=show_hn&hitsPerPage=30',
+  },
+  {
     kind: 'github',
     name: 'GitHub Trending',
     // topic:artificial-intelligence + 近 7 天创建 + stars>50，按 stars 排序
@@ -42,6 +48,12 @@ const SOURCES = [
     kind: 'rss',
     name: '36氪',
     url: 'https://36kr.com/feed',
+  },
+  {
+    kind: 'rss',
+    name: 'AI + a16z',
+    // a16z 文章 RSS 已失效（官网改版后 404），改接其 AI 旗舰播客 feed（Simplecast，结构标准）
+    url: 'https://feeds.simplecast.com/Hb_IuXOo',
   },
 ];
 

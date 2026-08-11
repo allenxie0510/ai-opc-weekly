@@ -35,12 +35,14 @@ const CANDIDATE_LIMIT = 40;   // radar_candidates 取最近 36h 最多 N 条
 const TWEET_LIMIT = 20;       // tweets 取最近 24h 最多 N 条
 
 // Source Tier（确定性映射，不让模型定级）：
-// S 一手证据（GitHub 数据/官方源）/ A 结构化数据 / B 可靠媒体 / C 社区信号 / D 二手
+// S 一手证据（GitHub 数据/官方源）/ A 创始人一手发布/结构化数据 / B 可靠媒体/机构分析 / C 社区信号 / D 二手
 const SOURCE_TIER_MAP = {
   'GitHub Trending': 'S',
+  'Show HN': 'A',        // 创始人一手发布的 0→1 产品
   'TechCrunch AI': 'B',
   'The Verge AI': 'B',
   '36氪': 'B',
+  'AI + a16z': 'B',      // 机构一手分析（播客文字稿摘要）
   'Hacker News': 'C',
 };
 function tierOf(sourceName) {
