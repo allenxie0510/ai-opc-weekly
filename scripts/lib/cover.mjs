@@ -84,19 +84,20 @@ async function deriveScene(zk, { title, thesis, category }) {
 }
 
 /**
- * 构造统一风格的英文概念图 prompt。
+ * 构造统一风格的概念图 prompt（全中文——glm-image 国产训练，中文指令跟随更稳，
+ * 英文禁文字约束被它无视了六轮，根因是它是文字渲染专精模型，要正面用中文下死命令）。
  * 风格锚点（参考科技杂志编辑插画）：扁平矢量 + 柔和渐变、
  * 低饱和安静背景 + 单一醒目强调色、具体物体隐喻、一个清晰主体。
  */
 export function buildCoverPrompt({ scene, category }) {
-  const catHint = category ? ` Domain context: ${String(category).replace(/-/g, ' ')}.` : '';
+  const catHint = category ? `（领域：${String(category).replace(/-/g, ' ')}）` : '';
   return [
-    `Wordless flat vector illustration with no text anywhere in the image.`,
-    `Premium editorial art for a modern tech publication, in the clean geometric style of top SaaS companies.`,
-    `Scene: ${scene}.${catHint}`,
-    `Style: precise flat vector shapes with smooth subtle gradients, calm muted background (pale blue-grey or warm light grey), dominant deep blue and cyan palette with one warm amber-orange accent, a single clear central subject made of recognizable real-world objects (chips, devices, tools, plants), subtle circuit-line or geometric motifs, soft glow highlights, metaphorical storytelling, balanced composition with generous breathing space, crisp clean edges, polished and professional.`,
-    `CRITICAL: the image must contain absolutely no text whatsoever — no letters, no words, no numbers, no Chinese characters, no typography, no headlines, no captions, no documents or screens or newspapers with writing on them, no logo, no watermark. Do not reserve or render any headline/title/banner area — the scene itself fills the entire frame. Pure wordless visual scene only. Not photorealistic.`,
-  ].join(' ');
+    `画一幅无文字的扁平矢量插画，整幅画面不允许出现任何文字。`,
+    `这是为一家现代科技媒体绘制的精品编辑插画，风格对标顶级 SaaS 公司的几何扁平插画风。`,
+    `画面内容：${scene}${catHint}`,
+    `风格要求：精确的扁平矢量造型配柔和微妙的渐变，安静低饱和背景（淡蓝灰或暖浅灰），深蓝与青色为主色调、点缀一处暖橙色，主体是唯一且清晰的、由可识别的现实物体构成（芯片、设备、工具、植物等），可有细腻的电路线或几何纹理与柔和辉光，隐喻式叙事，构图平衡、留白充分，边缘干净锐利，整体精致专业。`,
+    `最重要的要求：画面中绝对禁止出现任何文字——不要字母、不要单词、不要数字、不要汉字、不要标题、不要 caption、不要带字的文档/屏幕/报纸，不要 logo，不要水印，也不要预留任何标题或横幅区域，场景本身铺满整个画面。纯粹无字的视觉场景，不要写实照片风。`,
+  ].join('');
 }
 
 /** 调 CogView 生成一张图，返回临时 URL；失败抛错 */
