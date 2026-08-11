@@ -219,7 +219,9 @@ ${digest}
   // 3. Stage 2：逐聚类深度调研（联网）
   const samples = loadStyleSamples();
   const styleHint = samples.length > 0
-    ? `\neditor_take 口吻模仿以下主编样本（克制书面语、第一人称真实经历、敢下判断）：\n${samples.slice(0, 2).map(s => `- ${s}`).join('\n')}\n`
+    ? `\n以下是主编过往点评的口吻样本，只用于学习语气与节奏（克制书面语、第一人称、敢下判断）：
+${samples.slice(0, 2).map(s => `- ${s}`).join('\n')}
+【严禁】复制样本中的任何句子、事例、产品名或经历（如 Computer use、iPad 等）。editor_take 必须 100% 围绕本机会展开，提及本机会的具体实体（产品/公司/数据），读起来像主编刚调研完这个方向写下的判断。\n`
     : '';
 
   let created = 0;

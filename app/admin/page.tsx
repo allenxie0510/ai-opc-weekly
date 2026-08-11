@@ -46,7 +46,7 @@ type OpportunityDraft = {
   recommendation: string | null;
   editor_conviction: string | null;
   editor_take: string | null;
-  evidence: { title?: string; url?: string; tier?: string }[] | null;
+  evidence: { claim?: string; source_name?: string; source_url?: string; quote?: string; tier?: string }[] | null;
   created_at: string;
 };
 
@@ -718,8 +718,9 @@ export default function AdminPage() {
                                 <span className="admin-item-note">
                                   {o.editor_take && <span style={{ display: 'block', marginBottom: 8 }}>🖊 {o.editor_take}</span>}
                                   {(o.evidence || []).map((ev, i) => (
-                                    <span key={i} style={{ display: 'block' }}>
-                                      [{ev.tier || '?'}] <a href={ev.url} target="_blank" rel="noopener noreferrer">{ev.title || ev.url}</a>
+                                    <span key={i} style={{ display: 'block', marginBottom: 4 }}>
+                                      [{ev.tier || '?'}] <a href={ev.source_url} target="_blank" rel="noopener noreferrer">{ev.source_name || ev.source_url}</a>
+                                      {ev.claim ? ` — ${ev.claim}` : ''}
                                     </span>
                                   ))}
                                 </span>
