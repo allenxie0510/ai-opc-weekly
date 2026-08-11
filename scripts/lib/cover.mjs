@@ -14,7 +14,9 @@
 
 const COGVIEW_API = 'https://open.bigmodel.cn/api/paas/v4/images/generations';
 const ZHIPU_CHAT_API = 'https://open.bigmodel.cn/api/paas/v4/chat/completions';
-const COGVIEW_MODEL = 'cogview-3-flash';
+// 模型降级链：cogview-4（¥0.06/张，语义理解最强）→ 3-plus（¥0.1/张）→ 3-flash（免费但风格跟随差）
+const MODEL_CHAIN = (process.env.COGVIEW_MODEL || 'cogview-4,cogview-3-plus,cogview-3-flash')
+  .split(',').map(s => s.trim()).filter(Boolean);
 const GLM_MODEL = 'glm-4.7-flash';
 // 尺寸降级链：首选 1728x960（16:10），失败退 1440x810，再失败让模型用默认尺寸
 const SIZE_CHAIN = ['1728x960', '1440x810', null];
@@ -81,44 +83,57 @@ export function buildCoverPrompt({ scene, category }) {
 /** 调 CogView 生成一张图，返回临时 URL；失败抛错 */
 async function cogviewGenerate(zk, prompt) {
   let lastErr;
-  for (let i = 0; i < SIZE_CHAIN.length; i++) {
-    const size = SIZE_CHAIN[i];
-    // 429 / 超时友好重试 1 次
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        const body = { model: COGVIEW_MODEL, prompt };
-        if (size) body.size = size;
-        const res = await fetch(COGVIEW_API, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${zk}` },
-          body: JSON.stringify(body),
-          signal: AbortSignal.timeout(90000),
-        });
-        const txt = await res.text();
-        if (!res.ok) {
-          const err = new Error(`CogView ${res.status}: ${txt.slice(0, 150)}`);
-          err.congested = res.status === 429;
-          // size 不被接受时直接走下一条尺寸链，不重试
-          if (size && /size/i.test(txt)) err.sizeRejected = true;
-          throw err;
-        }
-        const url = JSON.parse(txt).data?.[0]?.url;
-        if (!url) throw new Error('CogView 响应无 data[0].url');
-        return url;
-      } catch (e) {
-        lastErr = e;
-        if (e.sizeRejected) {
-          console.log(`   ⚠️ CogView 拒绝尺寸 ${size}，降级重试...`);
+  let modelRejected = false;
+  for (const model of MODEL_CHAIN) {
+    if (modelRejected) { modelRejected = false; }
+    for (let i = 0; i < SIZE_CHAIN.length; i++) {
+      const size = SIZE_CHAIN[i];
+      // 429 / 超时友好重试 1 次
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          const body = { model, prompt, watermark: false };
+          if (size) body.size = size;
+          const res = await fetch(COGVIEW_API, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${zk}` },
+            body: JSON.stringify(body),
+            signal: AbortSignal.timeout(90000),
+          });
+          const txt = await res.text();
+          if (!res.ok) {
+            const err = new Error(`CogView ${res.status}: ${txt.slice(0, 150)}`);
+            err.congested = res.status === 429;
+            // size 不被接受时直接走下一条尺寸链，不重试
+            if (size && /size/i.test(txt)) err.sizeRejected = true;
+            // 模型不存在/未开通：降级下一个模型
+            if (/model|模型/i.test(txt) && (res.status === 400 || res.status === 404)) err.modelRejected = true;
+            throw err;
+          }
+          const url = JSON.parse(txt).data?.[0]?.url;
+          if (!url) throw new Error('CogView 响应无 data[0].url');
+          if (model !== MODEL_CHAIN[0]) console.log(`   ℹ️ 封面使用降级模型 ${model}`);
+          return url;
+        } catch (e) {
+          lastErr = e;
+          if (e.modelRejected) {
+            console.log(`   ⚠️ 模型 ${model} 不可用，降级下一个模型...`);
+            modelRejected = true;
+            break;
+          }
+          if (e.sizeRejected) {
+            console.log(`   ⚠️ CogView 拒绝尺寸 ${size}，降级重试...`);
+            break;
+          }
+          if (e.congested && attempt === 0) {
+            console.log(`   ⚠️ CogView 拥挤(429)，15s 后重试...`);
+            await sleep(15000);
+            continue;
+          }
+          // 其他错误（超时/无 URL）：同一尺寸不再重试，走下一条尺寸链
           break;
         }
-        if (e.congested && attempt === 0) {
-          console.log(`   ⚠️ CogView 拥挤(429)，15s 后重试...`);
-          await sleep(15000);
-          continue;
-        }
-        // 其他错误（超时/无 URL）：同一尺寸不再重试，走下一条尺寸链
-        break;
       }
+      if (modelRejected) break;
     }
   }
   throw lastErr;
