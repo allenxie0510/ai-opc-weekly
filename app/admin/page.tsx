@@ -162,7 +162,7 @@ export default function AdminPage() {
     }
   }
 
-  async function trigger(workflow: 'daily-radar' | 'weekly-newsletter' | 'weekly-opportunities' | 'reports-monitor') {
+  async function trigger(workflow: 'daily-radar' | 'weekly-newsletter' | 'weekly-opportunities') {
     if (busy) return;
     setBusy(true);
     setMessage('');
@@ -181,9 +181,7 @@ export default function AdminPage() {
             ? '已触发雷达抓取 + 生成 ⚡ 约 2–3 分钟后点「刷新」查看新草稿'
             : workflow === 'weekly-newsletter'
               ? '已触发周报生成 ⚡ 约 3–5 分钟后点「刷新」查看草稿'
-              : workflow === 'weekly-opportunities'
-                ? '已触发机会生产线 ⚡ 约 3–5 分钟后点「刷新」查看机会草稿'
-                : '已触发信源周报监测 ⚡ 新素材将进入雷达候选池，随下轮雷达筛选',
+              : '已触发机会生产线 ⚡ 约 3–5 分钟后点「刷新」查看机会草稿',
         );
       }
     } catch {
@@ -289,7 +287,7 @@ export default function AdminPage() {
                   onClick={() => void trigger('daily-radar')}
                   disabled={busy}
                 >
-                  ⚡ 立即拉取雷达
+                  ⚡ 拉取雷达
                 </button>
                 <button
                   className="admin-btn"
@@ -304,13 +302,6 @@ export default function AdminPage() {
                   disabled={busy}
                 >
                   ⚡ 生成机会
-                </button>
-                <button
-                  className="admin-btn"
-                  onClick={() => void trigger('reports-monitor')}
-                  disabled={busy}
-                >
-                  ⚡ 信源周报
                 </button>
                 <button className="admin-btn" onClick={() => void load(token)} disabled={loading}>
                   {loading ? '刷新中…' : '刷新'}
@@ -626,6 +617,17 @@ export default function AdminPage() {
                 <h2>
                   机会草稿 <span className="admin-count">{opportunityDrafts.length}</span>
                 </h2>
+                {opportunityDrafts.length > 0 && (
+                  <div className="admin-actions">
+                    <button
+                      className="admin-btn danger"
+                      disabled={busy}
+                      onClick={() => void act('discard', 'opportunity', opportunityDrafts.map((o) => o.id))}
+                    >
+                      清空全部草稿（{opportunityDrafts.length}）
+                    </button>
+                  </div>
+                )}
               </div>
               {opportunityDrafts.length === 0 ? (
                 <p className="admin-empty">没有待审核的机会（点上方「⚡ 生成机会」手动跑一轮）</p>
