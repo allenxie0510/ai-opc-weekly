@@ -80,6 +80,7 @@ export interface RadarItem {
   category: Category | null;
   status: 'draft' | 'published' | 'rejected';
   reject_reason: string | null;
+  image_url?: string | null;
   published_at: string;
   created_at: string;
 }

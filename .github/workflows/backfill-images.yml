@@ -1,0 +1,22 @@
+name: Backfill Cover Images
+
+# 手动触发：为近 30 天缺封面的雷达条目抓取 OG 封面图
+# 前置：radar_items 表需有 image_url 列（见 scripts/backfill-images.mjs 头部注释）
+
+on:
+  workflow_dispatch:
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Backfill OG cover images
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/backfill-images.mjs

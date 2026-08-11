@@ -47,6 +47,33 @@ async function sb(path, opts = {}) {
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
+// 抓取原文页面的 Open Graph 封面图（og:image → twitter:image 兜底）
+// 失败返回空串，不阻塞主流程
+async function fetchOgImage(url) {
+  try {
+    if (!/^https?:\/\//i.test(url)) return '';
+    const res = await fetch(url, {
+      signal: AbortSignal.timeout(8000),
+      redirect: 'follow',
+      headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36' },
+    });
+    if (!res.ok) return '';
+    const ct = res.headers.get('content-type') || '';
+    if (!ct.includes('text/html')) return '';
+    const html = (await res.text()).slice(0, 200 * 1024); // OG meta 在 <head>，200KB 足够
+    const m =
+      html.match(/<meta[^>]+property=["']og:image(?::secure_url)?["'][^>]*content=["']([^"']+)["']/i) ||
+      html.match(/<meta[^>]+content=["']([^"']+)["'][^>]*property=["']og:image/i) ||
+      html.match(/<meta[^>]+name=["']twitter:image(?::src)?["'][^>]*content=["']([^"']+)["']/i) ||
+      html.match(/<meta[^>]+content=["']([^"']+)["'][^>]*name=["']twitter:image/i);
+    if (!m) return '';
+    const img = m[1].trim().replace(/&amp;/g, '&');
+    return /^https?:\/\//i.test(img) ? img : '';
+  } catch {
+    return '';
+  }
+}
+
 // 读取主编点评风格样本（scripts/style-samples.md，以 "- " 开头的行为有效样本）
 // 无有效样本时返回空数组，prompt 不注入，行为与之前一致
 function loadStyleSamples() {
@@ -236,8 +263,29 @@ ${styleBlock}
     published_at: now,
   }));
 
+  // 5.1 抓取封面图（OG image，并发，单条失败不影响整体）
+  console.log('\n🖼️ 抓取封面图...');
+  const covers = await Promise.all(items.map(it => fetchOgImage(it.source_url)));
+  let coverOk = 0;
+  items.forEach((it, i) => {
+    it.image_url = covers[i] || '';
+    if (covers[i]) coverOk++;
+  });
+  console.log(`   封面命中: ${coverOk}/${items.length}`);
+
   if (items.length > 0) {
-    await sb('/radar_items', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(items) });
+    try {
+      await sb('/radar_items', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(items) });
+    } catch (e) {
+      // 兼容：radar_items 表还没有 image_url 列时，剥离该字段重试（请先执行 SQL 加列）
+      if (String(e.message).includes('image_url')) {
+        console.log('   ⚠️ 表缺少 image_url 列，本次不带封面写入（请执行: alter table radar_items add column if not exists image_url text;）');
+        const stripped = items.map(({ image_url, ...rest }) => rest);
+        await sb('/radar_items', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(stripped) });
+      } else {
+        throw e;
+      }
+    }
   }
 
   // 6. 汇总

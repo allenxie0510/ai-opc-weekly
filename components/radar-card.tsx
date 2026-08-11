@@ -1,6 +1,7 @@
 import { CATEGORY_MAP } from '@/lib/types';
 import type { RadarItem } from '@/lib/types';
 import { AdminEditButton } from '@/components/admin-edit';
+import { RadarCover } from '@/components/radar-cover';
 
 export function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -49,6 +50,7 @@ export function RadarCard({ item }: { item: RadarItem }) {
           score: item.score,
         }}
       />
+      {item.image_url && <RadarCover src={item.image_url} alt={item.title} />}
       <div className="radar-card-top">
         {cat && <span className={`art-cat-pill ${cat.cssClass}`}>{cat.label}</span>}
         {item.pick_reason && <span className="radar-pick">{item.pick_reason}</span>}
