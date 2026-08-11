@@ -14,8 +14,9 @@
 
 const COGVIEW_API = 'https://open.bigmodel.cn/api/paas/v4/images/generations';
 const ZHIPU_CHAT_API = 'https://open.bigmodel.cn/api/paas/v4/chat/completions';
-// 模型降级链：cogview-4（¥0.06/张，语义理解最强）→ 3-plus（¥0.1/张）→ 3-flash（免费但风格跟随差）
-const MODEL_CHAIN = (process.env.COGVIEW_MODEL || 'cogview-4,cogview-3-plus,cogview-3-flash')
+// 模型降级链：glm-image（智谱 SOTA 认知型图像模型，指令跟随/美感最强）
+//   → cogview-4（¥0.06/张）→ cogview-3-plus（¥0.1/张）→ cogview-3-flash（免费兜底）
+const MODEL_CHAIN = (process.env.COGVIEW_MODEL || 'glm-image,cogview-4,cogview-3-plus,cogview-3-flash')
   .split(',').map(s => s.trim()).filter(Boolean);
 const GLM_MODEL = 'glm-4.7-flash';
 // 尺寸降级链：首选 1728x960（16:10），失败退 1440x810，再失败让模型用默认尺寸
@@ -74,9 +75,9 @@ async function deriveScene(zk, { title, thesis, category }) {
 export function buildCoverPrompt({ scene, category }) {
   const catHint = category ? ` Domain context: ${String(category).replace(/-/g, ' ')}.` : '';
   return [
-    `Flat vector editorial spot illustration.`,
+    `Premium flat vector illustration for a modern tech publication, in the clean geometric style of top SaaS companies' editorial art.`,
     `Scene: ${scene}.${catHint}`,
-    `Style: clean flat shapes with soft subtle gradients, muted calm background (light grey, pale blue, or warm beige), one vivid accent color (amber orange or electric blue), a single clear central subject made of recognizable real-world objects, metaphorical storytelling composition, balanced layout with generous breathing space, crisp vector edges, gentle ambient light.`,
+    `Style: precise flat vector shapes with smooth subtle gradients, calm muted background (pale blue-grey or warm light grey), dominant deep blue and cyan palette with one warm amber-orange accent, a single clear central subject made of recognizable real-world objects (chips, devices, tools, plants), subtle circuit-line or geometric motifs, soft glow highlights, metaphorical storytelling, balanced composition with generous breathing space, crisp clean edges, polished and professional.`,
     `CRITICAL: the image must contain absolutely no text whatsoever — no letters, no words, no numbers, no typography, no headlines, no captions, no documents or screens or newspapers with writing on them, no logo, no watermark. Pure wordless visual scene only. Not photorealistic.`,
   ].join(' ');
 }
