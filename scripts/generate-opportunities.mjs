@@ -158,15 +158,17 @@ const clamp = v => Math.max(0, Math.min(100, parseInt(v, 10) || 0));
 async function main() {
   console.log('🚀 AI OPC · 机会生产线（Decision Engine v1）\n');
 
-  // 1. 读取近 7 天 Signals
-  console.log('📡 读取近 7 天 Signals...');
-  const cutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+  // 1. 读取近 14 天 Signals（用 created_at 兜底：早期在 Table Editor 手动改状态的条目 published_at 为 NULL）
+  const WINDOW_DAYS = parseInt(process.env.OPP_WINDOW_DAYS || '14', 10);
+  const MIN_SIGNALS = parseInt(process.env.OPP_MIN_SIGNALS || '6', 10);
+  console.log(`📡 读取近 ${WINDOW_DAYS} 天 Signals...`);
+  const cutoff = new Date(Date.now() - WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
   const signals = await sb(
-    `/radar_items?select=id,title,summary,source_name,source_url,signal_type,source_tier,score,published_at&status=eq.published&published_at=gte.${encodeURIComponent(cutoff)}&order=score.desc&limit=60`
+    `/radar_items?select=id,title,summary,source_name,source_url,signal_type,source_tier,score,published_at,created_at&status=eq.published&created_at=gte.${encodeURIComponent(cutoff)}&order=score.desc&limit=60`
   );
   console.log(`   signals: ${(signals || []).length} 条`);
-  if (!signals || signals.length < 6) {
-    console.log('⚠️ 信号不足（<6 条），本期不生成机会');
+  if (!signals || signals.length < MIN_SIGNALS) {
+    console.log(`⚠️ 信号不足（<${MIN_SIGNALS} 条），本期不生成机会`);
     return;
   }
 
