@@ -1,7 +1,8 @@
 /**
  * AI OPC · 机会封面共享库（Stage 4 / 回填脚本共用）
  *
- * 流程：title + thesis + category → 英文概念图 prompt
+ * 流程：title + thesis + category → GLM 提炼具体视觉场景（4a）
+ *   → 拼入统一风格 prompt（科技杂志扁平编辑插画风）
  *   → 智谱 CogView（cogview-3-flash）文生图（临时 URL）
  *   → 下载字节 → 上传 Supabase Storage bucket `covers`（公开）
  *   → 返回公共 URL；任何一步失败返回 ''（不阻塞主流程，前端有兜底封面）
@@ -12,18 +13,69 @@
  */
 
 const COGVIEW_API = 'https://open.bigmodel.cn/api/paas/v4/images/generations';
+const ZHIPU_CHAT_API = 'https://open.bigmodel.cn/api/paas/v4/chat/completions';
 const COGVIEW_MODEL = 'cogview-3-flash';
+const GLM_MODEL = 'glm-4.7-flash';
 // 尺寸降级链：首选 1728x960（16:10），失败退 1440x810，再失败让模型用默认尺寸
 const SIZE_CHAIN = ['1728x960', '1440x810', null];
 const BUCKET = 'covers';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-/** 构造统一风格的英文概念图 prompt */
-export function buildCoverPrompt({ title, thesis, category }) {
-  const concept = `${title || ''}. ${thesis || ''}`.trim().slice(0, 300);
-  const catHint = category ? ` Domain: ${String(category).replace(/-/g, ' ')}.` : '';
-  return `Minimalist flat editorial illustration for a tech startup intelligence report. Concept: ${concept}.${catHint} Style: flat vector, geometric shapes, muted sophisticated color palette with a single warm amber accent, generous negative space, no text, no letters, no words, no people faces. 16:10 composition.`;
+/**
+ * Stage 4a: 用 GLM 从机会内容提炼一个具体的视觉画面（英文场景描述）。
+ * 关键：画面必须用可识别的现实物体/场景做隐喻，直接呼应主题——
+ * 不要抽象几何装饰（那是上一版"跟主题没相关性"的根因）。
+ * 失败返回 ''，调用方回退到原文截断。
+ */
+async function deriveScene(zk, { title, thesis, category }) {
+  const user = [
+    `你是科技杂志的插画师。请根据下面的创业机会情报，构思一个封面插画画面。`,
+    `要求：`,
+    `1. 用可识别的现实物体或场景做视觉隐喻，画面内容必须直接呼应主题（例如"AI 成本优化"可以画沙漏与芯片）；`,
+    `2. 画面只有一个清晰的主体，构图简洁；`,
+    `3. 只输出 1-2 句英文场景描述本身，不要任何解释、前缀、引号或换行。`,
+    ``,
+    `机会标题：${title || ''}`,
+    `机会论断：${String(thesis || '').slice(0, 200)}`,
+    category ? `领域：${String(category).replace(/-/g, ' ')}` : '',
+  ].filter(Boolean).join('\n');
+  try {
+    const res = await fetch(ZHIPU_CHAT_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${zk}` },
+      body: JSON.stringify({
+        model: GLM_MODEL,
+        messages: [{ role: 'user', content: user }],
+        temperature: 0.7,
+        max_tokens: 120,
+      }),
+      signal: AbortSignal.timeout(45000),
+    });
+    const txt = await res.text();
+    if (!res.ok) throw new Error(`GLM ${res.status}: ${txt.slice(0, 100)}`);
+    const scene = (JSON.parse(txt).choices?.[0]?.message?.content || '')
+      .replace(/^["'\s]+|["'\s]+$/g, '').replace(/\s+/g, ' ').slice(0, 400);
+    return scene;
+  } catch (e) {
+    console.log(`   ⚠️ 场景提炼失败（回退原文）: ${e.message.slice(0, 60)}`);
+    return '';
+  }
+}
+
+/**
+ * 构造统一风格的英文概念图 prompt。
+ * 风格锚点（参考科技杂志编辑插画）：扁平矢量 + 柔和渐变、
+ * 低饱和安静背景 + 单一醒目强调色、具体物体隐喻、一个清晰主体。
+ */
+export function buildCoverPrompt({ scene, category }) {
+  const catHint = category ? ` Domain context: ${String(category).replace(/-/g, ' ')}.` : '';
+  return [
+    `Flat vector editorial illustration, modern tech magazine cover art.`,
+    `Scene: ${scene}.${catHint}`,
+    `Style: clean flat shapes with soft subtle gradients, muted calm background (light grey, pale blue, or warm beige), one vivid accent color (amber orange or electric blue), a single clear central subject made of recognizable real-world objects, metaphorical storytelling composition, balanced layout with generous breathing space, crisp vector edges, gentle ambient light.`,
+    `No text, no letters, no words, no numbers, no watermark, no logo, not photorealistic.`,
+  ].join(' ');
 }
 
 /** 调 CogView 生成一张图，返回临时 URL；失败抛错 */
@@ -125,7 +177,12 @@ export async function generateOpportunityCover(opp) {
     return '';
   }
   try {
-    const prompt = buildCoverPrompt(opp);
+    // 4a: 先从内容提炼具体视觉场景；失败回退到标题+论断原文截断
+    let scene = await deriveScene(zk, opp);
+    if (!scene) {
+      scene = `${opp.title || ''}. ${String(opp.thesis || '').slice(0, 150)}`.trim();
+    }
+    const prompt = buildCoverPrompt({ scene, category: opp.category });
     const tmpUrl = await cogviewGenerate(zk, prompt);
 
     // 下载临时图片字节

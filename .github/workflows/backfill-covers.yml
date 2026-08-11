@@ -7,6 +7,11 @@ name: Backfill Opportunity Covers
 
 on:
   workflow_dispatch:
+    inputs:
+      force:
+        description: '重生成全部封面（包括已有封面的）'
+        type: boolean
+        default: false
 
 jobs:
   backfill:
@@ -22,4 +27,5 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           ZHIPU_API_KEY: ${{ secrets.ZHIPU_API_KEY }}
+          BACKFILL_FORCE: ${{ inputs.force && '1' || '0' }}
         run: node scripts/backfill-covers.mjs

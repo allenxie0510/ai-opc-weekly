@@ -3,7 +3,8 @@
  * 为 opportunities 表中 cover_url 为空的 draft/published 机会
  * 走与生产线 Stage 4 相同的 CogView 生成 + Supabase Storage 上传逻辑，回写 cover_url
  *
- * 用法：node scripts/backfill-covers.mjs
+ * 用法：node scripts/backfill-covers.mjs [--force]
+ *   默认只处理 cover_url 为空的；--force（或 BACKFILL_FORCE=1）重生成全部
  * 由 GitHub Actions 手动触发（backfill-covers.yml，workflow_dispatch）
  *
  * 环境变量：NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY + ZHIPU_API_KEY
@@ -33,12 +34,13 @@ async function sb(path, opts = {}) {
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 async function main() {
-  console.log('🎨 AI OPC · 机会封面回填\n');
+  const force = process.argv.includes('--force') || process.env.BACKFILL_FORCE === '1';
+  console.log(`🎨 AI OPC · 机会封面回填${force ? '（force：全量重生成）' : ''}\n`);
 
   let rows;
   try {
     rows = await sb(
-      `/opportunities?select=id,slug,title,thesis,category&cover_url=is.null&status=in.(draft,published)&order=published_at.desc&limit=50`
+      `/opportunities?select=id,slug,title,thesis,category${force ? '' : '&cover_url=is.null'}&status=in.(draft,published)&order=published_at.desc&limit=50`
     );
   } catch (e) {
     if (/42703|column.*cover_url|cover_url.*column/i.test(e.message)) {
