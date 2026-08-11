@@ -131,15 +131,15 @@ export default function FavoritesPage() {
       }}>
         <div className="container" style={{ flex: 1, paddingTop: 48, paddingBottom: 64, display: 'flex', flexDirection: 'column' }}>
           <header style={{ marginBottom: 48 }}>
-            <h1 style={{ fontFamily: 'var(--font-brand)', fontSize: '2.2rem', fontWeight: 700, letterSpacing: '-0.03em', marginBottom: 8 }}>我的收藏</h1>
+            <h1 style={{ fontFamily: 'var(--font-brand)', fontSize: '2.2rem', fontWeight: 700, letterSpacing: '-0.03em', marginBottom: 8 }}>WATCHLIST</h1>
             <p style={{ color: 'var(--color-steel)', fontSize: '0.95rem' }}>
-              已收藏 <strong>{favs.length}</strong> 个项目
+              我的关注清单 · 已关注 <strong>{favs.length}</strong> 个项目
             </p>
           </header>
 
           {favs.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '60px 0', color: 'var(--color-stone)' }}>
-              还没有收藏任何项目。浏览周报时点击书签图标即可收藏。
+              关注清单还是空的。浏览周报或机会情报时点击书签图标即可加入关注。
               <br />
               <Link href="/" style={{ color: 'var(--color-blue)', fontSize: '0.9rem', textDecoration: 'underline', marginTop: '24px', display: 'inline-block' }}>返回首页</Link>
             </div>
@@ -192,7 +192,7 @@ export default function FavoritesPage() {
           )}
 
           <footer style={{ textAlign: 'center', padding: '48px 0', color: 'var(--color-stone)', fontSize: '0.8rem', marginTop: 'auto' }}>
-            <p>© 2026 AI OPC Weekly. All rights reserved.</p>
+            <p>© 2026 AI OPC. All rights reserved.</p>
           </footer>
         </div>
       </div>

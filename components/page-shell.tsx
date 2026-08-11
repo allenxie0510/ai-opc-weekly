@@ -21,7 +21,7 @@ function FavLinkWithBadge() {
   }, []);
   return (
     <Link href="/favorites" className={`fav-link${count > 0 ? ' has-items' : ''}`}>
-      收藏
+      关注
       {count > 0 && <span className="fav-badge">{count}</span>}
     </Link>
   );
@@ -32,11 +32,11 @@ export function Header() {
     <nav className="nav">
       <div className="nav-inner">
         <div className="nav-left">
-          <Link href="/" className="brand">AI OPC WEEKLY</Link>
+          <Link href="/" className="brand">AI OPC</Link>
           <span className="nav-sep">|</span>
-          <Link href="/x" className="x-link">X</Link>
-          <Link href="/radar" className="x-link">Radar</Link>
           <Link href="/opportunities" className="x-link">机会</Link>
+          <Link href="/radar" className="x-link">Radar</Link>
+          <Link href="/x" className="x-link">X</Link>
         </div>
         <div className="nav-links">
           <Link href="/archive">归档</Link>

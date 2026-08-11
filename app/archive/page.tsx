@@ -27,7 +27,7 @@ export default async function ArchivePage() {
         <div className="container" style={{ flex: 1, paddingTop: 48, paddingBottom: 64, display: 'flex', flexDirection: 'column' }}>
         <header style={{ marginBottom: 48 }}>
           <h1 style={{ fontFamily: 'var(--font-brand)', fontSize: '2.2rem', fontWeight: 700, letterSpacing: '-0.03em', marginBottom: 8 }}>全部周报</h1>
-          <p style={{ color: 'var(--color-steel)', fontSize: '0.95rem' }}>AI OPC Weekly 归档</p>
+          <p style={{ color: 'var(--color-steel)', fontSize: '0.95rem' }}>AI OPC · 周报归档</p>
         </header>
 
         {issues.length === 0 ? (
@@ -56,7 +56,7 @@ export default async function ArchivePage() {
         )}
 
           <footer style={{ textAlign: 'center', padding: '48px 0', color: 'var(--color-stone)', fontSize: '0.8rem', marginTop: 'auto' }}>
-            <p>© 2026 AI OPC Weekly. All rights reserved.</p>
+            <p>© 2026 AI OPC. All rights reserved.</p>
           </footer>
         </div>
       </div>

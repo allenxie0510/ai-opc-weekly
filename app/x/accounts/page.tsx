@@ -387,7 +387,7 @@ export default function XAccountsPage() {
         </section>
 
         <footer style={{ textAlign: 'center', padding: '48px 0', color: 'var(--color-stone)', fontSize: '0.8rem', marginTop: 'auto' }}>
-          <p>© 2026 AI OPC Weekly. All rights reserved.</p>
+          <p>© 2026 AI OPC. All rights reserved.</p>
         </footer>
       </div>
     </>

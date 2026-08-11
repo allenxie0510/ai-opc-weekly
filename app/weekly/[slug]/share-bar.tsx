@@ -5,7 +5,7 @@ export function ShareBar({ slug }: { slug: string }) {
 
   const share = async () => {
     if (navigator.share) {
-      try { await navigator.share({ title: 'AI OPC Weekly', text: 'AI 一人公司创业机会', url }); } catch {}
+      try { await navigator.share({ title: 'AI OPC', text: 'AI 一人公司创业机会情报', url }); } catch {}
     } else {
       navigator.clipboard.writeText(url).catch(() => {});
     }

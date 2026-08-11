@@ -2,11 +2,11 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'AI OPC Weekly · 独立创作者复利创业方向',
-  description: '一人公司 · 独立设计师/开发者 · 可落地的 AI 微创业。每周精选 12 条 AI 创业机会。',
+  title: 'AI OPC · 一人公司创业机会情报',
+  description: 'AI × 一人公司创业机会情报系统：机会判断（OPC Score + 证据链 + 验证计划）+ 每日信号雷达 + 每周精选。',
   openGraph: {
-    title: 'AI OPC Weekly',
-    description: '一人公司 · 独立设计师/开发者 · 可落地的 AI 微创业',
+    title: 'AI OPC',
+    description: 'AI × 一人公司创业机会情报：不只是信息，更是可执行的判断',
     type: 'website',
   },
 };
@@ -24,9 +24,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             __html: JSON.stringify({
               '@context': 'https://schema.org',
               '@type': 'Organization',
-              name: 'AI OPC Weekly',
+              name: 'AI OPC',
               url: 'https://www.aiopcnews.com',
-              description: '一人公司 · 独立设计师/开发者 · 可落地的 AI 微创业周报。每周精选 12 条 AI 创业机会。',
+              description: 'AI × 一人公司创业机会情报系统：机会判断 + 每日信号雷达 + 每周精选。',
               sameAs: ['https://github.com/allenxie0510/ai-opc-weekly'],
             }),
           }}

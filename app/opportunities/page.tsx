@@ -60,7 +60,7 @@ export default async function OpportunitiesPage() {
         <footer style={{ textAlign: 'center', padding: '48px 0', color: 'var(--color-stone)', fontSize: '0.8rem', marginTop: 'auto' }}>
           <p style={{ marginBottom: 6 }}><PageViewCounter /></p>
           <p>机会判断由 AI 深研生成、主编拍板；分数与证据链见详情页。不构成投资建议。</p>
-          <p>© 2026 AI OPC Weekly. All rights reserved.</p>
+          <p>© 2026 AI OPC. All rights reserved.</p>
         </footer>
       </div>
     </>

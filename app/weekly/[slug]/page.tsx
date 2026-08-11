@@ -21,7 +21,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   if (!issue) return { title: 'Not Found' };
 
   return {
-    title: `${issue.title} · AI OPC Weekly`,
+    title: `${issue.title} · AI OPC 周报`,
     description: `AI 一人公司创业机会 · 第 ${issue.week_number} 周`,
     openGraph: {
       title: issue.title,
@@ -115,7 +115,7 @@ export default async function WeeklyPage({ params }: { params: Promise<{ slug: s
       <footer>
         <p>数据来源：OPC Radar 每日信源（HN / GitHub / RSS / X）· 智谱 GLM 联网检索</p>
         <p>本分析仅供方向参考。原创创造价值，不做搬运工。每周一自动更新。</p>
-        <p>© 2026 AI OPC Weekly. All rights reserved.</p>
+        <p>© 2026 AI OPC. All rights reserved.</p>
         <div className="visitor-count">
           <PageViewCounter label="用户数" />
         </div>
@@ -135,12 +135,12 @@ export default async function WeeklyPage({ params }: { params: Promise<{ slug: s
             image: issue.cover_image || undefined,
             author: {
               '@type': 'Organization',
-              name: 'AI OPC Weekly 编辑部',
+              name: 'AI OPC 编辑部',
               url: 'https://www.aiopcnews.com',
             },
             publisher: {
               '@type': 'Organization',
-              name: 'AI OPC Weekly',
+              name: 'AI OPC',
               url: 'https://www.aiopcnews.com',
             },
             about: items.map(i => i.title).join(', '),
