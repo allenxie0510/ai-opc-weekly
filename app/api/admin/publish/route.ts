@@ -38,8 +38,8 @@ export async function POST(request: Request) {
     if (!['publish', 'discard', 'unpublish'].includes(action)) {
       return Response.json({ error: 'action 必须是 publish / discard / unpublish' }, { status: 400 });
     }
-    if (!['radar', 'weekly'].includes(type)) {
-      return Response.json({ error: 'type 必须是 radar 或 weekly' }, { status: 400 });
+    if (!['radar', 'weekly', 'opportunity'].includes(type)) {
+      return Response.json({ error: 'type 必须是 radar / weekly / opportunity' }, { status: 400 });
     }
     if (!Array.isArray(ids) || ids.length === 0) {
       return Response.json({ error: 'ids 不能为空' }, { status: 400 });
@@ -72,6 +72,34 @@ export async function POST(request: Request) {
           .delete({ count: 'exact' })
           .in('id', ids)
           .in('status', ['draft', 'rejected']);  // 草稿和弃选都可删除，published 受保护
+        if (error) return Response.json({ error: error.message }, { status: 500 });
+        affected = count || 0;
+      }
+    } else if (type === 'opportunity') {
+      if (action === 'publish') {
+        const { data, error } = await supabase
+          .from('opportunities')
+          .update({ status: 'published', published_at: new Date().toISOString() })
+          .in('id', ids)
+          .eq('status', 'draft')
+          .select('id');
+        if (error) return Response.json({ error: error.message }, { status: 500 });
+        affected = data?.length || 0;
+      } else if (action === 'unpublish') {
+        const { data, error } = await supabase
+          .from('opportunities')
+          .update({ status: 'draft' })
+          .in('id', ids)
+          .eq('status', 'published')
+          .select('id');
+        if (error) return Response.json({ error: error.message }, { status: 500 });
+        affected = data?.length || 0;
+      } else {
+        const { error, count } = await supabase
+          .from('opportunities')
+          .delete({ count: 'exact' })
+          .in('id', ids)
+          .eq('status', 'draft');  // 已发布机会受保护，先下架再删
         if (error) return Response.json({ error: error.message }, { status: 500 });
         affected = count || 0;
       }

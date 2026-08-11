@@ -89,11 +89,20 @@ export async function GET(request: Request) {
     .limit(4);
   if (wpErr) return Response.json({ error: wpErr.message }, { status: 500 });
 
+  // 机会草稿（重构 P1：opportunities 表，AI 产出草稿，人工拍板 Recommendation 后发布）
+  const { data: opportunityDrafts, error: oErr } = await supabase
+    .from('opportunities')
+    .select('id, slug, title, thesis, category, score_total, evidence_grade, recommendation, editor_conviction, editor_take, evidence, created_at')
+    .eq('status', 'draft')
+    .order('created_at', { ascending: false });
+  if (oErr) return Response.json({ error: oErr.message }, { status: 500 });
+
   return Response.json({
     radarDrafts: radarDrafts || [],
     weeklyDrafts: weekly,
     radarRejected: radarRejected || [],
     radarPublished: radarPublished || [],
     weeklyPublished: weeklyPublishedRows || [],
+    opportunityDrafts: opportunityDrafts || [],
   });
 }

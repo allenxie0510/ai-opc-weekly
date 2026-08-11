@@ -35,6 +35,21 @@ type RadarRejected = {
   published_at: string;
 };
 
+type OpportunityDraft = {
+  id: string;
+  slug: string;
+  title: string;
+  thesis: string | null;
+  category: string | null;
+  score_total: number | null;
+  evidence_grade: string | null;
+  recommendation: string | null;
+  editor_conviction: string | null;
+  editor_take: string | null;
+  evidence: { title?: string; url?: string; tier?: string }[] | null;
+  created_at: string;
+};
+
 export default function AdminPage() {
   const [token, setToken] = useState('');
   const [authed, setAuthed] = useState(false);
@@ -42,14 +57,16 @@ export default function AdminPage() {
   const [radarDrafts, setRadarDrafts] = useState<RadarDraft[]>([]);
   const [weeklyDrafts, setWeeklyDrafts] = useState<WeeklyDraft[]>([]);
   const [radarRejected, setRadarRejected] = useState<RadarRejected[]>([]);
+  const [opportunityDrafts, setOpportunityDrafts] = useState<OpportunityDraft[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [expandedNote, setExpandedNote] = useState<Set<string>>(new Set());
   const [expandedIssue, setExpandedIssue] = useState<Set<string>>(new Set());
+  const [expandedOpp, setExpandedOpp] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   // 编辑态：editing = { type, id } | null；editForm 为正在编辑的字段副本
-  const [editing, setEditing] = useState<{ type: 'radar' | 'weekly'; id: string } | null>(null);
+  const [editing, setEditing] = useState<{ type: 'radar' | 'weekly' | 'opportunity'; id: string } | null>(null);
   const [editForm, setEditForm] = useState<Record<string, string | number>>({});
 
   const load = useCallback(async (t: string) => {
@@ -73,6 +90,7 @@ export default function AdminPage() {
       setRadarDrafts(data.radarDrafts || []);
       setWeeklyDrafts(data.weeklyDrafts || []);
       setRadarRejected(data.radarRejected || []);
+      setOpportunityDrafts(data.opportunityDrafts || []);
       setSelected(new Set());
       setAuthed(true);
     } catch {
@@ -110,7 +128,7 @@ export default function AdminPage() {
     }
   }
 
-  async function act(action: 'publish' | 'discard' | 'unpublish', type: 'radar' | 'weekly', ids: string[]) {
+  async function act(action: 'publish' | 'discard' | 'unpublish', type: 'radar' | 'weekly' | 'opportunity', ids: string[]) {
     if (ids.length === 0 || busy) return;
     if (action === 'discard' && !window.confirm(`确认丢弃 ${ids.length} 条？不可恢复。`)) return;
     if (action === 'unpublish' && !window.confirm(`确认下架 ${ids.length} 条？前台将不可见，可在草稿区编辑后重新发布。`)) return;
@@ -143,7 +161,7 @@ export default function AdminPage() {
     }
   }
 
-  async function trigger(workflow: 'daily-radar' | 'weekly-newsletter') {
+  async function trigger(workflow: 'daily-radar' | 'weekly-newsletter' | 'weekly-opportunities') {
     if (busy) return;
     setBusy(true);
     setMessage('');
@@ -160,7 +178,9 @@ export default function AdminPage() {
         setMessage(
           workflow === 'daily-radar'
             ? '已触发雷达抓取 + 生成 ⚡ 约 2–3 分钟后点「刷新」查看新草稿'
-            : '已触发周报生成 ⚡ 约 3–5 分钟后点「刷新」查看草稿',
+            : workflow === 'weekly-newsletter'
+              ? '已触发周报生成 ⚡ 约 3–5 分钟后点「刷新」查看草稿'
+              : '已触发机会生产线 ⚡ 约 3–5 分钟后点「刷新」查看机会草稿',
         );
       }
     } catch {
@@ -170,7 +190,7 @@ export default function AdminPage() {
     }
   }
 
-  function startEdit(type: 'radar' | 'weekly', id: string, fields: Record<string, string | number>) {
+  function startEdit(type: 'radar' | 'weekly' | 'opportunity', id: string, fields: Record<string, string | number>) {
     setEditing({ type, id });
     setEditForm(fields);
     setMessage('');
@@ -274,6 +294,13 @@ export default function AdminPage() {
                   disabled={busy}
                 >
                   ⚡ 生成周报
+                </button>
+                <button
+                  className="admin-btn"
+                  onClick={() => void trigger('weekly-opportunities')}
+                  disabled={busy}
+                >
+                  ⚡ 生成机会
                 </button>
                 <button className="admin-btn" onClick={() => void load(token)} disabled={loading}>
                   {loading ? '刷新中…' : '刷新'}
@@ -573,6 +600,162 @@ export default function AdminPage() {
                               onClick={() => void act('discard', 'weekly', [w.id])}
                             >
                               丢弃本期
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            {/* ---------- 机会草稿（Opportunities） ---------- */}
+            <section className="admin-section">
+              <div className="admin-section-head">
+                <h2>
+                  机会草稿 <span className="admin-count">{opportunityDrafts.length}</span>
+                </h2>
+              </div>
+              {opportunityDrafts.length === 0 ? (
+                <p className="admin-empty">没有待审核的机会（点上方「⚡ 生成机会」手动跑一轮）</p>
+              ) : (
+                <div className="admin-list">
+                  {opportunityDrafts.map((o) => (
+                    <div key={o.id} className="admin-item weekly">
+                      {editing?.type === 'opportunity' && editing.id === o.id ? (
+                        /* ─── 机会编辑表单 ─── */
+                        <div className="admin-edit-form">
+                          <label className="admin-field">
+                            <span>标题</span>
+                            <input
+                              value={String(editForm.title ?? '')}
+                              onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                            />
+                          </label>
+                          <label className="admin-field">
+                            <span>机会论断（thesis）</span>
+                            <textarea
+                              rows={2}
+                              value={String(editForm.thesis ?? '')}
+                              onChange={(e) => setEditForm({ ...editForm, thesis: e.target.value })}
+                            />
+                          </label>
+                          <label className="admin-field">
+                            <span>主编点评（editor_take）</span>
+                            <textarea
+                              rows={3}
+                              value={String(editForm.editor_take ?? '')}
+                              onChange={(e) => setEditForm({ ...editForm, editor_take: e.target.value })}
+                            />
+                          </label>
+                          <div className="admin-field-row">
+                            <label className="admin-field">
+                              <span>Recommendation（你来拍板）</span>
+                              <select
+                                value={String(editForm.recommendation ?? 'WATCH')}
+                                onChange={(e) => setEditForm({ ...editForm, recommendation: e.target.value })}
+                              >
+                                <option value="BUILD">BUILD</option>
+                                <option value="WATCH">WATCH</option>
+                                <option value="NICHE_ONLY">NICHE_ONLY</option>
+                                <option value="SKIP">SKIP</option>
+                              </select>
+                            </label>
+                            <label className="admin-field">
+                              <span>主编信心</span>
+                              <select
+                                value={String(editForm.editor_conviction ?? 'medium')}
+                                onChange={(e) => setEditForm({ ...editForm, editor_conviction: e.target.value })}
+                              >
+                                <option value="high">high</option>
+                                <option value="medium">medium</option>
+                                <option value="low">low</option>
+                              </select>
+                            </label>
+                            <label className="admin-field">
+                              <span>分类</span>
+                              <input
+                                value={String(editForm.category ?? '')}
+                                onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
+                              />
+                            </label>
+                          </div>
+                          <div className="admin-edit-btns">
+                            <button className="admin-btn primary" disabled={busy} onClick={() => void saveEdit(true)}>
+                              保存并发布
+                            </button>
+                            <button className="admin-btn" disabled={busy} onClick={() => void saveEdit(false)}>
+                              仅保存
+                            </button>
+                            <button className="admin-btn" disabled={busy} onClick={cancelEdit}>
+                              取消
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="admin-item-main">
+                            <div className="admin-item-body">
+                              <span className="admin-item-title-row">
+                                <span className="admin-score">{o.score_total ?? '–'}</span>
+                                <span className="admin-item-title">{o.title}</span>
+                              </span>
+                              <span className="admin-item-meta">
+                                Evidence {o.evidence_grade || '–'} · {o.recommendation || '–'}
+                                {o.editor_conviction ? ` · 信心 ${o.editor_conviction}` : ''}
+                                {o.category ? ` · ${o.category}` : ''} · {o.created_at?.slice(0, 10)}
+                              </span>
+                              {o.thesis && <span className="admin-item-reason">✦ {o.thesis}</span>}
+                              <button
+                                type="button"
+                                className="admin-note-toggle"
+                                onClick={() => toggleSet(setExpandedOpp, o.id)}
+                              >
+                                {expandedOpp.has(o.id) ? '收起详情 ▲' : `详情与证据（${o.evidence?.length || 0} 条）▼`}
+                              </button>
+                              {expandedOpp.has(o.id) && (
+                                <span className="admin-item-note">
+                                  {o.editor_take && <span style={{ display: 'block', marginBottom: 8 }}>🖊 {o.editor_take}</span>}
+                                  {(o.evidence || []).map((ev, i) => (
+                                    <span key={i} style={{ display: 'block' }}>
+                                      [{ev.tier || '?'}] <a href={ev.url} target="_blank" rel="noopener noreferrer">{ev.title || ev.url}</a>
+                                    </span>
+                                  ))}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="admin-item-btns">
+                            <button
+                              className="admin-btn sm"
+                              disabled={busy}
+                              onClick={() =>
+                                startEdit('opportunity', o.id, {
+                                  title: o.title,
+                                  thesis: o.thesis || '',
+                                  editor_take: o.editor_take || '',
+                                  recommendation: o.recommendation || 'WATCH',
+                                  editor_conviction: o.editor_conviction || 'medium',
+                                  category: o.category || '',
+                                })
+                              }
+                            >
+                              编辑
+                            </button>
+                            <button
+                              className="admin-btn primary sm"
+                              disabled={busy}
+                              onClick={() => void act('publish', 'opportunity', [o.id])}
+                            >
+                              发布
+                            </button>
+                            <button
+                              className="admin-btn danger sm"
+                              disabled={busy}
+                              onClick={() => void act('discard', 'opportunity', [o.id])}
+                            >
+                              丢弃
                             </button>
                           </div>
                         </>

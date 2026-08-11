@@ -34,7 +34,9 @@ export async function POST(req: NextRequest) {
   }
 
   const workflowFile =
-    body.workflow === 'weekly-newsletter' ? 'weekly-newsletter.yml' : 'daily-radar.yml';
+    body.workflow === 'weekly-newsletter' ? 'weekly-newsletter.yml'
+    : body.workflow === 'weekly-opportunities' ? 'weekly-opportunities.yml'
+    : 'daily-radar.yml';
 
   const res = await fetch(
     `https://api.github.com/repos/${REPO}/actions/workflows/${workflowFile}/dispatches`,
