@@ -24,7 +24,7 @@ export default async function RadarPage() {
       <div className="container" style={{ paddingTop: 48, paddingBottom: 80, display: 'flex', flexDirection: 'column', minHeight: '100svh' }}>
         <header className="x-pagehead">
           <div>
-            <h1 className="x-pagehead-title">OPC RADAR</h1>
+            <h1 className="x-pagehead-title">一人雷达</h1>
             <p className="x-pagehead-meta">一人雷达 · 每日扫描 AI × 一人公司创业信号</p>
           </div>
         </header>

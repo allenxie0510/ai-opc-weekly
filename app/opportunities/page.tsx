@@ -21,7 +21,7 @@ export default async function OpportunitiesPage() {
       <div className="container" style={{ paddingTop: 48, paddingBottom: 80, display: 'flex', flexDirection: 'column', minHeight: '100svh' }}>
         <header className="x-pagehead">
           <div>
-            <h1 className="x-pagehead-title">OPPORTUNITIES</h1>
+            <h1 className="x-pagehead-title">机会情报</h1>
             <p className="x-pagehead-meta">机会情报 · 信号聚类 ≥3 成机会，AI 深研 + 主编拍板，每条附验证计划</p>
           </div>
         </header>
@@ -47,7 +47,7 @@ export default async function OpportunitiesPage() {
                   {o.thesis && <p className="opp-card-thesis">{o.thesis}</p>}
                   {o.editor_take && <p className="opp-card-take">🖊 {o.editor_take}</p>}
                   <div className="opp-card-meta">
-                    <span className={`opp-evidence grade-${o.evidence_grade}`}>Evidence {o.evidence_grade}</span>
+                    <span className={`opp-evidence grade-${o.evidence_grade}`}>证据 {o.evidence_grade} 级</span>
                     {cat && <span className={`art-cat-pill ${cat.cssClass}`}>{cat.label}</span>}
                     {date && <span>{date}</span>}
                   </div>

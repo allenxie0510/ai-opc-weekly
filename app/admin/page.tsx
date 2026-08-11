@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Header } from '@/components/page-shell';
+import { RECOMMENDATION_MAP, CONVICTION_MAP, CATEGORY_MAP } from '@/lib/types';
 
 type RadarDraft = {
   id: string;
@@ -651,15 +652,15 @@ export default function AdminPage() {
                           </label>
                           <div className="admin-field-row">
                             <label className="admin-field">
-                              <span>Recommendation（你来拍板）</span>
+                              <span>建议结论（你来拍板）</span>
                               <select
                                 value={String(editForm.recommendation ?? 'WATCH')}
                                 onChange={(e) => setEditForm({ ...editForm, recommendation: e.target.value })}
                               >
-                                <option value="BUILD">BUILD</option>
-                                <option value="WATCH">WATCH</option>
-                                <option value="NICHE_ONLY">NICHE_ONLY</option>
-                                <option value="SKIP">SKIP</option>
+                                <option value="BUILD">立即动手</option>
+                                <option value="WATCH">保持关注</option>
+                                <option value="NICHE_ONLY">垂直切入</option>
+                                <option value="SKIP">不建议</option>
                               </select>
                             </label>
                             <label className="admin-field">
@@ -668,9 +669,9 @@ export default function AdminPage() {
                                 value={String(editForm.editor_conviction ?? 'medium')}
                                 onChange={(e) => setEditForm({ ...editForm, editor_conviction: e.target.value })}
                               >
-                                <option value="high">high</option>
-                                <option value="medium">medium</option>
-                                <option value="low">low</option>
+                                <option value="high">高</option>
+                                <option value="medium">中</option>
+                                <option value="low">低</option>
                               </select>
                             </label>
                             <label className="admin-field">
@@ -702,9 +703,9 @@ export default function AdminPage() {
                                 <span className="admin-item-title">{o.title}</span>
                               </span>
                               <span className="admin-item-meta">
-                                Evidence {o.evidence_grade || '–'} · {o.recommendation || '–'}
-                                {o.editor_conviction ? ` · 信心 ${o.editor_conviction}` : ''}
-                                {o.category ? ` · ${o.category}` : ''} · {o.created_at?.slice(0, 10)}
+                                证据 {o.evidence_grade || '–'} 级 · {RECOMMENDATION_MAP[o.recommendation as keyof typeof RECOMMENDATION_MAP]?.label || o.recommendation || '–'}
+                                {o.editor_conviction ? ` · 信心 ${CONVICTION_MAP[o.editor_conviction as keyof typeof CONVICTION_MAP] || o.editor_conviction}` : ''}
+                                {o.category ? ` · ${CATEGORY_MAP[o.category as keyof typeof CATEGORY_MAP]?.label || o.category}` : ''} · {o.created_at?.slice(0, 10)}
                               </span>
                               {o.thesis && <span className="admin-item-reason">✦ {o.thesis}</span>}
                               <button

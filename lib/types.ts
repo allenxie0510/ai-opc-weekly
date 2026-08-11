@@ -171,10 +171,14 @@ export interface OpportunityCase {
 }
 
 export const RECOMMENDATION_MAP: Record<Recommendation, { label: string; cssClass: string; desc: string }> = {
-  BUILD: { label: 'BUILD', cssClass: 'rec-build', desc: '值得立即动手' },
-  WATCH: { label: 'WATCH', cssClass: 'rec-watch', desc: '持续观察，等信号' },
-  NICHE_ONLY: { label: 'NICHE ONLY', cssClass: 'rec-niche', desc: '只建议垂直切入' },
-  SKIP: { label: 'SKIP', cssClass: 'rec-skip', desc: '不建议进入' },
+  BUILD: { label: '立即动手', cssClass: 'rec-build', desc: '值得立即动手验证' },
+  WATCH: { label: '保持关注', cssClass: 'rec-watch', desc: '持续观察，等信号成熟' },
+  NICHE_ONLY: { label: '垂直切入', cssClass: 'rec-niche', desc: '只建议从垂直细分切入' },
+  SKIP: { label: '不建议', cssClass: 'rec-skip', desc: '不建议进入' },
+};
+
+export const CONVICTION_MAP: Record<Opportunity['editor_conviction'], string> = {
+  high: '高', medium: '中', low: '低',
 };
 
 export const SCORE_DIMENSIONS: { key: keyof Opportunity; label: string; weight: number }[] = [

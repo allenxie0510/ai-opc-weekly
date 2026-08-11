@@ -131,7 +131,7 @@ export default function FavoritesPage() {
       }}>
         <div className="container" style={{ flex: 1, paddingTop: 48, paddingBottom: 64, display: 'flex', flexDirection: 'column' }}>
           <header style={{ marginBottom: 48 }}>
-            <h1 style={{ fontFamily: 'var(--font-brand)', fontSize: '2.2rem', fontWeight: 700, letterSpacing: '-0.03em', marginBottom: 8 }}>WATCHLIST</h1>
+            <h1 style={{ fontFamily: 'var(--font-brand)', fontSize: '2.2rem', fontWeight: 700, letterSpacing: '-0.03em', marginBottom: 8 }}>关注清单</h1>
             <p style={{ color: 'var(--color-steel)', fontSize: '0.95rem' }}>
               我的关注清单 · 已关注 <strong>{favs.length}</strong> 个项目
             </p>

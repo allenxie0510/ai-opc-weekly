@@ -49,7 +49,7 @@ export default async function Home() {
                   {RECOMMENDATION_MAP[featured.recommendation]?.label || featured.recommendation}
                 </span>
                 <span className="home-opp-hero-score">
-                  <em>OPC SCORE</em>{featured.score_total}
+                  <em>机会评分</em>{featured.score_total}
                 </span>
               </div>
               <h3 className="home-opp-hero-title">{featured.title}</h3>
@@ -77,7 +77,7 @@ export default async function Home() {
                     <h3 className="opp-card-title" style={{ fontSize: '1.05rem' }}>{o.title}</h3>
                     {o.thesis && <p className="opp-card-thesis">{o.thesis}</p>}
                     <div className="opp-card-meta">
-                      <span className={`opp-evidence grade-${o.evidence_grade}`}>Evidence {o.evidence_grade}</span>
+                      <span className={`opp-evidence grade-${o.evidence_grade}`}>证据 {o.evidence_grade} 级</span>
                       {(o.published_at || '').slice(0, 10)}
                     </div>
                   </Link>

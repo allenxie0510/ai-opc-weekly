@@ -4,7 +4,7 @@ import type { Metadata } from 'next';
 import { getOpportunities, getOpportunityBySlug, getOpportunityCases, getOpportunitySignals } from '@/lib/data';
 import { Header } from '@/components/page-shell';
 import { PageViewCounter } from '@/components/page-view-counter';
-import { CATEGORY_MAP, RECOMMENDATION_MAP, SCORE_DIMENSIONS } from '@/lib/types';
+import { CATEGORY_MAP, RECOMMENDATION_MAP, SCORE_DIMENSIONS, CONVICTION_MAP } from '@/lib/types';
 import type { Opportunity } from '@/lib/types';
 
 export const revalidate = 300;
@@ -84,7 +84,7 @@ export default async function OpportunityPage({ params }: { params: Promise<{ sl
           <h1 className="opp-hero-title">{opp.title}</h1>
           {opp.thesis && <p className="opp-hero-thesis">{opp.thesis}</p>}
           <div className="opp-card-meta">
-            <span className={`opp-evidence grade-${opp.evidence_grade}`}>Evidence {opp.evidence_grade}</span>
+            <span className={`opp-evidence grade-${opp.evidence_grade}`}>证据 {opp.evidence_grade} 级</span>
             {cat && <span className={`art-cat-pill ${cat.cssClass}`}>{cat.label}</span>}
             <span>{TIMING_MAP[opp.timing] || opp.timing}</span>
             <span>{date}</span>
@@ -93,7 +93,7 @@ export default async function OpportunityPage({ params }: { params: Promise<{ sl
 
         {/* ═══ OPC Score 七维 ═══ */}
         <section className="opp-section">
-          <h2 className="opp-section-title">OPC SCORE <span className="opp-total">{opp.score_total}</span></h2>
+          <h2 className="opp-section-title">OPC 评分 <span className="opp-total">{opp.score_total}</span></h2>
           <div className="opp-scorebars">
             {SCORE_DIMENSIONS.map(d => (
               <ScoreBar key={d.key} label={d.label} weight={d.weight} value={Number(opp[d.key]) || 0} />
@@ -104,7 +104,7 @@ export default async function OpportunityPage({ params }: { params: Promise<{ sl
         {/* ═══ 主编判断 ═══ */}
         {opp.editor_take && (
           <section className="opp-section opp-editor">
-            <h2 className="opp-section-title">主编判断 {opp.editor_conviction && <span className="opp-conviction">信心 {opp.editor_conviction}</span>}</h2>
+            <h2 className="opp-section-title">主编判断 {opp.editor_conviction && <span className="opp-conviction">信心 {CONVICTION_MAP[opp.editor_conviction] || opp.editor_conviction}</span>}</h2>
             <p className="opp-editor-take">{opp.editor_take}</p>
           </section>
         )}

@@ -832,8 +832,8 @@ a.admin-item-title:hover { color: var(--color-blue); }
 
 /* ═══ 数字可信度标注（P0 provenance）═══ */
 .provenance-badge {
-  display: inline-block; margin-left: 6px; padding: 1px 7px;
-  font-size: 11px; font-weight: 600; border-radius: 6px;
+  display: inline-block; margin-left: 6px; padding: 1px 10px;
+  font-size: 11px; font-weight: 600; border-radius: 9999px;
   text-decoration: none; vertical-align: 1px; white-space: nowrap;
 }
 .provenance-badge.verified {
@@ -878,10 +878,10 @@ a.admin-item-title:hover { color: var(--color-blue); }
 .rec-skip  { color: var(--color-steel); background: var(--color-surface); border: 1px solid var(--color-hairline); }
 .opp-rec-desc { font-size: 0.85rem; color: var(--color-stone); }
 
-/* — Evidence Grade 徽章 — */
+/* — Evidence Grade 徽章（胶囊） — */
 .opp-evidence {
-  display: inline-block; padding: 1px 8px; font-size: 0.72rem; font-weight: 700;
-  border-radius: 6px; border: 1px solid;
+  display: inline-block; padding: 1px 10px; font-size: 0.72rem; font-weight: 700;
+  border-radius: 9999px; border: 1px solid; white-space: nowrap;
 }
 .opp-evidence.grade-A { color: #0a7d4f; border-color: rgba(10,125,79,0.35); background: rgba(10,125,79,0.07); }
 .opp-evidence.grade-B { color: var(--color-blue-deep); border-color: rgba(29,78,216,0.3); background: rgba(29,78,216,0.06); }
@@ -937,7 +937,7 @@ a.admin-item-title:hover { color: var(--color-blue); }
 .opp-vp-steps { margin: 0 0 14px; padding-left: 22px; display: flex; flex-direction: column; gap: 8px; }
 .opp-vp-steps li { font-size: 0.92rem; color: var(--color-charcoal); line-height: 1.6; }
 .opp-vp-thresholds { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; }
-.opp-vp-pass, .opp-vp-kill { font-size: 0.8rem; font-weight: 600; padding: 4px 12px; border-radius: 8px; }
+.opp-vp-pass, .opp-vp-kill { font-size: 0.8rem; font-weight: 600; padding: 4px 14px; border-radius: 9999px; }
 .opp-vp-pass { color: #0a7d4f; background: rgba(10,125,79,0.08); }
 .opp-vp-kill { color: #b91c1c; background: rgba(185,28,28,0.07); }
 .opp-vp-niche { font-size: 0.88rem; color: #7c3aed; margin: 0; }
@@ -956,8 +956,8 @@ a.opp-case-name:hover { color: var(--color-blue); }
 .opp-evi { border: 1px solid var(--color-hairline-soft); border-radius: 14px; padding: 16px 20px; }
 .opp-evi-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
 .opp-tier {
-  display: inline-block; width: 24px; height: 24px; line-height: 24px; text-align: center;
-  font-size: 0.75rem; font-weight: 800; border-radius: 7px; color: #fff; flex-shrink: 0;
+  display: inline-block; min-width: 24px; height: 24px; line-height: 24px; text-align: center;
+  padding: 0 9px; font-size: 0.75rem; font-weight: 800; border-radius: 9999px; color: #fff; flex-shrink: 0;
 }
 .opp-tier.tier-S { background: #0a7d4f; }
 .opp-tier.tier-A { background: var(--color-blue); }
