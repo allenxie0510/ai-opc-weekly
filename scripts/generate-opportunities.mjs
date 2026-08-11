@@ -2,6 +2,7 @@
  * AI OPC · 机会生产线（Decision Engine v1）
  * 每周从近 7 天 Signals（radar_items）聚类 + GLM 联网调研，
  * 生成 2–3 个 Opportunity 草稿（七维评分 + Evidence Grade + Recommendation），
+ * 再经 Stage 4 生成 CogView 概念图封面（cover_url），
  * 写入 opportunities / cases 表，人工在 /admin 审核后发布。
  *
  * 用法：node scripts/generate-opportunities.mjs
@@ -18,6 +19,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { generateOpportunityCover } from './lib/cover.mjs';
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 
@@ -486,12 +488,39 @@ ${clusterSignals}
       published_at: new Date().toISOString(),
     };
 
+    // Stage 4：AI 概念图封面（CogView → Supabase Storage；失败不阻塞，cover_url 留空，前端有兜底）
+    const coverUrl = await generateOpportunityCover({
+      title: String(opp.title || cluster.theme),
+      thesis: String(opp.thesis || ''),
+      category: VALID_CATEGORIES.includes(opp.category) ? opp.category : 'indie-tool',
+      slug,
+    });
+    if (coverUrl) {
+      row.cover_url = coverUrl;
+      console.log(`   🎨 封面已生成: ${coverUrl.slice(-50)}`);
+    } else {
+      console.log('   ⬜ 无封面（前端将使用程序化兜底封面）');
+    }
+
     try {
       await sb('/opportunities', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(row) });
       created++;
       console.log(`   ✅ ${row.title} | Score ${scoreTotal} / Evidence ${evidenceGrade} / ${row.recommendation} | 证据 ${evidence.length} 条 / 案例 ${cases.length} 个`);
     } catch (e) {
-      console.log(`   ❌ opportunity 写入失败: ${e.message.slice(0, 100)}`);
+      // 兼容旧表：opportunities 还没有 cover_url 列时，去掉该字段重试
+      if (row.cover_url && /42703|column.*cover_url|cover_url.*column/i.test(e.message)) {
+        console.log('   ⚠️ 数据表缺少 cover_url 列，去字段重试（请先执行 alter table 加列）');
+        try {
+          const { cover_url, ...rowWithoutCover } = row;
+          await sb('/opportunities', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(rowWithoutCover) });
+          created++;
+          console.log(`   ✅ ${row.title} | Score ${scoreTotal} / Evidence ${evidenceGrade} / ${row.recommendation}（无封面入库）`);
+        } catch (e2) {
+          console.log(`   ❌ opportunity 写入失败: ${e2.message.slice(0, 100)}`);
+        }
+      } else {
+        console.log(`   ❌ opportunity 写入失败: ${e.message.slice(0, 100)}`);
+      }
     }
   }
 

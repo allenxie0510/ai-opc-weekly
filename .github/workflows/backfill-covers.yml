@@ -1,0 +1,25 @@
+name: Backfill Opportunity Covers
+
+# 手动触发：为 opportunities 表中 cover_url 为空的 draft/published 机会
+# 生成 CogView 概念图封面并回写（与生产线 Stage 4 同一套逻辑）
+# 前置：opportunities 表需有 cover_url 列
+#   alter table opportunities add column if not exists cover_url text;
+
+on:
+  workflow_dispatch:
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Backfill opportunity covers
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ZHIPU_API_KEY: ${{ secrets.ZHIPU_API_KEY }}
+        run: node scripts/backfill-covers.mjs

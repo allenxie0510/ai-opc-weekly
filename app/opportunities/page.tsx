@@ -1,9 +1,8 @@
-import Link from 'next/link';
 import type { Metadata } from 'next';
 import { getOpportunities } from '@/lib/data';
 import { Header } from '@/components/page-shell';
 import { PageViewCounter } from '@/components/page-view-counter';
-import { CATEGORY_MAP, RECOMMENDATION_MAP } from '@/lib/types';
+import { OpportunityCard } from '@/components/OpportunityCard';
 
 export const revalidate = 300;
 
@@ -32,28 +31,8 @@ export default async function OpportunitiesPage() {
             <p className="radar-empty-sub">每周三 09:30 扫描本周信号，聚类成机会</p>
           </div>
         ) : (
-          <div className="opp-list">
-            {opps.map(o => {
-              const rec = RECOMMENDATION_MAP[o.recommendation] || RECOMMENDATION_MAP.WATCH;
-              const cat = o.category ? CATEGORY_MAP[o.category] : null;
-              const date = (o.published_at || '').slice(0, 10);
-              return (
-                <Link key={o.id} href={`/opportunities/${o.slug}`} className="opp-card">
-                  <div className="opp-card-top">
-                    <span className={`opp-rec ${rec.cssClass}`}>{rec.label}</span>
-                    <span className="opp-score">{o.score_total}</span>
-                  </div>
-                  <h2 className="opp-card-title">{o.title}</h2>
-                  {o.thesis && <p className="opp-card-thesis">{o.thesis}</p>}
-                  {o.editor_take && <p className="opp-card-take">🖊 {o.editor_take}</p>}
-                  <div className="opp-card-meta">
-                    <span className={`opp-evidence grade-${o.evidence_grade}`}>证据 {o.evidence_grade} 级</span>
-                    {cat && <span className={`art-cat-pill ${cat.cssClass}`}>{cat.label}</span>}
-                    {date && <span>{date}</span>}
-                  </div>
-                </Link>
-              );
-            })}
+          <div className="opp-grid">
+            {opps.map(o => <OpportunityCard key={o.id} opportunity={o} />)}
           </div>
         )}
 

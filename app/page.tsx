@@ -3,7 +3,7 @@ import { getRadarItems, getLatestIssue, getOpportunities, formatShortLabel } fro
 import { Header } from '@/components/page-shell';
 import { PageViewCounter } from '@/components/page-view-counter';
 import { RadarCard, dayKey, dayLabel } from '@/components/radar-card';
-import { CATEGORY_MAP, RECOMMENDATION_MAP } from '@/lib/types';
+import { OpportunityCard } from '@/components/OpportunityCard';
 
 export const revalidate = 300;
 
@@ -35,7 +35,7 @@ export default async function Home() {
           </div>
         </header>
 
-        {/* ═══ 最新机会（头条） ═══ */}
+        {/* ═══ 最新机会（头条大卡 + 副卡） ═══ */}
         {featured && (
           <section className="home-section">
             <div className="home-section-head">
@@ -43,45 +43,11 @@ export default async function Home() {
               <Link href="/opportunities" className="home-more">全部机会 →</Link>
             </div>
 
-            <Link href={`/opportunities/${featured.slug}`} className="home-opp-hero">
-              <div className="home-opp-hero-top">
-                <span className={`opp-rec lg ${RECOMMENDATION_MAP[featured.recommendation]?.cssClass || 'rec-watch'}`}>
-                  {RECOMMENDATION_MAP[featured.recommendation]?.label || featured.recommendation}
-                </span>
-                <span className="home-opp-hero-score">
-                  <em>机会评分</em>{featured.score_total}
-                </span>
-              </div>
-              <h3 className="home-opp-hero-title">{featured.title}</h3>
-              {featured.thesis && <p className="home-opp-hero-thesis">{featured.thesis}</p>}
-              {featured.editor_take && <p className="home-opp-hero-take">🖊 {featured.editor_take}</p>}
-              <div className="opp-card-meta">
-                <span className={`opp-evidence grade-${featured.evidence_grade}`}>Evidence {featured.evidence_grade}</span>
-                {featured.category && CATEGORY_MAP[featured.category] && (
-                  <span className={`art-cat-pill ${CATEGORY_MAP[featured.category].cssClass}`}>{CATEGORY_MAP[featured.category].label}</span>
-                )}
-                <span className="home-opp-cta">查看完整判断（评分/验证计划/证据链）→</span>
-              </div>
-            </Link>
+            <OpportunityCard opportunity={featured} variant="featured" />
 
             {secondary.length > 0 && (
               <div className="home-opp-grid">
-                {secondary.map(o => (
-                  <Link key={o.id} href={`/opportunities/${o.slug}`} className="opp-card">
-                    <div className="opp-card-top">
-                      <span className={`opp-rec ${RECOMMENDATION_MAP[o.recommendation]?.cssClass || 'rec-watch'}`}>
-                        {RECOMMENDATION_MAP[o.recommendation]?.label || o.recommendation}
-                      </span>
-                      <span className="opp-score">{o.score_total}</span>
-                    </div>
-                    <h3 className="opp-card-title" style={{ fontSize: '1.05rem' }}>{o.title}</h3>
-                    {o.thesis && <p className="opp-card-thesis">{o.thesis}</p>}
-                    <div className="opp-card-meta">
-                      <span className={`opp-evidence grade-${o.evidence_grade}`}>证据 {o.evidence_grade} 级</span>
-                      {(o.published_at || '').slice(0, 10)}
-                    </div>
-                  </Link>
-                ))}
+                {secondary.map(o => <OpportunityCard key={o.id} opportunity={o} />)}
               </div>
             )}
           </section>

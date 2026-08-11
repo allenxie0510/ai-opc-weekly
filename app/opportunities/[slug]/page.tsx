@@ -6,6 +6,7 @@ import { Header } from '@/components/page-shell';
 import { PageViewCounter } from '@/components/page-view-counter';
 import { CATEGORY_MAP, RECOMMENDATION_MAP, SCORE_DIMENSIONS, CONVICTION_MAP } from '@/lib/types';
 import type { Opportunity } from '@/lib/types';
+import { OpportunityCoverVisual } from '@/components/OpportunityCard';
 
 export const revalidate = 300;
 
@@ -90,6 +91,9 @@ export default async function OpportunityPage({ params }: { params: Promise<{ sl
             <span>{date}</span>
           </div>
         </header>
+
+        {/* ═══ Hero 封面（AI 概念图，无图用程序化兜底） ═══ */}
+        <OpportunityCoverVisual opportunity={opp} className="opp-hero-cover" />
 
         {/* ═══ OPC Score 七维 ═══ */}
         <section className="opp-section">

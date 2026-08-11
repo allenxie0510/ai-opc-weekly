@@ -146,6 +146,8 @@ export interface Opportunity {
   editor_take: string;
   editor_conviction: 'high' | 'medium' | 'low';
   category: Category;
+  /** AI 概念图封面（Stage 4 生成；旧数据无此字段或为 null，前端用程序化兜底封面） */
+  cover_url?: string | null;
   signal_ids: string[];
   case_ids: string[];
   status: 'draft' | 'published' | 'archived';
