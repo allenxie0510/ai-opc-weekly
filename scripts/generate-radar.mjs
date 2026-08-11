@@ -34,6 +34,21 @@ const AUTO_PUBLISH = process.env.RADAR_AUTO_PUBLISH === 'true';
 const CANDIDATE_LIMIT = 40;   // radar_candidates 取最近 36h 最多 N 条
 const TWEET_LIMIT = 20;       // tweets 取最近 24h 最多 N 条
 
+// Source Tier（确定性映射，不让模型定级）：
+// S 一手证据（GitHub 数据/官方源）/ A 结构化数据 / B 可靠媒体 / C 社区信号 / D 二手
+const SOURCE_TIER_MAP = {
+  'GitHub Trending': 'S',
+  'TechCrunch AI': 'B',
+  'The Verge AI': 'B',
+  '36氪': 'B',
+  'Hacker News': 'C',
+};
+function tierOf(sourceName) {
+  if (!sourceName) return 'C';
+  if (sourceName.startsWith('X/@')) return 'C';
+  return SOURCE_TIER_MAP[sourceName] || 'C';
+}
+
 // ─── 工具函数 ───────────────────────────────────────────
 
 async function sb(path, opts = {}) {
@@ -237,6 +252,7 @@ ${styleBlock}
       "score": 0到100的整数（与主题相关度 + 创业参考价值）,
       "editor_note": "50–100字编辑点评，第一人称（我/我看），有明确立场，不中立和稀泥${samples.length > 0 ? '，口吻严格对齐上方样本' : ''}",
       "pick_reason": "收录理由标签，如：已验证收入 / 单人可复现 / 政策风向标 / 新工具红利 / 模式可迁移",
+      "signal_type": "必须是以下之一: product（新产品/功能）/ launch（发布上线）/ funding（融资）/ m-and-a（收购并购）/ model（模型或API变化）/ policy（政策监管）/ metric（收入或增长数据披露）",
       "category": "必须是以下之一: micro-saas / design-assets / automation / content-monetize / indie-tool / digital-product"
     }
   ]
@@ -264,6 +280,8 @@ ${styleBlock}
     editor_note: String(it.editor_note || '').slice(0, 500),
     pick_reason: String(it.pick_reason || '').slice(0, 100),
     category: String(it.category || 'indie-tool'),
+    signal_type: ['product', 'launch', 'funding', 'm-and-a', 'model', 'policy', 'metric'].includes(it.signal_type) ? it.signal_type : 'product',
+    source_tier: tierOf(String(it.source_name || '')),
     status: itemStatus,
     published_at: now,
   }));
@@ -282,10 +300,11 @@ ${styleBlock}
     try {
       await sb('/radar_items', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(items) });
     } catch (e) {
-      // 兼容：radar_items 表还没有 image_url 列时，剥离该字段重试（请先执行 SQL 加列）
-      if (String(e.message).includes('image_url')) {
-        console.log('   ⚠️ 表缺少 image_url 列，本次不带封面写入（请执行: alter table radar_items add column if not exists image_url text;）');
-        const stripped = items.map(({ image_url, ...rest }) => rest);
+      // 兼容：表缺新列时剥离后重试（请先执行 scripts/migration-001.sql）
+      const msg = String(e.message);
+      if (/image_url|signal_type|source_tier/.test(msg)) {
+        console.log('   ⚠️ 表缺少新列（image_url/signal_type/source_tier），本次降级写入（请执行 scripts/migration-001.sql）');
+        const stripped = items.map(({ image_url, signal_type, source_tier, ...rest }) => rest);
         await sb('/radar_items', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(stripped) });
       } else {
         throw e;
