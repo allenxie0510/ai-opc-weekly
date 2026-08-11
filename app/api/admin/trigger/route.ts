@@ -36,6 +36,7 @@ export async function POST(req: NextRequest) {
   const workflowFile =
     body.workflow === 'weekly-newsletter' ? 'weekly-newsletter.yml'
     : body.workflow === 'weekly-opportunities' ? 'weekly-opportunities.yml'
+    : body.workflow === 'reports-monitor' ? 'reports-monitor.yml'
     : 'daily-radar.yml';
 
   const res = await fetch(

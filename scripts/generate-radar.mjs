@@ -40,11 +40,15 @@ const SOURCE_TIER_MAP = {
   'GitHub Trending': 'S',
   'Show HN': 'A',        // 创始人一手发布的 0→1 产品
   'Product Hunt': 'A',   // 新品类雷达，投票数据可佐证热度
+  'IH Podcast': 'A',     // 创始人亲述真实收入访谈
+  'RevenueCat': 'A',     // 订阅经济一手数据/年度报告
+  'YC RFS': 'A',         // YC 官方创业方向清单
   'TechCrunch AI': 'B',
   'The Verge AI': 'B',
   '36氪': 'B',          // 已下线（feed 反爬），保留映射防历史数据失配
   '少数派': 'B',
   'AI + a16z': 'B',      // 机构一手分析（播客文字稿摘要）
+  'BVP Atlas': 'B',      // Bessemer 机构深度研究
   'Hacker News': 'C',
 };
 function tierOf(sourceName) {

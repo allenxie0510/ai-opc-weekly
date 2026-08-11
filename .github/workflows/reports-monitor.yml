@@ -1,0 +1,25 @@
+name: Reports Monitor
+
+# 低频高价值信源周报监测：IH Podcast / RevenueCat / YC RFS / BVP Atlas
+# 每周四 10:17 北京时间（UTC 02:17）自动跑一轮，也可手动触发。
+# 抓取的条目写入 radar_candidates，由 daily-radar 的 GLM 筛选环节自然吸收。
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 2 * * 4'
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Fetch report sources
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/reports-monitor.mjs
