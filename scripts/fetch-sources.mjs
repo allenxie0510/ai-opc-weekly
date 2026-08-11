@@ -45,6 +45,12 @@ const SOURCES = [
     url: 'https://www.theverge.com/rss/ai-artificial-intelligence/index.xml',
   },
   {
+    kind: 'producthunt',
+    name: 'Product Hunt',
+    // GraphQL API v2，需要 PRODUCTHUNT_TOKEN（API Dashboard → Developer Token，不过期）
+    url: null,
+  },
+  {
     kind: 'rss',
     name: '少数派',
     // 替代 36氪（36kr.com/feed 2026-08 起对服务器抓取返回反爬 HTML 页，确认失效）
@@ -171,6 +177,46 @@ async function fetchGitHubTrending(source) {
   }));
 }
 
+async function fetchProductHunt(source) {
+  const token = process.env.PRODUCTHUNT_TOKEN;
+  if (!token) {
+    console.warn('   ⚠️ 无 PRODUCTHUNT_TOKEN，跳过 Product Hunt（API Dashboard → Developer Token）');
+    return [];
+  }
+  // 近 36h 新品，按票数排序；GLM 筛选环节负责 OPC/AI 相关性判断
+  const postedAfter = new Date(Date.now() - 36 * 60 * 60 * 1000).toISOString();
+  const query = `{
+    posts(order: VOTES, postedAfter: "${postedAfter}", first: 30) {
+      edges { node { name tagline url votesCount createdAt topics { edges { node { name } } } } }
+    }
+  }`;
+  const res = await fetch('https://api.producthunt.com/v2/api/graphql', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${token}`,
+      'User-Agent': 'ai-opc-weekly-radar/1.0',
+    },
+    body: JSON.stringify({ query }),
+    signal: AbortSignal.timeout(20000),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const data = await res.json();
+  if (data.errors) throw new Error(`GraphQL: ${JSON.stringify(data.errors).slice(0, 150)}`);
+  const edges = data.data?.posts?.edges || [];
+  return edges.map(({ node: p }) => {
+    const topics = (p.topics?.edges || []).map(t => t.node.name).slice(0, 4).join('/');
+    const cleanUrl = (p.url || '').split('?')[0];  // 去掉 API 附加的 utm 参数
+    return {
+      source_name: source.name,
+      source_url: cleanUrl,
+      title: `${p.name} — ${p.tagline}`.slice(0, 200),
+      snippet: `[PH ▲${p.votesCount || 0}] ${p.tagline || ''}${topics ? ` · ${topics}` : ''}`.slice(0, 300),
+      published_at: p.createdAt || null,
+    };
+  }).filter(it => it.source_url);
+}
+
 async function fetchRSS(source) {
   const xml = await fetchText(source.url);
   if (!xml.includes('<item>') && !xml.includes('<entry>')) throw new Error('无 item/entry 节点（feed 可能失效或格式变更）');
@@ -195,6 +241,7 @@ async function main() {
       let items;
       if (source.kind === 'hackernews') items = await fetchHackerNews(source);
       else if (source.kind === 'github') items = await fetchGitHubTrending(source);
+      else if (source.kind === 'producthunt') items = await fetchProductHunt(source);
       else if (source.kind === 'rss') items = await fetchRSS(source);
       else { console.warn(`  ⚠️ 未知信源类型: ${source.kind}`); continue; }
 

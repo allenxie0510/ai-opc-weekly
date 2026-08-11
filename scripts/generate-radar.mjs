@@ -39,6 +39,7 @@ const TWEET_LIMIT = 20;       // tweets 取最近 24h 最多 N 条
 const SOURCE_TIER_MAP = {
   'GitHub Trending': 'S',
   'Show HN': 'A',        // 创始人一手发布的 0→1 产品
+  'Product Hunt': 'A',   // 新品类雷达，投票数据可佐证热度
   'TechCrunch AI': 'B',
   'The Verge AI': 'B',
   '36氪': 'B',          // 已下线（feed 反爬），保留映射防历史数据失配
