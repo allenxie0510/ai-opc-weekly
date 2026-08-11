@@ -44,27 +44,42 @@ async function deriveScene(zk, { title, thesis, category }) {
     `机会论断：${String(thesis || '').slice(0, 200)}`,
     category ? `领域：${String(category).replace(/-/g, ' ')}` : '',
   ].filter(Boolean).join('\n');
-  try {
-    const res = await fetch(ZHIPU_CHAT_API, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${zk}` },
-      body: JSON.stringify({
-        model: GLM_MODEL,
-        messages: [{ role: 'user', content: user }],
-        temperature: 0.7,
-        max_tokens: 120,
-      }),
-      signal: AbortSignal.timeout(45000),
-    });
-    const txt = await res.text();
-    if (!res.ok) throw new Error(`GLM ${res.status}: ${txt.slice(0, 100)}`);
-    const scene = (JSON.parse(txt).choices?.[0]?.message?.content || '')
-      .replace(/^["'\s]+|["'\s]+$/g, '').replace(/\s+/g, ' ').slice(0, 400);
-    return scene;
-  } catch (e) {
-    console.log(`   ⚠️ 场景提炼失败（回退原文）: ${e.message.slice(0, 60)}`);
-    return '';
+  // 429 拥挤常见，重试 2 次再回退——回退会把中文标题原文喂给 glm-image，
+  // 导致它直接把标题渲染进图里（这是图上出现大字标题的根因）
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const res = await fetch(ZHIPU_CHAT_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${zk}` },
+        body: JSON.stringify({
+          model: GLM_MODEL,
+          messages: [{ role: 'user', content: user }],
+          temperature: 0.7,
+          max_tokens: 120,
+        }),
+        signal: AbortSignal.timeout(45000),
+      });
+      const txt = await res.text();
+      if (!res.ok) {
+        if (res.status === 429 && attempt < 2) {
+          console.log(`   ⚠️ 场景提炼 429，${(attempt + 1) * 20}s 后重试...`);
+          await sleep((attempt + 1) * 20000);
+          continue;
+        }
+        throw new Error(`GLM ${res.status}: ${txt.slice(0, 100)}`);
+      }
+      const scene = (JSON.parse(txt).choices?.[0]?.message?.content || '')
+        .replace(/^["'\s]+|["'\s]+$/g, '').replace(/\s+/g, ' ').slice(0, 400);
+      return scene;
+    } catch (e) {
+      if (attempt === 2) {
+        console.log(`   ⚠️ 场景提炼失败（回退原文）: ${e.message.slice(0, 60)}`);
+        return '';
+      }
+      await sleep(10000);
+    }
   }
+  return '';
 }
 
 /**
@@ -78,7 +93,7 @@ export function buildCoverPrompt({ scene, category }) {
     `Premium flat vector illustration for a modern tech publication, in the clean geometric style of top SaaS companies' editorial art.`,
     `Scene: ${scene}.${catHint}`,
     `Style: precise flat vector shapes with smooth subtle gradients, calm muted background (pale blue-grey or warm light grey), dominant deep blue and cyan palette with one warm amber-orange accent, a single clear central subject made of recognizable real-world objects (chips, devices, tools, plants), subtle circuit-line or geometric motifs, soft glow highlights, metaphorical storytelling, balanced composition with generous breathing space, crisp clean edges, polished and professional.`,
-    `CRITICAL: the image must contain absolutely no text whatsoever — no letters, no words, no numbers, no typography, no headlines, no captions, no documents or screens or newspapers with writing on them, no logo, no watermark. Pure wordless visual scene only. Not photorealistic.`,
+    `CRITICAL: the image must contain absolutely no text whatsoever — no letters, no words, no numbers, no Chinese characters, no typography, no headlines, no captions, no documents or screens or newspapers with writing on them, no logo, no watermark. Do not reserve or render any headline/title/banner area — the scene itself fills the entire frame. Pure wordless visual scene only. Not photorealistic.`,
   ].join(' ');
 }
 
