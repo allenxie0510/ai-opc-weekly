@@ -103,7 +103,7 @@ function parseRSS(xml) {
   while ((match = entryRegex.exec(xml)) !== null) blocks.push([match[1], true]);
 
   for (const [block, isAtom] of blocks) {
-    const tm = block.match(/<title>(?:<!\[CDATA\[([\s\S]*?)\]\]>|([\s\S]*?))<\/title>/);
+    const tm = block.match(/<title[^>]*>(?:<!\[CDATA\[([\s\S]*?)\]\]>|([\s\S]*?))<\/title>/);
     const title = decodeEntities(stripHtml(tm?.[1] || tm?.[2] || '').trim());
     if (!title) continue;
 
