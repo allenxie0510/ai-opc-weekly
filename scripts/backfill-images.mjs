@@ -43,6 +43,11 @@ async function fetchOgImage(url) {
       html.match(/<meta[^>]+content=["']([^"']+)["'][^>]*name=["']twitter:image/i);
     if (!m) return '';
     const img = m[1].trim().replace(/&amp;/g, '&');
+    // 声明了 og:image:width 且低于 800px 的图太糊，宁缺毋滥
+    const wm =
+      html.match(/<meta[^>]+property=["']og:image:width["'][^>]*content=["'](\d+)["']/i) ||
+      html.match(/<meta[^>]+content=["'](\d+)["'][^>]*property=["']og:image:width["']/i);
+    if (wm && parseInt(wm[1], 10) > 0 && parseInt(wm[1], 10) < 800) return '';
     return /^https?:\/\//i.test(img) ? img : '';
   } catch {
     return '';

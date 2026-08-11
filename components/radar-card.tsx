@@ -51,29 +51,31 @@ export function RadarCard({ item }: { item: RadarItem }) {
         }}
       />
       {item.image_url && <RadarCover src={item.image_url} alt={item.title} />}
-      <div className="radar-card-top">
-        {cat && <span className={`art-cat-pill ${cat.cssClass}`}>{cat.label}</span>}
-        {item.pick_reason && <span className="radar-pick">{item.pick_reason}</span>}
-        <span className="radar-meta">
-          {item.source_name}
-          <span className="radar-meta-sep">·</span>
-          <time>{timeAgo(item.published_at)}</time>
-        </span>
-        <span className={scoreClass(item.score)}>{item.score}</span>
+      <div className="radar-card-body">
+        <div className="radar-card-top">
+          {cat && <span className={`art-cat-pill ${cat.cssClass}`}>{cat.label}</span>}
+          {item.pick_reason && <span className="radar-pick">{item.pick_reason}</span>}
+          <span className="radar-meta">
+            {item.source_name}
+            <span className="radar-meta-sep">·</span>
+            <time>{timeAgo(item.published_at)}</time>
+          </span>
+          <span className={scoreClass(item.score)}>{item.score}</span>
+        </div>
+
+        <a href={item.source_url} target="_blank" rel="noopener noreferrer" className="radar-title">
+          {item.title}
+        </a>
+
+        {item.summary && <p className="radar-summary">{item.summary}</p>}
+
+        {item.editor_note && (
+          <blockquote className="radar-editor-note">
+            <span className="radar-editor-label">编辑点评</span>
+            {item.editor_note}
+          </blockquote>
+        )}
       </div>
-
-      <a href={item.source_url} target="_blank" rel="noopener noreferrer" className="radar-title">
-        {item.title}
-      </a>
-
-      {item.summary && <p className="radar-summary">{item.summary}</p>}
-
-      {item.editor_note && (
-        <blockquote className="radar-editor-note">
-          <span className="radar-editor-label">编辑点评</span>
-          {item.editor_note}
-        </blockquote>
-      )}
     </article>
   );
 }
