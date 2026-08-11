@@ -46,8 +46,9 @@ const SOURCES = [
   },
   {
     kind: 'rss',
-    name: '36氪',
-    url: 'https://36kr.com/feed',
+    name: '少数派',
+    // 替代 36氪（36kr.com/feed 2026-08 起对服务器抓取返回反爬 HTML 页，确认失效）
+    url: 'https://sspai.com/feed',
   },
   {
     kind: 'rss',
@@ -89,26 +90,38 @@ function stripHtml(s) {
   return decodeEntities((s || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim());
 }
 
-/** 解析标准 RSS/Atom item 结构：title / link / description / pubDate */
+/** 解析标准 RSS item 与 Atom entry 两种结构：title / link / description / pubDate */
 function parseRSS(xml) {
   const items = [];
-  const itemRegex = /<item>([\s\S]*?)<\/item>/g;
-  let match;
-  while ((match = itemRegex.exec(xml)) !== null) {
-    const block = match[1];
 
+  // RSS 2.0 <item> 与 Atom <entry> 统一成 (block, isAtom) 处理
+  const blocks = [];
+  const itemRegex = /<item>([\s\S]*?)<\/item>/g;
+  const entryRegex = /<entry>([\s\S]*?)<\/entry>/g;
+  let match;
+  while ((match = itemRegex.exec(xml)) !== null) blocks.push([match[1], false]);
+  while ((match = entryRegex.exec(xml)) !== null) blocks.push([match[1], true]);
+
+  for (const [block, isAtom] of blocks) {
     const tm = block.match(/<title>(?:<!\[CDATA\[([\s\S]*?)\]\]>|([\s\S]*?))<\/title>/);
-    const title = decodeEntities((tm?.[1] || tm?.[2] || '').trim());
+    const title = decodeEntities(stripHtml(tm?.[1] || tm?.[2] || '').trim());
     if (!title) continue;
 
-    const lm = block.match(/<link>(?:<!\[CDATA\[([\s\S]*?)\]\]>|([\s\S]*?))<\/link>/);
-    const link = (lm?.[1] || lm?.[2] || '').trim();
+    // Atom 的 link 是 <link href="..."/> 空标签，RSS 是 <link>url</link>
+    let link = '';
+    if (isAtom) {
+      const lm = block.match(/<link[^>]*href="([^"]+)"[^>]*\/?>/);
+      link = (lm?.[1] || '').trim();
+    } else {
+      const lm = block.match(/<link>(?:<!\[CDATA\[([\s\S]*?)\]\]>|([\s\S]*?))<\/link>/);
+      link = (lm?.[1] || lm?.[2] || '').trim();
+    }
     if (!link || !/^https?:\/\//.test(link)) continue;
 
-    const dm = block.match(/<description>(?:<!\[CDATA\[([\s\S]*?)\]\]>|([\s\S]*?))<\/description>/);
+    const dm = block.match(/<(?:description|summary|content)[^>]*>(?:<!\[CDATA\[([\s\S]*?)\]\]>|([\s\S]*?))<\/(?:description|summary|content)>/);
     const snippet = stripHtml(dm?.[1] || dm?.[2] || '').slice(0, 300);
 
-    const pm = block.match(/<pubDate>([^<]+)<\/pubDate>/) || block.match(/<dc:date>([^<]+)<\/dc:date>/);
+    const pm = block.match(/<(?:pubDate|published|updated)>([^<]+)<\/(?:pubDate|published|updated)>/) || block.match(/<dc:date>([^<]+)<\/dc:date>/);
     let publishedAt = null;
     if (pm?.[1]) {
       const d = new Date(pm[1].trim());
@@ -160,7 +173,7 @@ async function fetchGitHubTrending(source) {
 
 async function fetchRSS(source) {
   const xml = await fetchText(source.url);
-  if (!xml.includes('<item>')) throw new Error('无 item 节点（feed 可能失效或格式变更）');
+  if (!xml.includes('<item>') && !xml.includes('<entry>')) throw new Error('无 item/entry 节点（feed 可能失效或格式变更）');
   return parseRSS(xml).slice(0, 20).map(it => ({
     source_name: source.name,
     source_url: it.source_url,
@@ -188,9 +201,9 @@ async function main() {
       total += items.length;
       console.log(`  ✅ ${source.name}: ${items.length} 条素材`);
 
-      // upsert 去重（按 source_url）
+      // upsert 去重（按 source_url 唯一约束；必须带 on_conflict，否则批次中任意一条重复会导致整批 409）
       if (items.length > 0) {
-        await sb('/radar_candidates', {
+        await sb('/radar_candidates?on_conflict=source_url', {
           method: 'POST',
           headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
           body: JSON.stringify(items),

@@ -41,7 +41,8 @@ const SOURCE_TIER_MAP = {
   'Show HN': 'A',        // 创始人一手发布的 0→1 产品
   'TechCrunch AI': 'B',
   'The Verge AI': 'B',
-  '36氪': 'B',
+  '36氪': 'B',          // 已下线（feed 反爬），保留映射防历史数据失配
+  '少数派': 'B',
   'AI + a16z': 'B',      // 机构一手分析（播客文字稿摘要）
   'Hacker News': 'C',
 };
