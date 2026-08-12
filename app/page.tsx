@@ -1,17 +1,19 @@
 import Link from 'next/link';
-import { getRadarItems, getLatestIssue, getOpportunities, formatShortLabel } from '@/lib/data';
+import { getRadarItems, getLatestIssue, getOpportunities, getMarketPulse, formatShortLabel } from '@/lib/data';
 import { Header } from '@/components/page-shell';
 import { PageViewCounter } from '@/components/page-view-counter';
 import { RadarCard, dayKey, dayLabel } from '@/components/radar-card';
 import { OpportunityCard } from '@/components/OpportunityCard';
+import { MarketPulse } from '@/components/market-pulse';
 
 export const revalidate = 300;
 
 export default async function Home() {
-  const [items, latest, opps] = await Promise.all([
+  const [items, latest, opps, pulse] = await Promise.all([
     getRadarItems(),
     getLatestIssue(),
     getOpportunities(),
+    getMarketPulse(),
   ]);
 
   // 今日雷达：取最近一天的快讯，首页最多展示 4 条
@@ -52,6 +54,9 @@ export default async function Home() {
             )}
           </section>
         )}
+
+        {/* ═══ 赛道脉搏（P3.2：近 7 天 vs 前 7 天信号动量，空数据不渲染） ═══ */}
+        <MarketPulse items={pulse} />
 
         {/* ═══ 今日雷达 ═══ */}
         <section className="home-section">

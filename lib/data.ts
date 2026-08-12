@@ -1,5 +1,6 @@
 import { supabase, isConfigured } from './supabase';
-import type { WeeklyIssue, NewsItem, IssueNav, Tweet, TwitterAccount, RadarItem, Opportunity, OpportunityCase, OpportunityScoreHistory } from './types';
+import type { WeeklyIssue, NewsItem, IssueNav, Tweet, TwitterAccount, RadarItem, Opportunity, OpportunityCase, OpportunityScoreHistory, MarketPulseItem, Category } from './types';
+import { CATEGORY_MAP } from './types';
 
 export async function getWeeklyIssues(): Promise<WeeklyIssue[]> {
   if (!isConfigured() || !supabase) return [];
@@ -212,4 +213,80 @@ export async function getRadarRejected(): Promise<RadarItem[]> {
 
   if (error) { console.error('getRadarRejected:', error.message); return []; }
   return data || [];
+}
+
+// ═══ Market Pulse · 赛道脉搏（P3.2） ═══
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * 赛道脉搏：radar_items 纯读取侧聚合，近 7 天 vs 前 7 天（rolling window）。
+ * 首页 ISR 每次重新验证时实时计算；不建新表、无新依赖。
+ * 宁缺毋滥：信号不足的分类不返回；查询失败/表为空返回 []。
+ */
+export async function getMarketPulse(): Promise<MarketPulseItem[]> {
+  if (!isConfigured() || !supabase) return [];
+  const now = Date.now();
+  const cutoff = new Date(now - 14 * DAY_MS).toISOString();
+  const { data, error } = await supabase
+    .from('radar_items')
+    .select('id, title, category, score, published_at')
+    .eq('status', 'published')
+    .gte('published_at', cutoff)
+    .order('published_at', { ascending: false })
+    .limit(500);
+
+  if (error) { console.error('getMarketPulse:', error.message); return []; }
+  if (!data || data.length === 0) return [];
+
+  // 按分类聚合（无 category 或未知分类的条目不参与——宁缺毋滥）
+  const byCat = new Map<Category, typeof data>();
+  for (const it of data) {
+    const cat = it.category as Category | null;
+    if (!cat || !CATEGORY_MAP[cat]) continue;
+    const arr = byCat.get(cat) || [];
+    arr.push(it);
+    byCat.set(cat, arr);
+  }
+
+  const weekStart = now - 7 * DAY_MS;
+  const out: MarketPulseItem[] = [];
+  for (const [cat, items] of byCat) {
+    const weekItems = items.filter(it => new Date(it.published_at).getTime() >= weekStart);
+    const prevItems = items.filter(it => {
+      const t = new Date(it.published_at).getTime();
+      return t >= now - 14 * DAY_MS && t < weekStart;
+    });
+    const weekCount = weekItems.length;
+    const prevWeekCount = prevItems.length;
+    if (weekCount + prevWeekCount < 3) continue; // 信号不足的分类不显示
+
+    // 14 个按天 bucket（最旧 → 最新）
+    const daily = new Array<number>(14).fill(0);
+    for (const it of items) {
+      const idx = Math.floor((new Date(it.published_at).getTime() - (now - 14 * DAY_MS)) / DAY_MS);
+      if (idx >= 0 && idx < 14) daily[idx]++;
+    }
+
+    const delta = weekCount - prevWeekCount;
+    const deltaPct = prevWeekCount > 0 ? Math.round((delta / prevWeekCount) * 100) : null;
+    let trend: MarketPulseItem['trend'] = 'flat';
+    if (prevWeekCount === 0 && weekCount >= 3) trend = 'up'; // 新热点
+    else if (deltaPct !== null && deltaPct >= 30 && weekCount >= 3) trend = 'up';
+    else if (deltaPct !== null && deltaPct <= -30) trend = 'down';
+
+    const topSignals = [...weekItems]
+      .sort((a, b) => (Number(b.score) || 0) - (Number(a.score) || 0))
+      .slice(0, 2)
+      .map(it => it.title);
+
+    out.push({
+      category: cat,
+      label: CATEGORY_MAP[cat].label,
+      cssClass: CATEGORY_MAP[cat].cssClass,
+      weekCount, prevWeekCount, delta, deltaPct, trend, daily, topSignals,
+    });
+  }
+
+  return out.sort((a, b) => b.weekCount - a.weekCount).slice(0, 6);
 }

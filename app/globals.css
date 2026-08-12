@@ -1120,3 +1120,33 @@ a.opp-case-name:hover { color: var(--color-blue); }
 @media (max-width: 768px) {
   .opp-sparkline { flex-direction: column; align-items: flex-start; gap: 8px; }
 }
+
+/* ─── P3.2 · 赛道脉搏 ───────────────────────────────────── */
+.pulse-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.pulse-card {
+  display: flex; flex-direction: column; gap: 10px;
+  background: var(--color-canvas); border: 1px solid var(--color-hairline);
+  border-radius: 16px; padding: 18px 20px;
+}
+.pulse-card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.pulse-delta { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.03em; border-radius: 9999px; padding: 3px 10px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.pulse-delta.up { color: #0a7d4f; background: rgba(10,125,79,0.08); }
+.pulse-delta.down { color: #b45309; background: rgba(178,83,9,0.08); }
+.pulse-delta.flat { color: var(--color-stone); background: var(--color-surface-soft); }
+.pulse-card-main { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.pulse-count { font-size: 1.8rem; font-weight: 800; color: var(--color-ink); font-variant-numeric: tabular-nums; line-height: 1; display: flex; align-items: baseline; gap: 6px; }
+.pulse-count em { font-style: normal; font-size: 0.7rem; font-weight: 500; color: var(--color-stone); }
+.pulse-spark { width: 60px; height: 20px; flex-shrink: 0; }
+.pulse-tops { list-style: none; margin: 0; padding: 10px 0 0; border-top: 1px solid var(--color-hairline-soft); display: flex; flex-direction: column; gap: 5px; }
+.pulse-tops li {
+  font-size: 0.78rem; color: var(--color-slate); line-height: 1.45;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.pulse-tops li::before { content: '· '; color: var(--color-stone); }
+
+@media (max-width: 960px) {
+  .pulse-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 768px) {
+  .pulse-grid { grid-template-columns: 1fr; }
+}

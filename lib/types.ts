@@ -89,6 +89,20 @@ export interface RadarItem {
   created_at: string;
 }
 
+// ═══ Market Pulse · 赛道脉搏（P3.2，纯读取侧聚合，无新表） ═══
+export interface MarketPulseItem {
+  category: Category;
+  label: string;               // CATEGORY_MAP 中文名
+  cssClass: string;            // CATEGORY_MAP 胶囊样式
+  weekCount: number;           // 近 7 天信号数
+  prevWeekCount: number;       // 前 7 天信号数
+  delta: number;               // weekCount - prevWeekCount
+  deltaPct: number | null;     // 环比百分比；prevWeekCount=0 时为 null
+  trend: 'up' | 'flat' | 'down';
+  daily: number[];             // 近 14 天按天 bucket（最旧 → 最新），sparkline 用
+  topSignals: string[];        // 近 7 天分数最高的 ≤2 条标题
+}
+
 // ═══ Opportunities · 机会情报（重构 P1） ═══
 
 export type Recommendation = 'BUILD' | 'WATCH' | 'NICHE_ONLY' | 'SKIP';
