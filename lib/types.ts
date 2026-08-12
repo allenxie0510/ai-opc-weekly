@@ -135,6 +135,10 @@ export interface OpportunityScoreHistory {
   reason: string | null;
   source: 'initial' | 'weekly-rescore' | 'manual' | string;
   created_at: string;
+  /** P3.3 校准判定（migration-003 后复评记录才有；初评记录恒为 null——它是被校准的对象） */
+  verdict?: 'confirmed' | 'partially' | 'refuted' | 'too-early' | string | null;
+  /** 一句话中文复盘："当初认为X，本周新信号Y证实/削弱了它" */
+  calibration_note?: string | null;
 }
 
 export interface Opportunity {

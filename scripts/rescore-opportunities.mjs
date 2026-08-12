@@ -1,8 +1,9 @@
 /**
- * AI OPC · 机会评分周度复评（P3 飞轮 · Score 历史追踪）
+ * AI OPC · 机会评分周度复评（P3 飞轮 · Score 历史追踪 + P3.3 评分校准）
  * 拉取近 30 天发布的机会（最多 10 条，老的优先），找出上次评分以来
  * 雷达里的相关新信号，让 GLM 复评打分并落 opportunity_score_history，
- * 使"情报准不准"可回溯验证。
+ * 使"情报准不准"可回溯验证；同时对比初评判断与新证据输出校准判定
+ * （verdict: confirmed/partially/refuted/too-early + 一句话复盘）。
  *
  * 用法：node scripts/rescore-opportunities.mjs
  *   RESCORE_SOURCE=weekly-rescore（workflow 周度）/ manual（手动，默认）
@@ -15,8 +16,10 @@
  * - 无新信号的机会跳过不复评（没有理由的分数变化是噪音）
  * - 分数量纲：history 存 0–10 一位小数；opportunities.score_total 是 0–100，
  *   仅当复评分换算后差距 ≥10 才回写 score_total
+ * - 校准列依赖 migration-003，未执行时自动降级为不带校准列落库（42703 容错）
  *
  * 前置条件：已执行 migrations/migration-002-score-history.sql（否则 42P01 全部跳过）
+ *   migration-003-calibration.sql 可选（跑了才落 verdict/calibration_note）
  * 环境变量：NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY + ZHIPU_API_KEY
  */
 
@@ -119,34 +122,53 @@ async function rescoreOne(opp) {
     console.log(`   ⏭️ 无新相关信号，跳过: ${opp.title.slice(0, 40)}`);
     return 'skipped';
   }
-
-  const prompt = `你是 AI 创业情报分析师。以下是一条创业机会的现有评分和自上次评分以来的新市场信号，请复评。
+  const initialReason = String(opp.validation_plan?.recommendation_reason || '').slice(0, 150);
+  const prompt = `你是 AI 创业情报分析师。以下是一条创业机会的初评判断、现有评分和自上次评分以来的新市场信号，请复评并校准初评判断。
 
 机会：${opp.title}
-论断：${String(opp.thesis || '').slice(0, 200)}
+初评论断：${String(opp.thesis || '').slice(0, 200)}
+初评理由：${initialReason || '（无记录）'}
 当前评分：${currentScore10}/10
 新信号（${signals.length} 条）：
 ${signals.map((s, i) => `${i + 1}. ${s.title}（${s.source_name || '未知来源'}）`).join('\n')}
 
-根据新信号判断这个机会的论据是变强、持平还是变弱，给出复评分。
-只返回 JSON 对象：{"score": 1到10的数字（可一位小数）, "reason": "一句话中文理由（不超过60字）", "signal_strength": "stronger或stable或weaker"}`;
+任务一：根据新信号判断这个机会的论据是变强、持平还是变弱，给出复评分。
+任务二（校准）：明确对比"当初的初评判断"和"本周新证据"，判定初评是否站得住——
+confirmed=新信号直接证实了初评判断；partially=部分证实、仍有未验证环节；refuted=新信号与初评判断相矛盾；too-early=新信号不足以判定。
+只返回 JSON 对象：{"score": 1到10的数字（可一位小数）, "reason": "一句话中文理由（不超过60字）", "signal_strength": "stronger或stable或weaker", "verdict": "confirmed或partially或refuted或too-early", "calibration_note": "一句话中文复盘：当初认为X，本周新信号Y证实/削弱了它（不超过60字）"}`;
 
   const r = await callGLM(prompt);
   const score = Math.max(1, Math.min(10, Math.round(Number(r.score) * 10) / 10));
   if (!Number.isFinite(score) || score <= 0) throw new Error(`GLM 返回非法分数: ${JSON.stringify(r).slice(0, 80)}`);
   const reason = String(r.reason || '').slice(0, 120);
   const strength = ['stronger', 'stable', 'weaker'].includes(r.signal_strength) ? r.signal_strength : 'stable';
+  const verdict = ['confirmed', 'partially', 'refuted', 'too-early'].includes(r.verdict) ? r.verdict : 'too-early';
+  const calibrationNote = String(r.calibration_note || '').slice(0, 120);
 
-  await sb('/opportunity_score_history', {
-    method: 'POST', headers: { Prefer: 'return=minimal' },
-    body: JSON.stringify({
-      opportunity_id: opp.id,
-      score,
-      signal_count: signals.length,
-      reason,
-      source: SOURCE,
-    }),
-  });
+  // 校准列依赖 migration-003：未执行时 42703 降级为不带校准列 insert（复评不崩）
+  const baseRow = {
+    opportunity_id: opp.id,
+    score,
+    signal_count: signals.length,
+    reason,
+    source: SOURCE,
+  };
+  try {
+    await sb('/opportunity_score_history', {
+      method: 'POST', headers: { Prefer: 'return=minimal' },
+      body: JSON.stringify({ ...baseRow, verdict, calibration_note: calibrationNote }),
+    });
+  } catch (e) {
+    if (/42703|column.*verdict|verdict.*column|PGRST204/i.test(e.message)) {
+      await sb('/opportunity_score_history', {
+        method: 'POST', headers: { Prefer: 'return=minimal' },
+        body: JSON.stringify(baseRow),
+      });
+      console.log('   ⚠️ 校准列不存在，已降级落库（请执行 migration-003 后自动启用校准）');
+    } else {
+      throw e;
+    }
+  }
   const mark = strength === 'stronger' ? '↗' : strength === 'weaker' ? '↘' : '→';
   console.log(`   ${mark} ${opp.title.slice(0, 40)} | ${currentScore10} → ${score}（${strength}，新信号 ${signals.length} 条）${reason ? ` | ${reason.slice(0, 50)}` : ''}`);
 
@@ -159,28 +181,34 @@ ${signals.map((s, i) => `${i + 1}. ${s.title}（${s.source_name || '未知来源
     });
     console.log(`   📝 score_total 已更新: ${opp.score_total} → ${newTotal}`);
   }
-  return 'ok';
+  return { result: 'ok', verdict };
 }
 
 async function main() {
   console.log(`🔁 AI OPC · 机会评分复评（source=${SOURCE}）\n`);
 
   const cutoff = new Date(Date.now() - WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
-  const opps = await sb(`/opportunities?select=id,slug,title,thesis,category,score_total,created_at&status=eq.published&created_at=gte.${encodeURIComponent(cutoff)}&order=created_at.asc&limit=${MAX_OPPS}`);
+  const opps = await sb(`/opportunities?select=id,slug,title,thesis,category,score_total,created_at,validation_plan&status=eq.published&created_at=gte.${encodeURIComponent(cutoff)}&order=created_at.asc&limit=${MAX_OPPS}`);
   console.log(`📋 待复评机会: ${(opps || []).length} 条（近 ${WINDOW_DAYS} 天发布，最多 ${MAX_OPPS} 条，老的优先）`);
   if (!opps || opps.length === 0) { console.log('✅ 无需复评，结束'); return; }
 
   let ok = 0, skipped = 0, failed = 0;
+  const verdicts = { confirmed: 0, partially: 0, refuted: 0, 'too-early': 0 };
   for (const opp of opps) {
     try {
       const r = await rescoreOne(opp);
-      if (r === 'ok') ok++; else skipped++;
+      if (r === 'skipped') { skipped++; continue; }
+      ok++;
+      if (r.verdict && verdicts[r.verdict] !== undefined) verdicts[r.verdict]++;
     } catch (e) {
       failed++;
       console.log(`   ⚠️ 复评失败（跳过该条）: ${opp.title.slice(0, 40)} | ${e.message.slice(0, 100)}`);
     }
   }
   console.log(`\n📊 汇总: 复评 ${ok} 条 / 无新信号跳过 ${skipped} 条 / 失败 ${failed} 条`);
+  if (ok > 0) {
+    console.log(`   校准判定: ✓ 已验证 ${verdicts.confirmed} / ◐ 部分验证 ${verdicts.partially} / ✗ 被证伪 ${verdicts.refuted} / ⏳ 待观察 ${verdicts['too-early']}`);
+  }
   console.log('✅ 复评完成');
 }
 

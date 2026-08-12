@@ -1150,3 +1150,11 @@ a.opp-case-name:hover { color: var(--color-blue); }
 @media (max-width: 768px) {
   .pulse-grid { grid-template-columns: 1fr; }
 }
+
+/* ─── P3.3 · 评分校准判定胶囊 ───────────────────────────── */
+.opp-verdict { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.03em; border-radius: 9999px; padding: 2px 9px; white-space: nowrap; }
+.opp-verdict.vd-confirmed { color: #0a7d4f; background: rgba(10,125,79,0.08); }
+.opp-verdict.vd-partially { color: var(--color-blue); background: rgba(20,86,240,0.08); }
+.opp-verdict.vd-refuted { color: #b45309; background: rgba(178,83,9,0.08); }
+.opp-verdict.vd-too-early { color: var(--color-stone); background: var(--color-surface-soft); }
+.opp-calibration { font-size: 0.82rem; color: var(--color-slate); line-height: 1.6; margin: 6px 0 0; padding-left: 10px; border-left: 2px solid var(--color-hairline); }

@@ -60,6 +60,14 @@ const SCORE_SOURCE_MAP: Record<string, string> = {
   manual: '手动复评',
 };
 
+/** P3.3 校准判定胶囊：✓ 已验证 绿 / ◐ 部分验证 蓝 / ✗ 被证伪 橙 / ⏳ 待观察 灰 */
+const VERDICT_MAP: Record<string, { label: string; cssClass: string }> = {
+  confirmed: { label: '✓ 已验证', cssClass: 'vd-confirmed' },
+  partially: { label: '◐ 部分验证', cssClass: 'vd-partially' },
+  refuted: { label: '✗ 被证伪', cssClass: 'vd-refuted' },
+  'too-early': { label: '⏳ 待观察', cssClass: 'vd-too-early' },
+};
+
 /**
  * 评分轨迹 sparkline：手写 SVG 折线（0–10 制），不引入图表依赖。
  * 只有 1 个点时退化为圆点标记，不画线。
@@ -157,17 +165,22 @@ export default async function OpportunityPage({ params }: { params: Promise<{ sl
             <h2 className="opp-section-title">评分轨迹 <span className="opp-section-sub">{scoreHistory.length} 次评分 · 0–10 制 · 复评依据为上周评分后的新雷达信号</span></h2>
             <ScoreSparkline history={scoreHistory} />
             <ul className="opp-scorehist">
-              {[...scoreHistory].reverse().map(h => (
+              {[...scoreHistory].reverse().map(h => {
+                const vd = h.source !== 'initial' && h.verdict ? VERDICT_MAP[h.verdict] : null;
+                return (
                 <li key={h.id} className="opp-scorehist-item">
                   <div className="opp-scorehist-head">
                     <span className="opp-scorehist-score">{Number(h.score).toFixed(1)}</span>
                     <span className="opp-scorehist-source">{SCORE_SOURCE_MAP[h.source] || h.source}</span>
+                    {vd && <span className={`opp-verdict ${vd.cssClass}`}>{vd.label}</span>}
                     <span className="opp-scorehist-date">{h.created_at.slice(0, 10)}</span>
                     {h.signal_count > 0 && <span className="opp-scorehist-signals">{h.source === 'initial' ? `证据 ${h.signal_count} 条` : `新信号 ${h.signal_count} 条`}</span>}
                   </div>
                   {h.reason && <p className="opp-scorehist-reason">{h.reason}</p>}
+                  {vd && h.calibration_note && <p className="opp-calibration">{h.calibration_note}</p>}
                 </li>
-              ))}
+                );
+              })}
             </ul>
           </section>
         )}
