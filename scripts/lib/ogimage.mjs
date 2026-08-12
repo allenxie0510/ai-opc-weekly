@@ -28,6 +28,9 @@ const BAD_PATH_RE = /logo|icon|favicon|avatar|emoji|profile_images/i;
 const BLOCKED_IMAGE_URLS = [
   // TechCrunch/Getty 蓝色人形机器人指悬浮图表的素材图——典型 AI 套路审美，且被多篇文章共用
   'GettyImages-2259148891',
+  // TechCrunch Rippling 人堆钞票配图——已被"AI 成本与基础设施优化"机会占用
+  // （同图不同压缩参数会得到不同字节，sha256 防不住，只能 URL 级封杀）
+  'Rippling-AI-Spend-Console',
 ];
 
 // 图片体积下限：小于 30KB 多半是图标/装饰图
