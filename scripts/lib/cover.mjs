@@ -3,8 +3,10 @@
  *
  * Track 1 原图优先：evidence[].source_url 网页的 og:image → 下载转存 covers 桶
  *   （真实感最强、零 AI 感；文件名 opp-<slug>-og.<ext>）
- * Track 2 生成兜底：GLM 提炼静物隐喻场景（英文）→ Seedream 4.5 编辑静物摄影风
- *   → 下载字节 → 上传 covers 桶 → 公共 URL
+ * Track 2 生成兜底：GLM 从内容主题自行提炼视觉隐喻（英文，标注 PHOTO/ILLUSTRATION 路线）
+ *   → 套对应风格模板 → Seedream 4.5 出图 → 下载字节 → 上传 covers 桶 → 公共 URL
+ *   prompt 不提供任何具体元素参考，只约束风格框架和禁区；
+ *   GLM 彻底失败 → cover_url 留 null（宁缺毋滥，没有任何兜底图）
  *
  * 铁律：
  * - 只用 Seedream 4.5，没有任何回退模型——生成失败 cover_url 留 null（前端有渐变兜底）
@@ -35,89 +37,127 @@ const BUCKET = 'covers';
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 /**
- * Stage 4a: 用 GLM 从机会内容提炼一个静物隐喻场景（英文输出）。
- * 要求：一个静物隐喻物体 + 桌面/光线氛围，1-2 句英文。
- * 失败返回 ''，调用方回退到英文预设场景（中文原文绝不进生图 prompt）。
+ * Stage 4a: 用 GLM 从机会内容提炼视觉隐喻场景（英文输出 + 路线标注）。
+ * 核心原则：LLM 从内容主题自己提炼隐喻，prompt 不提供任何具体元素参考，
+ * 只约束风格路线和禁区。输出格式：首词 `PHOTO:` 或 `ILLUSTRATION:` + 1-2 句英文场景。
+ *
+ * 返回 { route: 'PHOTO'|'ILLUSTRATION', scene: string }；彻底失败返回 null
+ * （调用方按宁缺毋滥原则 cover_url 留空，没有任何兜底图）。
+ *
+ * 根因修复记录：glm-4.7-flash 默认开启 thinking，max_tokens=120 会被 reasoning
+ * 烧光导致 content 为空（finish_reason=length）。修法：thinking 显式 disabled +
+ * max_tokens 提到 800 + 空内容时 log 原始响应 + 解析失败做一次裸重试。
  */
 async function deriveScene(zk, { title, thesis, category }) {
-  const user = [
-    `You are the photo editor of a business intelligence magazine. Based on the startup opportunity brief below, conceive ONE cover photograph scene.`,
-    `Rules:`,
-    `1. Describe a single metaphorical still-life object (a real, physical, recognizable object that symbolizes the theme) — the object ONLY, no environment, no room, no desk setting, no background scenery (the plain background is handled separately);`,
-    `2. Exactly one clear subject, no second object;`,
-    `3. The object must NOT be a screen, document, newspaper, book, phone, laptop, or any device that could carry text;`,
-    `4. No people, no hands, no text anywhere in the scene;`,
-    `5. Output ONLY 1-2 English sentences describing the scene itself. No explanation, no prefix, no quotes, no line breaks.`,
-    ``,
-    `Opportunity title: ${title || ''}`,
-    `Thesis: ${String(thesis || '').slice(0, 200)}`,
-    category ? `Category: ${String(category).replace(/-/g, ' ')}` : '',
+  const brief = [
+    `机会标题：${title || ''}`,
+    `机会论断：${String(thesis || '').slice(0, 200)}`,
+    category ? `领域：${String(category).replace(/-/g, ' ')}` : '',
   ].filter(Boolean).join('\n');
-  // 429 拥挤常见，重试 2 次再回退英文预设场景
+  const rules = [
+    `你是一本商业情报杂志的视觉主编。根据下面的创业机会情报，构思一个封面视觉隐喻。`,
+    `规则：`,
+    `1. 从这个机会的核心主题/张力出发，自己想一个视觉隐喻——不要泛泛的"AI 场景"，要让人看到图能联想到这条机会的具体论点；`,
+    `2. 两种视觉路线二选一，选更贴合内容的：`,
+    `   a. PHOTO = 编辑静物摄影：杂志静物、纸感材质、大留白、纪实自然光、单一焦点物体；`,
+    `   b. ILLUSTRATION = 扁平商业插画：极简几何形、网格/节点/趋势线/雷达弧/仪表盘式构图、哑光配色；`,
+    `3. 永远禁止具象 AI 符号：机器人、芯片、大脑、全息屏；`,
+    `4. 场景中不要出现人物、手、任何文字载体（屏幕/文档/报纸/书籍）；`,
+    `5. 只输出场景描述本身：首词写 PHOTO: 或 ILLUSTRATION: 标注路线，然后 1-2 句英文场景描述。不要任何解释、前缀、引号或换行。`,
+    ``,
+    brief,
+  ].join('\n');
+  const bare = [
+    `根据下面的创业机会情报，用 1-2 句英文描述一个能隐喻其核心理念的封面画面（静物物体或极简几何构图均可），`,
+    `禁止机器人/芯片/大脑/全息屏/人物/文字。只输出英文场景描述本身，不要解释。`,
+    ``,
+    brief,
+  ].join('\n');
+
+  // 调 GLM 一次；空内容时 log 原始响应关键字段便于诊断
+  async function callOnce(prompt, label) {
+    const res = await fetch(ZHIPU_CHAT_API, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${zk}` },
+      body: JSON.stringify({
+        model: GLM_MODEL,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.7,
+        max_tokens: 800,
+        thinking: { type: 'disabled' }, // 简单提炼任务关掉推理，否则 reasoning 烧光 max_tokens 导致 content 为空
+      }),
+      signal: AbortSignal.timeout(45000),
+    });
+    const txt = await res.text();
+    if (!res.ok) {
+      const err = new Error(`GLM ${res.status}: ${txt.slice(0, 100)}`);
+      err.congested = res.status === 429;
+      throw err;
+    }
+    const data = JSON.parse(txt);
+    const choice = data.choices?.[0] || {};
+    const content = (choice.message?.content || '')
+      .replace(/^["'\s]+|["'\s]+$/g, '').replace(/\s+/g, ' ').slice(0, 400);
+    if (!content) {
+      console.log(`   ⚠️ GLM ${label} 返回空内容（finish=${choice.finish_reason}，usage=${JSON.stringify(data.usage || {})}，reasoning=${String(choice.message?.reasoning_content || '').slice(0, 60)}）`);
+    }
+    return content;
+  }
+
+  // 主流程：带格式要求的调用（429 重试 2 次）→ 解析路线前缀
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      const res = await fetch(ZHIPU_CHAT_API, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${zk}` },
-        body: JSON.stringify({
-          model: GLM_MODEL,
-          messages: [{ role: 'user', content: user }],
-          temperature: 0.7,
-          max_tokens: 120,
-        }),
-        signal: AbortSignal.timeout(45000),
-      });
-      const txt = await res.text();
-      if (!res.ok) {
-        if (res.status === 429 && attempt < 2) {
-          console.log(`   ⚠️ 场景提炼 429，${(attempt + 1) * 20}s 后重试...`);
-          await sleep((attempt + 1) * 20000);
-          continue;
+      const out = await callOnce(rules, '场景提炼');
+      if (out) {
+        const m = out.match(/^(PHOTO|ILLUSTRATION)\s*[:：]\s*(.+)$/i);
+        if (m && m[2].length >= 10) {
+          return { route: m[1].toUpperCase(), scene: m[2].trim() };
         }
-        throw new Error(`GLM ${res.status}: ${txt.slice(0, 100)}`);
+        console.log(`   ⚠️ 场景提炼输出无路线标注，裸重试: ${out.slice(0, 60)}`);
+        break; // 有内容但格式不符 → 走裸重试
       }
-      const scene = (JSON.parse(txt).choices?.[0]?.message?.content || '')
-        .replace(/^["'\s]+|["'\s]+$/g, '').replace(/\s+/g, ' ').slice(0, 400);
-      return scene;
+      // 空内容：不重试同 prompt（大概率同样空），直接裸重试
+      break;
     } catch (e) {
+      if (e.congested && attempt < 2) {
+        console.log(`   ⚠️ 场景提炼 429，${(attempt + 1) * 20}s 后重试...`);
+        await sleep((attempt + 1) * 20000);
+        continue;
+      }
       if (attempt === 2) {
-        console.log(`   ⚠️ 场景提炼失败（回退预设场景）: ${e.message.slice(0, 60)}`);
-        return '';
+        console.log(`   ⚠️ 场景提炼请求失败: ${e.message.slice(0, 60)}`);
+        return null;
       }
       await sleep(10000);
     }
   }
-  return '';
+
+  // 裸重试：无格式要求，拿到内容后按关键词推断路线（默认 PHOTO）
+  try {
+    const out = await callOnce(bare, '场景提炼(裸重试)');
+    if (out && out.length >= 10) {
+      const route = /illustration|geometric|flat|diagram|grid/i.test(out) ? 'ILLUSTRATION' : 'PHOTO';
+      console.log(`   ℹ️ 裸重试成功（推断路线 ${route}）`);
+      return { route, scene: out.replace(/^(PHOTO|ILLUSTRATION)\s*[:：]\s*/i, '') };
+    }
+  } catch (e) {
+    console.log(`   ⚠️ 裸重试失败: ${e.message.slice(0, 60)}`);
+  }
+  return null;
 }
 
 /**
- * 编辑静物摄影风 prompt（全英文）。
- * 负面清单尾置被 Seedream 无视过（照样画出发光大脑+电路板+赛博城市），
- * 改为前置正向约束：开头就锁死"写实摄影/真实物体/只有单一主体"，
- * 结尾只保留精简禁令。ARK 图像接口无 negative prompt 参数。
+ * 生成 prompt 组装：正向 = 风格框架（按路线分 PHOTO / ILLUSTRATION 两个模板）
+ * + deriveScene 场景；负向约束直接拼在末尾（ARK 接口无 negative prompt 参数）。
+ * 中文原文绝不进生图 prompt。
  */
-export function buildCoverPrompt({ scene }) {
-  return [
-    `Photorealistic editorial still-life photograph, shot on 50mm lens, real physical objects only. `,
-    `The frame contains ONLY one subject and empty negative space: ${scene}. `,
-    `Plain off-white seamless background, matte paper-textured surface, soft natural window light, muted warm film tones, subtle film grain, shallow depth of field. One burnt-orange accent allowed. `,
-    `No text, no letters, no logos, no people, no hands, no background scenery, no second object, no screens, no electronics, no illustration, no 3D render, no cartoon.`,
-  ].join('');
-}
+const NEGATIVE_TAIL = 'Avoid: isometric, 3D render, robot, humanoid, chip, circuit board, glowing brain, neon, hologram, cyber city, blue-purple gradient, floating UI screens, lens flare, plastic texture, text, letters, words, numbers, logos, watermarks, people, hands, cartoon, anime, clipart.';
 
-/** 英文预设静物场景兜底（deriveScene 失败时用；单一物体、无环境词、绝不喂中文原文） */
-function presetScene(opp) {
-  const text = `${opp.title || ''} ${opp.thesis || ''}`.toLowerCase();
-  if (/agent|自动化|workflow|工作流/.test(text)) {
-    return 'a vintage telephone handset';
-  }
-  if (/成本|cost|降价|infra|基础设施/.test(text)) {
-    return 'a small brass balance scale with a few coins on one pan';
-  }
-  if (/应用|app|构建|build|工具|tool/.test(text)) {
-    return 'a single antique brass key';
-  }
-  return 'a brass compass';
+export function buildCoverPrompt({ route, scene }) {
+  const frame = route === 'ILLUSTRATION'
+    ? 'Minimal flat business illustration, geometric shapes, matte muted palette, off-white paper background, deep ink linework, one burnt-orange accent, generous negative space, editorial magazine quality. '
+    : 'Photorealistic editorial still-life photograph, documentary natural light, matte paper texture, generous negative space, muted film tones. Color palette: off-white, warm grey, deep ink, with at most one burnt-orange accent. ';
+  return `${frame}Subject: ${scene}. ${NEGATIVE_TAIL}`;
 }
 
 /**
@@ -284,20 +324,24 @@ export async function generateOpportunityCover(opp, opts = {}) {
       }
     }
 
-    // ── Track 2：Seedream 4.5 编辑静物摄影生成（无回退模型，失败留空）─────
+    // ── Track 2：Seedream 4.5 生成（场景唯一来源 = GLM 提炼，失败留空无兜底）──
     const arkKey = process.env.ARK_API_KEY;
     if (!arkKey) {
       console.log('   ⚠️ 缺少 ARK_API_KEY，无法生成封面（cover_url 留空）');
       return '';
     }
-    let scene = '';
     const zk = process.env.ZHIPU_API_KEY;
-    if (zk) scene = await deriveScene(zk, opp);
-    if (!scene) {
-      scene = presetScene(opp);
-      console.log('   ℹ️ 使用预设静物场景兜底');
+    if (!zk) {
+      console.log('   ⚠️ 缺少 ZHIPU_API_KEY，无法提炼场景（cover_url 留空）');
+      return '';
     }
-    const prompt = buildCoverPrompt({ scene });
+    const derived = await deriveScene(zk, opp);
+    if (!derived) {
+      console.log('   ⬜ GLM 场景提炼彻底失败——宁缺毋滥，cover_url 留空（前端渐变兜底）');
+      return '';
+    }
+    console.log(`   💡 场景隐喻（${derived.route}）: ${derived.scene.slice(0, 80)}`);
+    const prompt = buildCoverPrompt(derived);
     const tmpUrl = await seedreamGenerate(arkKey, prompt);
     const { bytes } = await downloadImage(tmpUrl);
     const filename = `opp-${name}.png`;
