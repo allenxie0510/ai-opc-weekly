@@ -63,20 +63,22 @@ async function deriveScene(zk, { title, thesis, category }, usedScenes) {
     `   a. PHOTO = 编辑静物摄影：杂志静物、纸感材质、大留白、纪实自然光、单一焦点物体；`,
     `   b. ILLUSTRATION = 扁平商业插画：极简几何形、网格/节点/趋势线/雷达弧/仪表盘式构图、哑光配色；`,
     `3. 永远禁止具象 AI 符号：机器人、芯片、大脑、全息屏；`,
-    `4. 只选当代/现代物件和场景：现代办公、现代生活、现代设计物件都可以（消费电子除外）；禁止复古/做旧/前工业时代物件——老式电话、古董钥匙、陶罐、碎纸机、吸尘器、沙漏、黄铜器具、机械齿轮等一律不要；隐喻要让人联想到商业的高效与品质感，而不是怀旧；`,
-    `5. 主体必须是不发光的哑光实体（摄影）或哑光几何形（插画）——不要发光体、不要全息投影、不要光束特效；`,
-    `6. 不要图纸/蓝图/地图/乐谱/文档/报纸/书籍/屏幕这类带线条标注或文字的载体（容易诱导全息投影和乱码文字）；`,
-    `7. 场景中不要出现人物、手；`,
+    `4. 只选当代/现代物件和场景：现代办公、现代生活、现代设计物件都可以（消费电子除外）；禁止复古/做旧/前工业时代物件——老式电话、古董钥匙、陶罐/花瓶（vase）、碎纸机、吸尘器、沙漏、黄铜器具、机械齿轮等一律不要；隐喻要让人联想到商业的高效与品质感，而不是怀旧；`,
+    `5. 主体表面必须完全空白无标记（blank, unmarked）——不要蚀刻、印刷、标签、品牌字样、刻度，任何文字或类文字纹理都不能出现在画面里；`,
+    `6. 主体必须是不发光的哑光实体（摄影）或哑光几何形（插画）——不要发光体、不要全息投影、不要光束特效；`,
+    `7. 不要图纸/蓝图/地图/乐谱/文档/报纸/书籍/屏幕这类带线条标注或文字的载体（容易诱导全息投影和乱码文字）；`,
+    `8. 场景中不要出现人物、手；`,
     Array.isArray(usedScenes) && usedScenes.length
-      ? `8. 以下隐喻已被本站其他封面使用，必须构思与它们完全不同的隐喻：${usedScenes.map(s => `"${s.slice(0, 80)}"`).join('、')}；`
+      ? `9. 以下隐喻已被本站其他封面使用，必须构思与它们完全不同的隐喻：${usedScenes.map(s => `"${s.slice(0, 80)}"`).join('、')}；`
       : '',
-    `9. 只输出场景描述本身：首词写 PHOTO: 或 ILLUSTRATION: 标注路线，然后 1-2 句英文场景描述。不要任何解释、前缀、引号或换行。`,
+    `10. 只输出场景描述本身：首词写 PHOTO: 或 ILLUSTRATION: 标注路线，然后 1-2 句英文场景描述。不要任何解释、前缀、引号或换行。`,
     ``,
     brief,
   ].filter(Boolean).join('\n');
   const bare = [
     `根据下面的创业机会情报，用 1-2 句英文描述一个能隐喻其核心理念的封面画面（现代物件静物或极简几何构图均可），`,
-    `禁止机器人/芯片/大脑/全息屏/人物/文字，禁止复古做旧物件（老式电话、陶罐、沙漏、黄铜器具等），只选当代现代物件。只输出英文场景描述本身，不要解释。`,
+    `禁止机器人/芯片/大脑/全息屏/人物/文字，禁止复古做旧物件（老式电话、陶罐/花瓶、沙漏、黄铜器具等），只选当代现代物件，`,
+    `主体表面完全空白无标记（blank, unmarked）。只输出英文场景描述本身，不要解释。`,
     ``,
     brief,
   ].join('\n');
@@ -161,8 +163,8 @@ async function deriveScene(zk, { title, thesis, category }, usedScenes) {
  */
 export function buildCoverPrompt({ route, scene }) {
   return route === 'ILLUSTRATION'
-    ? `Minimal modern business illustration. ${scene}. Flat geometric shapes, clean grid, subtle data-signal motifs (nodes, trend line, radar arc) where fitting, off-white background, deep ink linework, one burnt-orange accent, generous negative space, premium fintech-editorial quality.`
-    : `Modern editorial still-life photograph for a premium business magazine. ${scene}. Clean seamless light-grey or off-white studio background, bright soft daylight, crisp minimal composition, generous negative space, contemporary design objects with sleek matte or brushed finishes, subtle film grain. Color palette: warm white, light grey, deep ink, one burnt-orange accent.`;
+    ? `Minimal modern business illustration. ${scene}. Flat geometric shapes, clean grid, subtle data-signal motifs (nodes, trend line, radar arc) where fitting, off-white background, deep ink linework, one burnt-orange accent, generous negative space, premium fintech-editorial quality. All surfaces are blank and unmarked.`
+    : `Modern editorial still-life photograph for a premium business magazine. ${scene}. Clean seamless light-grey or off-white studio background, bright soft daylight, crisp minimal composition, generous negative space, contemporary design objects with sleek matte or brushed finishes, subtle film grain. Color palette: warm white, light grey, deep ink, one burnt-orange accent. All surfaces are blank and unmarked.`;
 }
 
 /**
