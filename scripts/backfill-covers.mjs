@@ -124,9 +124,10 @@ async function main() {
   let ok = 0, fail = 0;
   const usedOgUrls = new Set(); // 本轮已占用的 og 图 URL（URL 级去重）
   const usedHashes = new Set(); // 已有封面的 sha256（内容级去重）
+  const usedScenes = [];        // 本轮已提炼的隐喻（防多条机会隐喻雷同）
   if (!force && rows?.length) await seedExistingHashes(usedHashes);
   for (const row of rows || []) {
-    const coverUrl = await generateOpportunityCover(row, { usedOgUrls, usedHashes });
+    const coverUrl = await generateOpportunityCover(row, { usedOgUrls, usedHashes, usedScenes });
     if (!coverUrl) { fail++; continue; }
     try {
       await sb(`/opportunities?id=eq.${row.id}`, {

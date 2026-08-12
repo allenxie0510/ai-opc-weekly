@@ -43,12 +43,13 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
  *
  * 返回 { route: 'PHOTO'|'ILLUSTRATION', scene: string }；彻底失败返回 null
  * （调用方按宁缺毋滥原则 cover_url 留空，没有任何兜底图）。
+ * @param {string[]} [usedScenes] 本轮已提炼的隐喻清单（防多条机会隐喻雷同）
  *
  * 根因修复记录：glm-4.7-flash 默认开启 thinking，max_tokens=120 会被 reasoning
  * 烧光导致 content 为空（finish_reason=length）。修法：thinking 显式 disabled +
  * max_tokens 提到 800 + 空内容时 log 原始响应 + 解析失败做一次裸重试。
  */
-async function deriveScene(zk, { title, thesis, category }) {
+async function deriveScene(zk, { title, thesis, category }, usedScenes) {
   const brief = [
     `机会标题：${title || ''}`,
     `机会论断：${String(thesis || '').slice(0, 200)}`,
@@ -62,11 +63,16 @@ async function deriveScene(zk, { title, thesis, category }) {
     `   a. PHOTO = 编辑静物摄影：杂志静物、纸感材质、大留白、纪实自然光、单一焦点物体；`,
     `   b. ILLUSTRATION = 扁平商业插画：极简几何形、网格/节点/趋势线/雷达弧/仪表盘式构图、哑光配色；`,
     `3. 永远禁止具象 AI 符号：机器人、芯片、大脑、全息屏；`,
-    `4. 场景中不要出现人物、手、任何文字载体（屏幕/文档/报纸/书籍）；`,
-    `5. 只输出场景描述本身：首词写 PHOTO: 或 ILLUSTRATION: 标注路线，然后 1-2 句英文场景描述。不要任何解释、前缀、引号或换行。`,
+    `4. 主体必须是不发光的哑光实体（摄影）或哑光几何形（插画）——不要发光体、不要全息投影、不要光束特效；`,
+    `5. 不要图纸/蓝图/地图/乐谱/文档/报纸/书籍/屏幕这类带线条标注或文字的载体（容易诱导全息投影和乱码文字）；`,
+    `6. 场景中不要出现人物、手；`,
+    Array.isArray(usedScenes) && usedScenes.length
+      ? `7. 以下隐喻已被本站其他封面使用，必须构思与它们完全不同的隐喻：${usedScenes.map(s => `"${s.slice(0, 80)}"`).join('、')}；`
+      : '',
+    `8. 只输出场景描述本身：首词写 PHOTO: 或 ILLUSTRATION: 标注路线，然后 1-2 句英文场景描述。不要任何解释、前缀、引号或换行。`,
     ``,
     brief,
-  ].join('\n');
+  ].filter(Boolean).join('\n');
   const bare = [
     `根据下面的创业机会情报，用 1-2 句英文描述一个能隐喻其核心理念的封面画面（静物物体或极简几何构图均可），`,
     `禁止机器人/芯片/大脑/全息屏/人物/文字。只输出英文场景描述本身，不要解释。`,
@@ -156,7 +162,7 @@ const NEGATIVE_TAIL = 'Avoid: isometric, 3D render, robot, humanoid, chip, circu
 export function buildCoverPrompt({ route, scene }) {
   const frame = route === 'ILLUSTRATION'
     ? 'Minimal flat business illustration, geometric shapes, matte muted palette, off-white paper background, deep ink linework, one burnt-orange accent, generous negative space, editorial magazine quality. '
-    : 'Photorealistic editorial still-life photograph, documentary natural light, matte paper texture, generous negative space, muted film tones. Color palette: off-white, warm grey, deep ink, with at most one burnt-orange accent. ';
+    : 'Photorealistic editorial still-life photograph, documentary natural light, matte paper texture, generous negative space, muted film tones. The subject is matte and does not emit light. Color palette: off-white, warm grey, deep ink, with at most one burnt-orange accent. ';
   return `${frame}Subject: ${scene}. ${NEGATIVE_TAIL}`;
 }
 
@@ -271,9 +277,10 @@ function slugOf(opp) {
  * 为一个机会生成封面并上传，返回公共 URL；失败返回 ''（绝不抛错）
  * Track 1：evidence og:image 原图转存；Track 2：Seedream 4.5 静物生成兜底。
  * @param {{ title: string, thesis?: string, category?: string, slug?: string, id?: string, evidence?: Array }} opp
- * @param {{ usedOgUrls?: Set<string>, usedHashes?: Set<string> }} [opts]
+ * @param {{ usedOgUrls?: Set<string>, usedHashes?: Set<string>, usedScenes?: string[] }} [opts]
  *   usedOgUrls：本轮已被占用的 og 图 URL（URL 级去重）；
- *   usedHashes：本轮 + 线上已有封面的 sha256（内容级去重，防"不同文章共用一张素材图"）
+ *   usedHashes：本轮 + 线上已有封面的 sha256（内容级去重，防"不同文章共用一张素材图"）；
+ *   usedScenes：本轮已提炼的隐喻场景（防多条机会隐喻雷同）
  */
 export async function generateOpportunityCover(opp, opts = {}) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -335,11 +342,12 @@ export async function generateOpportunityCover(opp, opts = {}) {
       console.log('   ⚠️ 缺少 ZHIPU_API_KEY，无法提炼场景（cover_url 留空）');
       return '';
     }
-    const derived = await deriveScene(zk, opp);
+    const derived = await deriveScene(zk, opp, opts.usedScenes);
     if (!derived) {
       console.log('   ⬜ GLM 场景提炼彻底失败——宁缺毋滥，cover_url 留空（前端渐变兜底）');
       return '';
     }
+    opts.usedScenes?.push(derived.scene);
     console.log(`   💡 场景隐喻（${derived.route}）: ${derived.scene.slice(0, 80)}`);
     const prompt = buildCoverPrompt(derived);
     const tmpUrl = await seedreamGenerate(arkKey, prompt);
