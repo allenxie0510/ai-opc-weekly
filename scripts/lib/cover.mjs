@@ -264,10 +264,22 @@ export async function generateOpportunityCover(opp) {
     return '';
   }
   try {
-    // 4a: 先从内容提炼具体视觉场景；失败回退到标题+论断原文截断
+    // 4a: 先从内容提炼具体视觉场景
     let scene = await deriveScene(zk, opp);
     if (!scene) {
-      scene = `${opp.title || ''}. ${String(opp.thesis || '').slice(0, 150)}`.trim();
+      // 回退绝不喂中文标题/论断原文——模型会把原文当标注文字渲染进图（乱码根因）。
+      // 用关键词匹配一个安全的英文预设场景：
+      const text = `${opp.title || ''} ${opp.thesis || ''}`.toLowerCase();
+      if (/agent|自动化|workflow|工作流/.test(text)) {
+        scene = 'A glowing microchip at the center connected by circuit lines to small gears, wrenches and robotic arms, symbolizing AI agents automating work';
+      } else if (/成本|cost|降价|infra|基础设施/.test(text)) {
+        scene = 'A glowing microchip with an hourglass and small server towers beside it, symbolizing falling AI compute costs';
+      } else if (/应用|app|构建|build|工具|tool/.test(text)) {
+        scene = 'A laptop surrounded by colorful building blocks, gears and a wrench, symbolizing building software products quickly';
+      } else {
+        scene = 'A glowing microchip with a small green plant growing out of it, symbolizing a one-person business powered by AI';
+      }
+      console.log('   ℹ️ 使用预设场景兜底');
     }
     const prompt = buildCoverPrompt({ scene, category: opp.category });
     // 出图优先级：Seedream（需 ARK_API_KEY）→ 智谱链（glm-image → cogview 系列）
