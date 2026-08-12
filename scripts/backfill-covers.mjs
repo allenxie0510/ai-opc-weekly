@@ -69,7 +69,7 @@ async function pruneOrphans() {
   const listRes = await fetch(`${SUPABASE_URL}/storage/v1/object/list/${BUCKET}`, {
     method: 'POST',
     headers: { apikey: SRK, Authorization: `Bearer ${SRK}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ limit: 1000, prefix: 'opp-' }),
+    body: JSON.stringify({ limit: 1000, prefix: '' }),
   });
   if (!listRes.ok) {
     console.log(`   ⚠️ 列出 bucket 文件失败: SB ${listRes.status}`);
