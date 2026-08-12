@@ -18,8 +18,9 @@ const BLOCKED_DOMAINS = [
   'www.gravatar.com',
 ];
 
-// 路径含这些片段的多半是站点图标而非内容图
-const BAD_PATH_RE = /logo|icon|favicon|avatar|emoji/i;
+// 路径含这些片段的多半是站点图标/头像而非内容图
+// （profile_images = X/Twitter 头像目录，无媒体推文的 og:image 会回退成作者头像）
+const BAD_PATH_RE = /logo|icon|favicon|avatar|emoji|profile_images/i;
 
 // 图片体积下限：小于 30KB 多半是图标/装饰图
 const MIN_BYTES = 30 * 1024;
