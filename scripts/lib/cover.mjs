@@ -1,55 +1,53 @@
 /**
- * AI OPC · 机会封面共享库（Stage 4 / 回填脚本共用）
+ * AI OPC · 机会封面共享库（Stage 4 / 回填脚本共用）——两级管线
  *
- * 流程：title + thesis + category → GLM 提炼具体视觉场景（4a）
- *   → 拼入统一风格 prompt（科技杂志扁平编辑插画风）
- *   → 智谱 CogView（cogview-3-flash）文生图（临时 URL）
- *   → 下载字节 → 上传 Supabase Storage bucket `covers`（公开）
- *   → 返回公共 URL；任何一步失败返回 ''（不阻塞主流程，前端有兜底封面）
+ * Track 1 原图优先：evidence[].source_url 网页的 og:image → 下载转存 covers 桶
+ *   （真实感最强、零 AI 感；文件名 opp-<slug>-og.<ext>）
+ * Track 2 生成兜底：GLM 提炼静物隐喻场景（英文）→ Seedream 4.5 编辑静物摄影风
+ *   → 下载字节 → 上传 covers 桶 → 公共 URL
  *
- * 环境变量：NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY + ZHIPU_API_KEY
+ * 铁律：
+ * - 只用 Seedream 4.5，没有任何回退模型——生成失败 cover_url 留 null（前端有渐变兜底）
+ * - 中文原文绝不进生图 prompt（模型会把原文当标注文字渲染进图）
+ * - 任何一步失败返回 ''（不阻塞主流程，exit 0 不挂 workflow）
+ *
+ * 环境变量：NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY
+ *   Track 1 只需以上两个；Track 2 另需 ZHIPU_API_KEY（场景提炼）+ ARK_API_KEY（出图）
  * 前置条件：opportunities 表已有 cover_url 列
  *   alter table opportunities add column if not exists cover_url text;
  */
 
-const COGVIEW_API = 'https://open.bigmodel.cn/api/paas/v4/images/generations';
+import { findEvidenceImage } from './ogimage.mjs';
+
 const ZHIPU_CHAT_API = 'https://open.bigmodel.cn/api/paas/v4/chat/completions';
-// 火山引擎 ARK（Seedream）：指令跟随/插画美感国内第一梯队，"无文字"约束稳定生效
+// 火山引擎 ARK（Seedream 4.5）：指令跟随/写实摄影国内第一梯队，"无文字"约束稳定生效
 const ARK_API = 'https://ark.cn-beijing.volces.com/api/v3/images/generations';
-const SEEDREAM_MODELS = (process.env.SEEDREAM_MODEL || 'doubao-seedream-4-5-251128,doubao-seedream-4-0-250828')
-  .split(',').map(s => s.trim()).filter(Boolean);
-// 智谱降级链：glm-image（SOTA 认知型图像模型）→ cogview-4 → cogview-3-plus → cogview-3-flash
-const MODEL_CHAIN = (process.env.COGVIEW_MODEL || 'glm-image,cogview-4,cogview-3-plus,cogview-3-flash')
-  .split(',').map(s => s.trim()).filter(Boolean);
+const SEEDREAM_MODEL = (process.env.SEEDREAM_MODEL || 'doubao-seedream-4-5-251128').trim();
 const GLM_MODEL = 'glm-4.7-flash';
-// 尺寸降级链：首选 1728x960（16:10），失败退 1440x810，再失败让模型用默认尺寸
-const SIZE_CHAIN = ['1728x960', '1440x810', null];
 const BUCKET = 'covers';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 /**
- * Stage 4a: 用 GLM 从机会内容提炼一个具体的视觉画面（英文场景描述）。
- * 关键：画面必须用可识别的现实物体/场景做隐喻，直接呼应主题——
- * 不要抽象几何装饰（那是上一版"跟主题没相关性"的根因）。
- * 失败返回 ''，调用方回退到原文截断。
+ * Stage 4a: 用 GLM 从机会内容提炼一个静物隐喻场景（英文输出）。
+ * 要求：一个静物隐喻物体 + 桌面/光线氛围，1-2 句英文。
+ * 失败返回 ''，调用方回退到英文预设场景（中文原文绝不进生图 prompt）。
  */
 async function deriveScene(zk, { title, thesis, category }) {
   const user = [
-    `你是科技杂志的插画师。请根据下面的创业机会情报，构思一个封面插画画面。`,
-    `要求：`,
-    `1. 用可识别的现实物体或场景做视觉隐喻，画面内容必须直接呼应主题（例如"AI 成本优化"可以画沙漏与芯片）；`,
-    `2. 画面只有一个清晰的主体，构图简洁；`,
-    `3. 避免以屏幕、文档、报纸、书籍、网页界面为主体（这些元素容易带出文字）；`,
-    `4. 避免流程图、信息图、步骤对比图式构图（这类构图容易带标签文字），用具象物体场景；`,
-    `5. 只输出 1-2 句英文场景描述本身，不要任何解释、前缀、引号或换行。`,
+    `You are the photo editor of a business intelligence magazine. Based on the startup opportunity brief below, conceive ONE cover photograph scene.`,
+    `Rules:`,
+    `1. Describe a single metaphorical still-life object (a real, physical, recognizable object that symbolizes the theme), plus the surface it rests on and the lighting mood;`,
+    `2. Exactly one clear subject, minimal composition, lots of empty space around it;`,
+    `3. The object must NOT be a screen, document, newspaper, book, phone, laptop, or any device that could carry text;`,
+    `4. No people, no hands, no text anywhere in the scene;`,
+    `5. Output ONLY 1-2 English sentences describing the scene itself. No explanation, no prefix, no quotes, no line breaks.`,
     ``,
-    `机会标题：${title || ''}`,
-    `机会论断：${String(thesis || '').slice(0, 200)}`,
-    category ? `领域：${String(category).replace(/-/g, ' ')}` : '',
+    `Opportunity title: ${title || ''}`,
+    `Thesis: ${String(thesis || '').slice(0, 200)}`,
+    category ? `Category: ${String(category).replace(/-/g, ' ')}` : '',
   ].filter(Boolean).join('\n');
-  // 429 拥挤常见，重试 2 次再回退——回退会把中文标题原文喂给 glm-image，
-  // 导致它直接把标题渲染进图里（这是图上出现大字标题的根因）
+  // 429 拥挤常见，重试 2 次再回退英文预设场景
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
       const res = await fetch(ZHIPU_CHAT_API, {
@@ -77,7 +75,7 @@ async function deriveScene(zk, { title, thesis, category }) {
       return scene;
     } catch (e) {
       if (attempt === 2) {
-        console.log(`   ⚠️ 场景提炼失败（回退原文）: ${e.message.slice(0, 60)}`);
+        console.log(`   ⚠️ 场景提炼失败（回退预设场景）: ${e.message.slice(0, 60)}`);
         return '';
       }
       await sleep(10000);
@@ -87,125 +85,75 @@ async function deriveScene(zk, { title, thesis, category }) {
 }
 
 /**
- * 构造统一风格的概念图 prompt（全中文——glm-image 国产训练，中文指令跟随更稳，
- * 英文禁文字约束被它无视了六轮，根因是它是文字渲染专精模型，要正面用中文下死命令）。
- * 风格锚点（参考科技杂志编辑插画）：扁平矢量 + 柔和渐变、
- * 低饱和安静背景 + 单一醒目强调色、具体物体隐喻、一个清晰主体。
+ * 编辑静物摄影风 prompt（全英文）。ARK 图像接口无 negative prompt 参数，
+ * 负面约束直接编在主 prompt 末尾。
  */
-export function buildCoverPrompt({ scene, category }) {
-  const catHint = category ? `（领域：${String(category).replace(/-/g, ' ')}）` : '';
+export function buildCoverPrompt({ scene }) {
   return [
-    `画一幅无文字的扁平矢量插画，整幅画面不允许出现任何文字。`,
-    `这是现代科技媒体使用的精品编辑插画，干净的几何扁平矢量风格。`,
-    `画面内容：${scene}${catHint}`,
-    `风格要求：精确的扁平矢量造型配柔和微妙的渐变，安静低饱和背景（淡蓝灰或暖浅灰），深蓝与青色为主色调、点缀一处暖橙色，主体是唯一且清晰的、由可识别的现实物体构成（芯片、设备、工具、植物等），可有细腻的电路线或几何纹理与柔和辉光，隐喻式叙事，构图平衡、留白充分，边缘干净锐利，整体精致专业。`,
-    `最重要的要求：画面中绝对禁止出现任何文字——不要字母、不要单词、不要数字、不要汉字、不要标题、不要 caption、不要带字的文档/屏幕/报纸，不要 logo，不要水印，也不要预留任何标题或横幅区域，场景本身铺满整个画面。纯粹无字的视觉场景，不要写实照片风。`,
+    `Editorial still-life photograph for a business intelligence magazine cover. `,
+    `Single metaphorical subject: ${scene}. `,
+    `Matte paper-textured surface, muted warm film tones, soft natural window light, generous negative space, subtle film grain, shallow depth of field. `,
+    `Color palette: off-white, warm grey, deep ink, with one burnt-orange accent. `,
+    `Photorealistic, shot on 50mm lens. `,
+    `Absolutely no text, no letters, no numbers, no logos, no watermarks, no people, no hands. `,
+    `Strictly avoid: isometric, 3D render, robot, humanoid, chip, circuit board, glowing brain, neon, hologram, cyberpunk city, blue-purple gradient, floating UI screens, plastic texture, cartoon, anime, clipart, illustration style.`,
   ].join('');
 }
 
-/** 调火山引擎 Seedream 生成一张图，返回临时 URL；失败抛错 */
-async function seedreamGenerate(arkKey, prompt) {
-  let lastErr;
-  for (const model of SEEDREAM_MODELS) {
-    // 429 重试 1 次
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        const res = await fetch(ARK_API, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${arkKey}` },
-          body: JSON.stringify({
-            model,
-            prompt,
-            size: '2560x1440', // 16:9，卡片 object-fit 裁切即可
-            response_format: 'url',
-            watermark: false,
-          }),
-          signal: AbortSignal.timeout(120000),
-        });
-        const txt = await res.text();
-        if (!res.ok) {
-          const err = new Error(`Seedream ${res.status}: ${txt.slice(0, 150)}`);
-          err.congested = res.status === 429;
-          // 模型不存在/未开通：降级下一个模型
-          if (res.status === 400 || res.status === 404) err.modelRejected = true;
-          throw err;
-        }
-        const url = JSON.parse(txt).data?.[0]?.url;
-        if (!url) throw new Error('Seedream 响应无 data[0].url');
-        console.log(`   🎨 Seedream 出图（${model}）`);
-        return url;
-      } catch (e) {
-        lastErr = e;
-        if (e.modelRejected) {
-          console.log(`   ⚠️ Seedream 模型 ${model} 不可用，降级下一个...`);
-          break;
-        }
-        if (e.congested && attempt === 0) {
-          console.log(`   ⚠️ Seedream 拥挤(429)，15s 后重试...`);
-          await sleep(15000);
-          continue;
-        }
-        break;
-      }
-    }
+/** 英文预设静物场景兜底（deriveScene 失败时用；绝不喂中文原文） */
+function presetScene(opp) {
+  const text = `${opp.title || ''} ${opp.thesis || ''}`.toLowerCase();
+  if (/agent|自动化|workflow|工作流/.test(text)) {
+    return 'a vintage telephone handset resting beside an open notebook';
   }
-  throw lastErr;
+  if (/成本|cost|降价|infra|基础设施/.test(text)) {
+    return 'a small brass balance scale with a few coins on one side';
+  }
+  if (/应用|app|构建|build|工具|tool/.test(text)) {
+    return 'a single brass key inserted in a small wooden door';
+  }
+  return 'a brass compass on blank graph paper';
 }
 
-/** 调 CogView 生成一张图，返回临时 URL；失败抛错 */
-async function cogviewGenerate(zk, prompt) {
+/**
+ * 调火山引擎 Seedream 4.5 生成一张图，返回临时 URL；失败抛错。
+ * 只用 4.5，无回退模型；429 / 5xx 指数退避最多重试 2 次。
+ */
+async function seedreamGenerate(arkKey, prompt) {
   let lastErr;
-  let modelRejected = false;
-  for (const model of MODEL_CHAIN) {
-    if (modelRejected) { modelRejected = false; }
-    for (let i = 0; i < SIZE_CHAIN.length; i++) {
-      const size = SIZE_CHAIN[i];
-      // 429 / 超时友好重试 1 次
-      for (let attempt = 0; attempt < 2; attempt++) {
-        try {
-          const body = { model, prompt, watermark: false };
-          if (size) body.size = size;
-          const res = await fetch(COGVIEW_API, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${zk}` },
-            body: JSON.stringify(body),
-            signal: AbortSignal.timeout(90000),
-          });
-          const txt = await res.text();
-          if (!res.ok) {
-            const err = new Error(`CogView ${res.status}: ${txt.slice(0, 150)}`);
-            err.congested = res.status === 429;
-            // size 不被接受时直接走下一条尺寸链，不重试
-            if (size && /size/i.test(txt)) err.sizeRejected = true;
-            // 模型不存在/未开通：降级下一个模型
-            if (/model|模型/i.test(txt) && (res.status === 400 || res.status === 404)) err.modelRejected = true;
-            throw err;
-          }
-          const url = JSON.parse(txt).data?.[0]?.url;
-          if (!url) throw new Error('CogView 响应无 data[0].url');
-          if (model !== MODEL_CHAIN[0]) console.log(`   ℹ️ 封面使用降级模型 ${model}`);
-          return url;
-        } catch (e) {
-          lastErr = e;
-          if (e.modelRejected) {
-            console.log(`   ⚠️ 模型 ${model} 不可用，降级下一个模型...`);
-            modelRejected = true;
-            break;
-          }
-          if (e.sizeRejected) {
-            console.log(`   ⚠️ CogView 拒绝尺寸 ${size}，降级重试...`);
-            break;
-          }
-          if (e.congested && attempt === 0) {
-            console.log(`   ⚠️ CogView 拥挤(429)，15s 后重试...`);
-            await sleep(15000);
-            continue;
-          }
-          // 其他错误（超时/无 URL）：同一尺寸不再重试，走下一条尺寸链
-          break;
-        }
+  for (let attempt = 0; attempt <= 2; attempt++) {
+    try {
+      const res = await fetch(ARK_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${arkKey}` },
+        body: JSON.stringify({
+          model: SEEDREAM_MODEL,
+          prompt,
+          size: '2560x1440', // 16:9，卡片 object-fit 裁切即可
+          response_format: 'url',
+          watermark: false,
+        }),
+        signal: AbortSignal.timeout(120000),
+      });
+      const txt = await res.text();
+      if (!res.ok) {
+        const err = new Error(`Seedream ${res.status}: ${txt.slice(0, 150)}`);
+        err.retryable = res.status === 429 || res.status >= 500;
+        throw err;
       }
-      if (modelRejected) break;
+      const url = JSON.parse(txt).data?.[0]?.url;
+      if (!url) throw new Error('Seedream 响应无 data[0].url');
+      console.log(`   🎨 Seedream 4.5 出图（${SEEDREAM_MODEL}）`);
+      return url;
+    } catch (e) {
+      lastErr = e;
+      if (e.retryable && attempt < 2) {
+        const wait = 10000 * 2 ** attempt; // 10s → 20s
+        console.log(`   ⚠️ Seedream 可重试错误（${e.message.slice(0, 50)}），${wait / 1000}s 后重试...`);
+        await sleep(wait);
+        continue;
+      }
+      break;
     }
   }
   throw lastErr;
@@ -233,13 +181,13 @@ async function ensureBucket(supabaseUrl, srk) {
 }
 
 /** 上传图片字节到 covers bucket，返回公共 URL */
-async function uploadToStorage(supabaseUrl, srk, filename, bytes) {
+async function uploadToStorage(supabaseUrl, srk, filename, bytes, contentType = 'image/png') {
   const res = await fetch(`${supabaseUrl}/storage/v1/object/${BUCKET}/${filename}`, {
     method: 'POST',
     headers: {
       apikey: srk,
       Authorization: `Bearer ${srk}`,
-      'Content-Type': 'image/png',
+      'Content-Type': contentType,
       'x-upsert': 'true',
     },
     body: bytes,
@@ -251,60 +199,81 @@ async function uploadToStorage(supabaseUrl, srk, filename, bytes) {
   return `${supabaseUrl}/storage/v1/object/public/${BUCKET}/${filename}`;
 }
 
+/** content-type → 文件扩展名 */
+function extOf(contentType) {
+  const ct = (contentType || '').toLowerCase();
+  if (ct.includes('png')) return 'png';
+  if (ct.includes('webp')) return 'webp';
+  if (ct.includes('avif')) return 'avif';
+  return 'jpg'; // image/jpeg 及未知一律按 jpg
+}
+
+/** 下载图片二进制，返回 { bytes, contentType } */
+async function downloadImage(url) {
+  const imgRes = await fetch(url, { signal: AbortSignal.timeout(30000) });
+  if (!imgRes.ok) throw new Error(`下载图片失败 HTTP ${imgRes.status}`);
+  const bytes = Buffer.from(await imgRes.arrayBuffer());
+  if (bytes.length < 1024) throw new Error(`图片字节异常（${bytes.length}B）`);
+  return { bytes, contentType: imgRes.headers.get('content-type') || '' };
+}
+
+function slugOf(opp) {
+  return (opp.slug || opp.id || `${Date.now()}-${Math.floor(Math.random() * 1e6)}`)
+    .toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').slice(0, 60);
+}
+
 /**
- * 为一个机会生成概念图封面并上传，返回公共 URL；失败返回 ''（绝不抛错）
- * @param {{ title: string, thesis?: string, category?: string, slug?: string, id?: string }} opp
+ * 为一个机会生成封面并上传，返回公共 URL；失败返回 ''（绝不抛错）
+ * Track 1：evidence og:image 原图转存；Track 2：Seedream 4.5 静物生成兜底。
+ * @param {{ title: string, thesis?: string, category?: string, slug?: string, id?: string, evidence?: Array }} opp
  */
 export async function generateOpportunityCover(opp) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const srk = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  const zk = process.env.ZHIPU_API_KEY;
-  if (!supabaseUrl || !srk || !zk) {
-    console.log('   ⚠️ 缺少封面生成环境变量，跳过封面');
+  if (!supabaseUrl || !srk) {
+    console.log('   ⚠️ 缺少 Supabase 环境变量，跳过封面');
     return '';
   }
   try {
-    // 4a: 先从内容提炼具体视觉场景
-    let scene = await deriveScene(zk, opp);
-    if (!scene) {
-      // 回退绝不喂中文标题/论断原文——模型会把原文当标注文字渲染进图（乱码根因）。
-      // 用关键词匹配一个安全的英文预设场景：
-      const text = `${opp.title || ''} ${opp.thesis || ''}`.toLowerCase();
-      if (/agent|自动化|workflow|工作流/.test(text)) {
-        scene = 'A glowing microchip at the center connected by circuit lines to small gears, wrenches and robotic arms, symbolizing AI agents automating work';
-      } else if (/成本|cost|降价|infra|基础设施/.test(text)) {
-        scene = 'A glowing microchip with an hourglass and small server towers beside it, symbolizing falling AI compute costs';
-      } else if (/应用|app|构建|build|工具|tool/.test(text)) {
-        scene = 'A laptop surrounded by colorful building blocks, gears and a wrench, symbolizing building software products quickly';
-      } else {
-        scene = 'A glowing microchip with a small green plant growing out of it, symbolizing a one-person business powered by AI';
-      }
-      console.log('   ℹ️ 使用预设场景兜底');
-    }
-    const prompt = buildCoverPrompt({ scene, category: opp.category });
-    // 出图优先级：Seedream（需 ARK_API_KEY）→ 智谱链（glm-image → cogview 系列）
-    let tmpUrl = '';
-    const arkKey = process.env.ARK_API_KEY;
-    if (arkKey) {
-      try {
-        tmpUrl = await seedreamGenerate(arkKey, prompt);
-      } catch (e) {
-        console.log(`   ⚠️ Seedream 失败，回退智谱链: ${e.message.slice(0, 80)}`);
-      }
-    }
-    if (!tmpUrl) tmpUrl = await cogviewGenerate(zk, prompt);
-
-    // 下载临时图片字节
-    const imgRes = await fetch(tmpUrl, { signal: AbortSignal.timeout(30000) });
-    if (!imgRes.ok) throw new Error(`下载图片失败 HTTP ${imgRes.status}`);
-    const bytes = Buffer.from(await imgRes.arrayBuffer());
-    if (bytes.length < 1024) throw new Error(`图片字节异常（${bytes.length}B）`);
-
     await ensureBucket(supabaseUrl, srk);
-    const name = (opp.slug || opp.id || `${Date.now()}-${Math.floor(Math.random() * 1e6)}`)
-      .toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').slice(0, 60);
+    const name = slugOf(opp);
+
+    // ── Track 1：evidence 网页 og:image 原图转存 ──────────────────────────
+    if (Array.isArray(opp.evidence) && opp.evidence.length > 0) {
+      try {
+        const ogUrl = await findEvidenceImage(opp.evidence);
+        if (ogUrl) {
+          const { bytes, contentType } = await downloadImage(ogUrl);
+          const filename = `opp-${name}-og.${extOf(contentType)}`;
+          const publicUrl = await uploadToStorage(supabaseUrl, srk, filename, bytes,
+            contentType.startsWith('image/') ? contentType.split(';')[0] : 'image/jpeg');
+          console.log(`   📷 封面走 og:image 原图转存 → ${filename}`);
+          return publicUrl;
+        }
+        console.log('   ℹ️ 无合格 og:image 原图，落 Seedream 生成兜底');
+      } catch (e) {
+        console.log(`   ⚠️ og:image 转存失败（落生成兜底）: ${e.message.slice(0, 80)}`);
+      }
+    }
+
+    // ── Track 2：Seedream 4.5 编辑静物摄影生成（无回退模型，失败留空）─────
+    const arkKey = process.env.ARK_API_KEY;
+    if (!arkKey) {
+      console.log('   ⚠️ 缺少 ARK_API_KEY，无法生成封面（cover_url 留空）');
+      return '';
+    }
+    let scene = '';
+    const zk = process.env.ZHIPU_API_KEY;
+    if (zk) scene = await deriveScene(zk, opp);
+    if (!scene) {
+      scene = presetScene(opp);
+      console.log('   ℹ️ 使用预设静物场景兜底');
+    }
+    const prompt = buildCoverPrompt({ scene });
+    const tmpUrl = await seedreamGenerate(arkKey, prompt);
+    const { bytes } = await downloadImage(tmpUrl);
     const filename = `opp-${name}.png`;
-    return await uploadToStorage(supabaseUrl, srk, filename, bytes);
+    return await uploadToStorage(supabaseUrl, srk, filename, bytes, 'image/png');
   } catch (e) {
     console.log(`   ⚠️ 封面生成失败（不阻塞，cover_url 留空）: ${e.message.slice(0, 100)}`);
     return '';

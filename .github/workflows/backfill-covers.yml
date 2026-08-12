@@ -1,7 +1,7 @@
 name: Backfill Opportunity Covers
 
 # 手动触发：为 opportunities 表中 cover_url 为空的 draft/published 机会
-# 生成 CogView 概念图封面并回写（与生产线 Stage 4 同一套逻辑）
+# 生成封面并回写（两级管线：og:image 原图转存 → Seedream 4.5 静物生成，与生产线 Stage 4 同一套逻辑）
 # 前置：opportunities 表需有 cover_url 列
 #   alter table opportunities add column if not exists cover_url text;
 

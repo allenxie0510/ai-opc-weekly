@@ -1,7 +1,7 @@
 /**
  * AI OPC · 机会封面回填脚本（按需手动执行）
  * 为 opportunities 表中 cover_url 为空的 draft/published 机会
- * 走与生产线 Stage 4 相同的 CogView 生成 + Supabase Storage 上传逻辑，回写 cover_url
+ * 走与生产线 Stage 4 相同的两级管线（og:image 原图转存 → Seedream 4.5 静物生成），回写 cover_url
  *
  * 用法：node scripts/backfill-covers.mjs [--force]
  *   默认只处理 cover_url 为空的；--force（或 BACKFILL_FORCE=1）重生成全部
@@ -16,11 +16,10 @@ import { generateOpportunityCover } from './lib/cover.mjs';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SRK = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const ZK = process.env.ZHIPU_API_KEY;
+// ZHIPU_API_KEY / ARK_API_KEY 仅 Track 2 生成兜底需要，cover.mjs 内部会优雅降级，这里不强制
 
 if (!SUPABASE_URL) { console.error('❌ 缺少 NEXT_PUBLIC_SUPABASE_URL'); process.exit(1); }
 if (!SRK) { console.error('❌ 缺少 SUPABASE_SERVICE_ROLE_KEY'); process.exit(1); }
-if (!ZK) { console.error('❌ 缺少 ZHIPU_API_KEY'); process.exit(1); }
 
 async function sb(path, opts = {}) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1${path}`, { ...opts,
@@ -40,7 +39,7 @@ async function main() {
   let rows;
   try {
     rows = await sb(
-      `/opportunities?select=id,slug,title,thesis,category${force ? '' : '&cover_url=is.null'}&status=in.(draft,published)&order=published_at.desc&limit=50`
+      `/opportunities?select=id,slug,title,thesis,category,evidence${force ? '' : '&cover_url=is.null'}&status=in.(draft,published)&order=published_at.desc&limit=50`
     );
   } catch (e) {
     if (/42703|column.*cover_url|cover_url.*column/i.test(e.message)) {
@@ -70,7 +69,7 @@ async function main() {
       fail++;
       console.log(`   ❌ 回写失败 ${String(row.title).slice(0, 30)}: ${e.message.slice(0, 60)}`);
     }
-    await sleep(1500); // 限速，避免 CogView 并发挤压
+    await sleep(1500); // 限速，避免抓取/生图并发挤压
   }
 
   console.log(`\n📊 汇总: 回填成功 ${ok} / 失败 ${fail}`);

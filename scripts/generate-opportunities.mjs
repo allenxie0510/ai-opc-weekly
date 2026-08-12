@@ -2,7 +2,7 @@
  * AI OPC · 机会生产线（Decision Engine v1）
  * 每周从近 7 天 Signals（radar_items）聚类 + GLM 联网调研，
  * 生成 2–3 个 Opportunity 草稿（七维评分 + Evidence Grade + Recommendation），
- * 再经 Stage 4 生成 CogView 概念图封面（cover_url），
+ * 再经 Stage 4 封面两级管线（og:image 原图 → Seedream 4.5 静物生成），
  * 写入 opportunities / cases 表，人工在 /admin 审核后发布。
  *
  * 用法：node scripts/generate-opportunities.mjs
@@ -488,12 +488,13 @@ ${clusterSignals}
       published_at: new Date().toISOString(),
     };
 
-    // Stage 4：AI 概念图封面（CogView → Supabase Storage；失败不阻塞，cover_url 留空，前端有兜底）
+    // Stage 4：封面两级管线（og:image 原图转存 → Seedream 4.5 静物生成；失败不阻塞，cover_url 留空，前端有兜底）
     const coverUrl = await generateOpportunityCover({
       title: String(opp.title || cluster.theme),
       thesis: String(opp.thesis || ''),
       category: VALID_CATEGORIES.includes(opp.category) ? opp.category : 'indie-tool',
       slug,
+      evidence,
     });
     if (coverUrl) {
       row.cover_url = coverUrl;
