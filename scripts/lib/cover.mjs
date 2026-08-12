@@ -164,7 +164,7 @@ async function deriveScene(zk, { title, thesis, category }, usedScenes) {
 export function buildCoverPrompt({ route, scene }) {
   return route === 'ILLUSTRATION'
     ? `Minimal modern business illustration. ${scene}. Flat geometric shapes, clean grid, subtle data-signal motifs (nodes, trend line, radar arc) where fitting, off-white background, deep ink linework, one burnt-orange accent, generous negative space, premium fintech-editorial quality. All surfaces are blank and unmarked.`
-    : `Modern editorial still-life photograph for a premium business magazine. ${scene}. Clean seamless light-grey or off-white studio background, bright soft daylight, crisp minimal composition, generous negative space, contemporary design objects with sleek matte or brushed finishes, subtle film grain. Color palette: warm white, light grey, deep ink, one burnt-orange accent. All surfaces are blank and unmarked.`;
+    : `Modern editorial still-life photograph, premium commercial editorial quality. ${scene}. Clean seamless light-grey or off-white studio background, bright soft daylight, crisp minimal composition, generous negative space, contemporary design objects with sleek matte or brushed finishes, subtle film grain. Color palette: warm white, light grey, deep ink, one burnt-orange accent. All surfaces are blank and unmarked.`;
 }
 
 /**
