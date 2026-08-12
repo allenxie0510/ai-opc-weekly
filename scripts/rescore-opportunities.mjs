@@ -33,6 +33,9 @@ if (!ZK) { console.error('❌ 缺少 ZHIPU_API_KEY'); process.exit(1); }
 
 const SOURCE = ['weekly-rescore', 'manual'].includes(process.env.RESCORE_SOURCE)
   ? process.env.RESCORE_SOURCE : 'manual';
+// 强制模式（RESCORE_FORCE=1）：无相关新信号时不跳过，改用近 7 天全站雷达 top 10
+// 直接喂 GLM——用于校准代码路径的端到端验证；信号无关时 GLM 应判 too-early
+const FORCE = process.env.RESCORE_FORCE === '1';
 const GLM_MODEL = 'glm-4.7-flash';
 const ZHIPU_API = 'https://open.bigmodel.cn/api/paas/v4/chat/completions';
 const MAX_OPPS = 10;        // 每轮最多复评 10 条
@@ -117,12 +120,22 @@ async function rescoreOne(opp) {
 
   // 拉上次评分以来的新雷达条目，关键词粗筛相关性
   const items = await sb(`/radar_items?select=id,title,summary,source_name,score,created_at&status=eq.published&created_at=gt.${encodeURIComponent(since)}&order=score.desc&limit=100`);
-  const signals = matchSignals(opp, items || []);
+  let signals = matchSignals(opp, items || []);
+  let forced = false;
+  if (signals.length === 0 && FORCE) {
+    // 强制模式：近 7 天全站雷达 top 10 直接喂 GLM（不要求关键词匹配），
+    // 信号无关时 GLM 应判 too-early——这本身就是对判定质量的测试
+    const weekCutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    signals = await sb(`/radar_items?select=id,title,summary,source_name,score,created_at&status=eq.published&created_at=gte.${encodeURIComponent(weekCutoff)}&order=score.desc&limit=${MAX_SIGNALS}`) || [];
+    forced = signals.length > 0;
+    if (forced) console.log(`   🔧 强制模式：无相关信号，改用近 7 天全站 top ${signals.length} 条: ${opp.title.slice(0, 40)}`);
+  }
   if (signals.length === 0) {
     console.log(`   ⏭️ 无新相关信号，跳过: ${opp.title.slice(0, 40)}`);
     return 'skipped';
   }
   const initialReason = String(opp.validation_plan?.recommendation_reason || '').slice(0, 150);
+  const forceNote = forced ? `\n注意：这些信号是近 7 天全站雷达热点，可能与该机会无关；若无关或不足以判定，verdict 输出 too-early、signal_strength 输出 stable。` : '';
   const prompt = `你是 AI 创业情报分析师。以下是一条创业机会的初评判断、现有评分和自上次评分以来的新市场信号，请复评并校准初评判断。
 
 机会：${opp.title}
@@ -130,7 +143,7 @@ async function rescoreOne(opp) {
 初评理由：${initialReason || '（无记录）'}
 当前评分：${currentScore10}/10
 新信号（${signals.length} 条）：
-${signals.map((s, i) => `${i + 1}. ${s.title}（${s.source_name || '未知来源'}）`).join('\n')}
+${signals.map((s, i) => `${i + 1}. ${s.title}（${s.source_name || '未知来源'}）`).join('\n')}${forceNote}
 
 任务一：根据新信号判断这个机会的论据是变强、持平还是变弱，给出复评分。
 任务二（校准）：明确对比"当初的初评判断"和"本周新证据"，判定初评是否站得住——
@@ -185,7 +198,7 @@ confirmed=新信号直接证实了初评判断；partially=部分证实、仍有
 }
 
 async function main() {
-  console.log(`🔁 AI OPC · 机会评分复评（source=${SOURCE}）\n`);
+  console.log(`🔁 复评${FORCE ? '（强制模式）' : ''} · source=${SOURCE}\n`);
 
   const cutoff = new Date(Date.now() - WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
   const opps = await sb(`/opportunities?select=id,slug,title,thesis,category,score_total,created_at,validation_plan&status=eq.published&created_at=gte.${encodeURIComponent(cutoff)}&order=created_at.asc&limit=${MAX_OPPS}`);

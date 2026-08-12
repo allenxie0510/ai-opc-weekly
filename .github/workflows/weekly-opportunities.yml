@@ -14,6 +14,10 @@ on:
         description: '只跑评分复评，跳过机会生成'
         type: boolean
         default: false
+      force_rescore:
+        description: '强制复评：无相关新信号时也用近 7 天全站雷达 top 10 喂 GLM（校准路径验证用）'
+        type: boolean
+        default: false
   schedule:
     - cron: '23 1 * * 3'
 
@@ -40,4 +44,5 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           ZHIPU_API_KEY: ${{ secrets.ZHIPU_API_KEY }}
           RESCORE_SOURCE: weekly-rescore
+          RESCORE_FORCE: ${{ inputs.force_rescore == true && '1' || '0' }}
         run: node scripts/rescore-opportunities.mjs
