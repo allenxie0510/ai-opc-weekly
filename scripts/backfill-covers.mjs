@@ -54,8 +54,9 @@ async function main() {
   if (!rows || rows.length === 0) { console.log('✅ 无需回填'); return; }
 
   let ok = 0, fail = 0;
+  const usedOgUrls = new Set(); // 本轮已占用的 og 图，避免多张卡用同一张原图
   for (const row of rows) {
-    const coverUrl = await generateOpportunityCover(row);
+    const coverUrl = await generateOpportunityCover(row, { usedOgUrls });
     if (!coverUrl) { fail++; continue; }
     try {
       await sb(`/opportunities?id=eq.${row.id}`, {

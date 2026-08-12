@@ -226,8 +226,9 @@ function slugOf(opp) {
  * 为一个机会生成封面并上传，返回公共 URL；失败返回 ''（绝不抛错）
  * Track 1：evidence og:image 原图转存；Track 2：Seedream 4.5 静物生成兜底。
  * @param {{ title: string, thesis?: string, category?: string, slug?: string, id?: string, evidence?: Array }} opp
+ * @param {{ usedOgUrls?: Set<string> }} [opts] 本轮运行内已被占用的 og 图 URL（同站多卡去重）
  */
-export async function generateOpportunityCover(opp) {
+export async function generateOpportunityCover(opp, opts = {}) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const srk = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!supabaseUrl || !srk) {
@@ -241,12 +242,13 @@ export async function generateOpportunityCover(opp) {
     // ── Track 1：evidence 网页 og:image 原图转存 ──────────────────────────
     if (Array.isArray(opp.evidence) && opp.evidence.length > 0) {
       try {
-        const ogUrl = await findEvidenceImage(opp.evidence);
+        const ogUrl = await findEvidenceImage(opp.evidence, opts.usedOgUrls);
         if (ogUrl) {
           const { bytes, contentType } = await downloadImage(ogUrl);
           const filename = `opp-${name}-og.${extOf(contentType)}`;
           const publicUrl = await uploadToStorage(supabaseUrl, srk, filename, bytes,
             contentType.startsWith('image/') ? contentType.split(';')[0] : 'image/jpeg');
+          opts.usedOgUrls?.add(ogUrl);
           console.log(`   📷 封面走 og:image 原图转存 → ${filename}`);
           return publicUrl;
         }

@@ -73,9 +73,10 @@ async function verifyImage(urlStr) {
 /**
  * 逐个尝试 evidence 的 source_url 页面，返回第一个合格的 og:image URL。
  * @param {Array<{ source_url?: string }>} evidence
+ * @param {Set<string>} [exclude] 本轮已被其他机会占用的图片 URL（避免同站多卡同图）
  * @returns {Promise<string|null>}
  */
-export async function findEvidenceImage(evidence) {
+export async function findEvidenceImage(evidence, exclude) {
   const sources = (Array.isArray(evidence) ? evidence : [])
     .map(e => e?.source_url)
     .filter(u => typeof u === 'string' && /^https?:\/\//.test(u))
@@ -97,6 +98,10 @@ export async function findEvidenceImage(evidence) {
       try { abs = new URL(raw.replace(/&amp;/g, '&').trim(), res.url || pageUrl).href; }
       catch { continue; }
       if (!plausibleImageUrl(abs)) continue;
+      if (exclude?.has(abs)) {
+        console.log(`   ℹ️ og:image 已被本轮其他机会占用，跳下一条: ${abs.slice(0, 60)}`);
+        continue;
+      }
       if (await verifyImage(abs)) {
         console.log(`   📷 og:image 命中: ${abs.slice(0, 80)}`);
         return abs;
