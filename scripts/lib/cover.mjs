@@ -5,7 +5,7 @@
  *   （真实感最强、零 AI 感；文件名 opp-<slug>-og.<ext>）
  * Track 2 生成兜底：GLM 从内容主题自行提炼视觉隐喻（英文，标注 PHOTO/ILLUSTRATION 路线）
  *   → 套对应风格模板 → Seedream 4.5 出图 → 下载字节 → 上传 covers 桶 → 公共 URL
- *   prompt 不提供任何具体元素参考，只约束风格框架和禁区；
+ *   prompt 不提供任何具体元素参考，规则删减到最少、保留核心，给大模型泛化空间；
  *   GLM 彻底失败 → cover_url 留 null（宁缺毋滥，没有任何兜底图）
  *
  * 铁律：
@@ -38,47 +38,38 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 /**
  * Stage 4a: 用 GLM 从机会内容提炼视觉隐喻场景（英文输出 + 路线标注）。
- * 核心原则：LLM 从内容主题自己提炼隐喻，prompt 不提供任何具体元素参考，
- * 只约束风格路线和禁区。输出格式：首词 `PHOTO:` 或 `ILLUSTRATION:` + 1-2 句英文场景。
+ * 核心原则：LLM 从内容主题自己提炼隐喻，规则删减到最少、保留核心，
+ * 给大模型泛化空间。输出格式：首词 `PHOTO:` 或 `ILLUSTRATION:` + 1-2 句英文场景。
  *
  * 返回 { route: 'PHOTO'|'ILLUSTRATION', scene: string }；彻底失败返回 null
  * （调用方按宁缺毋滥原则 cover_url 留空，没有任何兜底图）。
- * @param {string[]} [usedScenes] 本轮已提炼的隐喻清单（防多条机会隐喻雷同）
  *
  * 根因修复记录：glm-4.7-flash 默认开启 thinking，max_tokens=120 会被 reasoning
  * 烧光导致 content 为空（finish_reason=length）。修法：thinking 显式 disabled +
  * max_tokens 提到 800 + 空内容时 log 原始响应 + 解析失败做一次裸重试。
  */
-async function deriveScene(zk, { title, thesis, category }, usedScenes) {
+async function deriveScene(zk, { title, thesis, category }) {
   const brief = [
     `机会标题：${title || ''}`,
     `机会论断：${String(thesis || '').slice(0, 200)}`,
     category ? `领域：${String(category).replace(/-/g, ' ')}` : '',
   ].filter(Boolean).join('\n');
   const rules = [
-    `你是一本商业情报杂志的视觉主编。根据下面的创业机会情报，构思一个封面视觉隐喻。`,
+    `你是AI相关创业资讯网站视觉主编。根据下面的创业机会情报内容，构思一个封面视觉隐喻(生图prompt)。`,
     `规则：`,
-    `1. 从这个机会的核心主题/张力出发，自己想一个视觉隐喻——不要泛泛的"AI 场景"，要让人看到图能联想到这条机会的具体论点；`,
-    `2. 两种视觉路线二选一，选更贴合内容的：`,
-    `   a. PHOTO = 编辑静物摄影：杂志静物、纸感材质、大留白、纪实自然光、单一焦点物体；`,
-    `   b. ILLUSTRATION = 扁平商业插画：极简几何形、网格/节点/趋势线/雷达弧/仪表盘式构图、哑光配色；`,
-    `3. 永远禁止具象 AI 符号：机器人、芯片、大脑、全息屏；`,
-    `4. 只选当代/现代物件和场景：现代办公、现代生活、现代设计物件都可以（消费电子除外）；禁止复古/做旧/前工业时代物件——老式电话、古董钥匙、陶罐/花瓶（vase）、碎纸机、吸尘器、沙漏、黄铜器具、机械齿轮等一律不要；隐喻要让人联想到商业的高效与品质感，而不是怀旧；`,
-    `5. 主体表面必须完全空白无标记（blank, unmarked）——不要蚀刻、印刷、标签、品牌字样、刻度，任何文字或类文字纹理都不能出现在画面里；`,
-    `6. 主体必须是不发光的哑光实体（摄影）或哑光几何形（插画）——不要发光体、不要全息投影、不要光束特效；`,
-    `7. 不要图纸/蓝图/地图/乐谱/文档/报纸/书籍/屏幕这类带线条标注或文字的载体（容易诱导全息投影和乱码文字）；`,
-    `8. 场景中不要出现人物、手；`,
-    Array.isArray(usedScenes) && usedScenes.length
-      ? `9. 以下隐喻已被本站其他封面使用，必须构思与它们完全不同的隐喻：${usedScenes.map(s => `"${s.slice(0, 80)}"`).join('、')}；`
-      : '',
-    `10. 只输出场景描述本身：首词写 PHOTO: 或 ILLUSTRATION: 标注路线，然后 1-2 句英文场景描述。不要任何解释、前缀、引号或换行。`,
+    `从这个机会的核心主题/张力出发，构想一个封面视觉画面描述，要让人看到图能联想到这条机会的具体论点；`,
+    ``,
+    `两种视觉路线二选一，选更贴合内容的：`,
+    `a. PHOTO = 偏写实摄影`,
+    `b. ILLUSTRATION = 扁平商业插画：体现主题的设计元素、网格/节点/趋势线/雷达弧/仪表盘式构图、哑光配色；`,
+    `隐喻要让人联想到商业的高效与品质感，视觉主体表面必须完全空白无标记（blank, unmarked）——不要蚀刻、印刷、标签、品牌字样、刻度，任何文字或类文字纹理都不能出现在画面里；`,
+    // 工程性补充（已向用户声明）：代码解析路线的必要依据
+    `只输出场景描述本身：首词写 PHOTO: 或 ILLUSTRATION: 标注路线，然后 1-2 句英文场景描述。不要任何解释、前缀、引号或换行。`,
     ``,
     brief,
-  ].filter(Boolean).join('\n');
+  ].join('\n');
   const bare = [
-    `根据下面的创业机会情报，用 1-2 句英文描述一个能隐喻其核心理念的封面画面（现代物件静物或极简几何构图均可），`,
-    `禁止机器人/芯片/大脑/全息屏/人物/文字，禁止复古做旧物件（老式电话、陶罐/花瓶、沙漏、黄铜器具等），只选当代现代物件，`,
-    `主体表面完全空白无标记（blank, unmarked）。只输出英文场景描述本身，不要解释。`,
+    `根据下面的创业机会情报，用 1-2 句英文描述一个能隐喻其核心理念的封面画面（写实摄影或极简几何构图均可），视觉主体表面完全空白无标记（blank, unmarked）。只输出英文场景描述本身，不要解释。`,
     ``,
     brief,
   ].join('\n');
@@ -163,8 +154,8 @@ async function deriveScene(zk, { title, thesis, category }, usedScenes) {
  */
 export function buildCoverPrompt({ route, scene }) {
   return route === 'ILLUSTRATION'
-    ? `Minimal modern business illustration. ${scene}. Flat geometric shapes, clean grid, subtle data-signal motifs (nodes, trend line, radar arc) where fitting, off-white background, deep ink linework, one burnt-orange accent, generous negative space, premium fintech-editorial quality. All surfaces are blank and unmarked.`
-    : `Modern editorial still-life photograph, premium commercial editorial quality. ${scene}. Clean seamless light-grey or off-white studio background, bright soft daylight, crisp minimal composition, generous negative space, contemporary design objects with sleek matte or brushed finishes, subtle film grain. Color palette: warm white, light grey, deep ink, one burnt-orange accent. All surfaces are blank and unmarked.`;
+    ? `modern business illustration. ${scene}. Flat geometric shapes, clean grid, generous negative space, premium fintech-editorial quality. All surfaces are blank and unmarked.`
+    : `Modern editorial photograph, premium commercial editorial quality. ${scene}. Clean seamless light-grey or off-white studio background, contemporary design objects with sleek matte or brushed finishes, subtle film grain. Color palette: warm white, light grey, deep ink, one burnt-orange accent. All surfaces are blank and unmarked.`;
 }
 
 /**
@@ -276,12 +267,11 @@ function slugOf(opp) {
 
 /**
  * 为一个机会生成封面并上传，返回公共 URL；失败返回 ''（绝不抛错）
- * Track 1：evidence og:image 原图转存；Track 2：Seedream 4.5 静物生成兜底。
+ * Track 1：evidence og:image 原图转存；Track 2：Seedream 4.5 生成兜底（PHOTO/ILLUSTRATION 两路线）。
  * @param {{ title: string, thesis?: string, category?: string, slug?: string, id?: string, evidence?: Array }} opp
- * @param {{ usedOgUrls?: Set<string>, usedHashes?: Set<string>, usedScenes?: string[] }} [opts]
+ * @param {{ usedOgUrls?: Set<string>, usedHashes?: Set<string> }} [opts]
  *   usedOgUrls：本轮已被占用的 og 图 URL（URL 级去重）；
- *   usedHashes：本轮 + 线上已有封面的 sha256（内容级去重，防"不同文章共用一张素材图"）；
- *   usedScenes：本轮已提炼的隐喻场景（防多条机会隐喻雷同）
+ *   usedHashes：本轮 + 线上已有封面的 sha256（内容级去重，防"不同文章共用一张素材图"）
  */
 export async function generateOpportunityCover(opp, opts = {}) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -343,12 +333,11 @@ export async function generateOpportunityCover(opp, opts = {}) {
       console.log('   ⚠️ 缺少 ZHIPU_API_KEY，无法提炼场景（cover_url 留空）');
       return '';
     }
-    const derived = await deriveScene(zk, opp, opts.usedScenes);
+    const derived = await deriveScene(zk, opp);
     if (!derived) {
       console.log('   ⬜ GLM 场景提炼彻底失败——宁缺毋滥，cover_url 留空（前端渐变兜底）');
       return '';
     }
-    opts.usedScenes?.push(derived.scene);
     console.log(`   💡 场景隐喻（${derived.route}）: ${derived.scene.slice(0, 80)}`);
     const prompt = buildCoverPrompt(derived);
     const tmpUrl = await seedreamGenerate(arkKey, prompt);
