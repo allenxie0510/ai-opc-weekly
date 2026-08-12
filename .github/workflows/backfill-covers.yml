@@ -12,6 +12,14 @@ on:
         description: '重生成全部封面（包括已有封面的）'
         type: boolean
         default: false
+      clear:
+        description: '先把这些 slug 的 cover_url 置 NULL 再回填（逗号分隔，可留空）'
+        type: string
+        default: ''
+      prune:
+        description: '回填后清理 covers 桶里未被引用的 opp-* 孤儿文件'
+        type: boolean
+        default: false
 
 jobs:
   backfill:
@@ -29,4 +37,6 @@ jobs:
           ZHIPU_API_KEY: ${{ secrets.ZHIPU_API_KEY }}
           ARK_API_KEY: ${{ secrets.ARK_API_KEY }}
           BACKFILL_FORCE: ${{ inputs.force && '1' || '0' }}
+          BACKFILL_CLEAR: ${{ inputs.clear }}
+          BACKFILL_PRUNE: ${{ inputs.prune && '1' || '0' }}
         run: node scripts/backfill-covers.mjs

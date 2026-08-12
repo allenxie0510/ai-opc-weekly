@@ -17,7 +17,13 @@
  *   alter table opportunities add column if not exists cover_url text;
  */
 
+import { createHash } from 'node:crypto';
 import { findEvidenceImage } from './ogimage.mjs';
+
+/** 图片字节 sha256（内容级去重用；backfill 预载现有封面哈希也用它） */
+export function sha256Hex(bytes) {
+  return createHash('sha256').update(bytes).digest('hex');
+}
 
 const ZHIPU_CHAT_API = 'https://open.bigmodel.cn/api/paas/v4/chat/completions';
 // 火山引擎 ARK（Seedream 4.5）：指令跟随/写实摄影国内第一梯队，"无文字"约束稳定生效
@@ -37,8 +43,8 @@ async function deriveScene(zk, { title, thesis, category }) {
   const user = [
     `You are the photo editor of a business intelligence magazine. Based on the startup opportunity brief below, conceive ONE cover photograph scene.`,
     `Rules:`,
-    `1. Describe a single metaphorical still-life object (a real, physical, recognizable object that symbolizes the theme), plus the surface it rests on and the lighting mood;`,
-    `2. Exactly one clear subject, minimal composition, lots of empty space around it;`,
+    `1. Describe a single metaphorical still-life object (a real, physical, recognizable object that symbolizes the theme) — the object ONLY, no environment, no room, no desk setting, no background scenery (the plain background is handled separately);`,
+    `2. Exactly one clear subject, no second object;`,
     `3. The object must NOT be a screen, document, newspaper, book, phone, laptop, or any device that could carry text;`,
     `4. No people, no hands, no text anywhere in the scene;`,
     `5. Output ONLY 1-2 English sentences describing the scene itself. No explanation, no prefix, no quotes, no line breaks.`,
@@ -85,34 +91,33 @@ async function deriveScene(zk, { title, thesis, category }) {
 }
 
 /**
- * 编辑静物摄影风 prompt（全英文）。ARK 图像接口无 negative prompt 参数，
- * 负面约束直接编在主 prompt 末尾。
+ * 编辑静物摄影风 prompt（全英文）。
+ * 负面清单尾置被 Seedream 无视过（照样画出发光大脑+电路板+赛博城市），
+ * 改为前置正向约束：开头就锁死"写实摄影/真实物体/只有单一主体"，
+ * 结尾只保留精简禁令。ARK 图像接口无 negative prompt 参数。
  */
 export function buildCoverPrompt({ scene }) {
   return [
-    `Editorial still-life photograph for a business intelligence magazine cover. `,
-    `Single metaphorical subject: ${scene}. `,
-    `Matte paper-textured surface, muted warm film tones, soft natural window light, generous negative space, subtle film grain, shallow depth of field. `,
-    `Color palette: off-white, warm grey, deep ink, with one burnt-orange accent. `,
-    `Photorealistic, shot on 50mm lens. `,
-    `Absolutely no text, no letters, no numbers, no logos, no watermarks, no people, no hands. `,
-    `Strictly avoid: isometric, 3D render, robot, humanoid, chip, circuit board, glowing brain, neon, hologram, cyberpunk city, blue-purple gradient, floating UI screens, plastic texture, cartoon, anime, clipart, illustration style.`,
+    `Photorealistic editorial still-life photograph, shot on 50mm lens, real physical objects only. `,
+    `The frame contains ONLY one subject and empty negative space: ${scene}. `,
+    `Plain off-white seamless background, matte paper-textured surface, soft natural window light, muted warm film tones, subtle film grain, shallow depth of field. One burnt-orange accent allowed. `,
+    `No text, no letters, no logos, no people, no hands, no background scenery, no second object, no screens, no electronics, no illustration, no 3D render, no cartoon.`,
   ].join('');
 }
 
-/** 英文预设静物场景兜底（deriveScene 失败时用；绝不喂中文原文） */
+/** 英文预设静物场景兜底（deriveScene 失败时用；单一物体、无环境词、绝不喂中文原文） */
 function presetScene(opp) {
   const text = `${opp.title || ''} ${opp.thesis || ''}`.toLowerCase();
   if (/agent|自动化|workflow|工作流/.test(text)) {
-    return 'a vintage telephone handset resting beside an open notebook';
+    return 'a vintage telephone handset';
   }
   if (/成本|cost|降价|infra|基础设施/.test(text)) {
-    return 'a small brass balance scale with a few coins on one side';
+    return 'a small brass balance scale with a few coins on one pan';
   }
   if (/应用|app|构建|build|工具|tool/.test(text)) {
-    return 'a single brass key inserted in a small wooden door';
+    return 'a single antique brass key';
   }
-  return 'a brass compass on blank graph paper';
+  return 'a brass compass';
 }
 
 /**
@@ -226,7 +231,9 @@ function slugOf(opp) {
  * 为一个机会生成封面并上传，返回公共 URL；失败返回 ''（绝不抛错）
  * Track 1：evidence og:image 原图转存；Track 2：Seedream 4.5 静物生成兜底。
  * @param {{ title: string, thesis?: string, category?: string, slug?: string, id?: string, evidence?: Array }} opp
- * @param {{ usedOgUrls?: Set<string> }} [opts] 本轮运行内已被占用的 og 图 URL（同站多卡去重）
+ * @param {{ usedOgUrls?: Set<string>, usedHashes?: Set<string> }} [opts]
+ *   usedOgUrls：本轮已被占用的 og 图 URL（URL 级去重）；
+ *   usedHashes：本轮 + 线上已有封面的 sha256（内容级去重，防"不同文章共用一张素材图"）
  */
 export async function generateOpportunityCover(opp, opts = {}) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -242,13 +249,32 @@ export async function generateOpportunityCover(opp, opts = {}) {
     // ── Track 1：evidence 网页 og:image 原图转存 ──────────────────────────
     if (Array.isArray(opp.evidence) && opp.evidence.length > 0) {
       try {
-        const ogUrl = await findEvidenceImage(opp.evidence, opts.usedOgUrls);
-        if (ogUrl) {
-          const { bytes, contentType } = await downloadImage(ogUrl);
-          const filename = `opp-${name}-og.${extOf(contentType)}`;
-          const publicUrl = await uploadToStorage(supabaseUrl, srk, filename, bytes,
-            contentType.startsWith('image/') ? contentType.split(';')[0] : 'image/jpeg');
+        // accept 回调里下载 + sha256 内容级去重（防"不同文章引用同一张素材图"），
+        // 撞 hash 返回 false，findEvidenceImage 自动跳下一条证据
+        let stashed = null;
+        const ogUrl = await findEvidenceImage(opp.evidence, {
+          exclude: opts.usedOgUrls,
+          accept: async (url) => {
+            try {
+              const { bytes, contentType } = await downloadImage(url);
+              const hash = sha256Hex(bytes);
+              if (opts.usedHashes?.has(hash)) {
+                console.log(`   ℹ️ og 图内容与本站已有封面重复（sha256 撞车），跳下一条: ${url.slice(0, 60)}`);
+                return false;
+              }
+              stashed = { bytes, contentType, hash };
+              return true;
+            } catch {
+              return false; // 下载失败跳下一条
+            }
+          },
+        });
+        if (ogUrl && stashed) {
+          const filename = `opp-${name}-og.${extOf(stashed.contentType)}`;
+          const publicUrl = await uploadToStorage(supabaseUrl, srk, filename, stashed.bytes,
+            stashed.contentType.startsWith('image/') ? stashed.contentType.split(';')[0] : 'image/jpeg');
           opts.usedOgUrls?.add(ogUrl);
+          opts.usedHashes?.add(stashed.hash);
           console.log(`   📷 封面走 og:image 原图转存 → ${filename}`);
           return publicUrl;
         }

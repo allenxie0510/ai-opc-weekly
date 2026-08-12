@@ -245,7 +245,8 @@ ${digest}
   // 口吻样本与正文同 prompt 会诱发模型抄样本，结构隔离才根治
 
   let created = 0;
-  const usedOgUrls = new Set(); // 本轮已占用的 og 图，避免多个机会封面同图
+  const usedOgUrls = new Set(); // 本轮已占用的 og 图 URL（URL 级去重）
+  const usedHashes = new Set(); // 本轮已占用图片的 sha256（内容级去重）
   const samples = loadStyleSamples();  // 仅用于 Stage 3 相似度校验，不进任何 prompt
   for (const [ci, cluster] of clusters.entries()) {
     console.log(`\n🔬 Stage 2 [${ci + 1}/${clusters.length}]: ${cluster.theme}（${cluster.signal_indexes.length} 条信号）...`);
@@ -496,7 +497,7 @@ ${clusterSignals}
       category: VALID_CATEGORIES.includes(opp.category) ? opp.category : 'indie-tool',
       slug,
       evidence,
-    }, { usedOgUrls });
+    }, { usedOgUrls, usedHashes });
     if (coverUrl) {
       row.cover_url = coverUrl;
       console.log(`   🎨 封面已生成: ${coverUrl.slice(-50)}`);

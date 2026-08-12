@@ -22,6 +22,14 @@ const BLOCKED_DOMAINS = [
 // （profile_images = X/Twitter 头像目录，无媒体推文的 og:image 会回退成作者头像）
 const BAD_PATH_RE = /logo|icon|favicon|avatar|emoji|profile_images/i;
 
+// 图片级黑名单：URL 子串匹配，命中即跳过。
+// 用法：发现某张 og 原图不适合当封面（AI 套路素材图、与主题无关等），
+// 取其 URL 中有辨识度的子串加进来。
+const BLOCKED_IMAGE_URLS = [
+  // TechCrunch/Getty 蓝色人形机器人指悬浮图表的素材图——典型 AI 套路审美，且被多篇文章共用
+  'GettyImages-2259148891',
+];
+
 // 图片体积下限：小于 30KB 多半是图标/装饰图
 const MIN_BYTES = 30 * 1024;
 
@@ -39,13 +47,17 @@ function extractMetaImage(html) {
   return tw?.[1] || null;
 }
 
-/** 检查图片 URL 是否值得尝试（协议 / 域名黑名单 / 路径黑名单） */
+/** 检查图片 URL 是否值得尝试（协议 / 域名黑名单 / 路径黑名单 / 图片级黑名单） */
 function plausibleImageUrl(urlStr) {
   let u;
   try { u = new URL(urlStr); } catch { return false; }
   if (u.protocol !== 'http:' && u.protocol !== 'https:') return false;
   if (BLOCKED_DOMAINS.some(d => u.hostname === d || u.hostname.endsWith(`.${d}`))) return false;
   if (BAD_PATH_RE.test(u.pathname)) return false;
+  if (BLOCKED_IMAGE_URLS.some(s => urlStr.includes(s))) {
+    console.log(`   ℹ️ og:image 命中图片级黑名单，跳过: ${urlStr.slice(0, 60)}`);
+    return false;
+  }
   return true;
 }
 
@@ -73,10 +85,14 @@ async function verifyImage(urlStr) {
 /**
  * 逐个尝试 evidence 的 source_url 页面，返回第一个合格的 og:image URL。
  * @param {Array<{ source_url?: string }>} evidence
- * @param {Set<string>} [exclude] 本轮已被其他机会占用的图片 URL（避免同站多卡同图）
+ * @param {Set<string>|{ exclude?: Set<string>, accept?: (url: string) => Promise<boolean> }} [opts]
+ *   exclude：本轮已被其他机会占用的图片 URL（URL 级去重）；
+ *   accept：下载后内容级复核（如 sha256 撞车），返回 false 则继续跳下一条证据。
+ *   兼容旧签名：第二参数直接传 Set 视为 exclude。
  * @returns {Promise<string|null>}
  */
-export async function findEvidenceImage(evidence, exclude) {
+export async function findEvidenceImage(evidence, opts) {
+  const { exclude, accept } = opts instanceof Set ? { exclude: opts } : (opts || {});
   const sources = (Array.isArray(evidence) ? evidence : [])
     .map(e => e?.source_url)
     .filter(u => typeof u === 'string' && /^https?:\/\//.test(u))
@@ -102,10 +118,11 @@ export async function findEvidenceImage(evidence, exclude) {
         console.log(`   ℹ️ og:image 已被本轮其他机会占用，跳下一条: ${abs.slice(0, 60)}`);
         continue;
       }
-      if (await verifyImage(abs)) {
-        console.log(`   📷 og:image 命中: ${abs.slice(0, 80)}`);
-        return abs;
-      }
+      if (!(await verifyImage(abs))) continue;
+      // 内容级复核（下载 + 哈希去重等），不通过则继续跳下一条证据
+      if (accept && !(await accept(abs))) continue;
+      console.log(`   📷 og:image 命中: ${abs.slice(0, 80)}`);
+      return abs;
     } catch {
       // 反爬/超时/解析失败：静默跳下一条
     }
