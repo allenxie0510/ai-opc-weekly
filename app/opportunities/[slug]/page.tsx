@@ -1,11 +1,11 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
-import { getOpportunities, getOpportunityBySlug, getOpportunityCases, getOpportunitySignals } from '@/lib/data';
+import { getOpportunities, getOpportunityBySlug, getOpportunityCases, getOpportunitySignals, getOpportunityScoreHistory } from '@/lib/data';
 import { Header } from '@/components/page-shell';
 import { PageViewCounter } from '@/components/page-view-counter';
 import { CATEGORY_MAP, RECOMMENDATION_MAP, SCORE_DIMENSIONS, CONVICTION_MAP } from '@/lib/types';
-import type { Opportunity } from '@/lib/types';
+import type { Opportunity, OpportunityScoreHistory } from '@/lib/types';
 import { OpportunityCoverVisual } from '@/components/OpportunityCard';
 
 export const revalidate = 300;
@@ -54,14 +54,60 @@ const TIMING_MAP: Record<Opportunity['timing'], string> = {
   late: '偏晚',
 };
 
+const SCORE_SOURCE_MAP: Record<string, string> = {
+  initial: '初评',
+  'weekly-rescore': '周度复评',
+  manual: '手动复评',
+};
+
+/**
+ * 评分轨迹 sparkline：手写 SVG 折线（0–10 制），不引入图表依赖。
+ * 只有 1 个点时退化为圆点标记，不画线。
+ */
+function ScoreSparkline({ history }: { history: OpportunityScoreHistory[] }) {
+  const W = 320, H = 64, PX = 10, PY = 12;
+  const pts = history.map((h, i) => {
+    const score = Math.max(0, Math.min(10, Number(h.score) || 0));
+    const x = history.length === 1 ? W / 2 : PX + (i * (W - 2 * PX)) / (history.length - 1);
+    const y = PY + (1 - score / 10) * (H - 2 * PY);
+    return { x, y, score };
+  });
+  const first = pts[0];
+  const last = pts[pts.length - 1];
+  const delta = last.score - first.score;
+  const trendColor = delta >= 0.5 ? '#0a7d4f' : delta <= -0.5 ? '#b45309' : '#8e8e93';
+  return (
+    <div className="opp-sparkline">
+      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`评分轨迹：${first.score} → ${last.score}`}>
+        {/* 0–10 参考中线（5 分） */}
+        <line x1={PX} y1={PY + (H - 2 * PY) / 2} x2={W - PX} y2={PY + (H - 2 * PY) / 2} stroke="#e4e4e7" strokeDasharray="3 4" strokeWidth="1" />
+        {pts.length > 1 && (
+          <polyline
+            points={pts.map(p => `${p.x},${p.y}`).join(' ')}
+            fill="none" stroke="#1456f0" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round"
+          />
+        )}
+        {pts.map((p, i) => (
+          <circle key={i} cx={p.x} cy={p.y} r={i === pts.length - 1 ? 4 : 3}
+            fill={i === pts.length - 1 ? '#1456f0' : '#fff'} stroke="#1456f0" strokeWidth="2" />
+        ))}
+      </svg>
+      <span className="opp-sparkline-delta" style={{ color: trendColor }}>
+        {first.score.toFixed(1)} → {last.score.toFixed(1)}{pts.length > 1 ? `（${delta >= 0 ? '+' : ''}${delta.toFixed(1)}）` : ''}
+      </span>
+    </div>
+  );
+}
+
 export default async function OpportunityPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const opp = await getOpportunityBySlug(slug);
   if (!opp) notFound();
 
-  const [cases, signals] = await Promise.all([
+  const [cases, signals, scoreHistory] = await Promise.all([
     getOpportunityCases(opp.case_ids || []),
     getOpportunitySignals(opp.signal_ids || []),
+    getOpportunityScoreHistory(opp.id),
   ]);
 
   const rec = RECOMMENDATION_MAP[opp.recommendation] || RECOMMENDATION_MAP.WATCH;
@@ -104,6 +150,27 @@ export default async function OpportunityPage({ params }: { params: Promise<{ sl
             ))}
           </div>
         </section>
+
+        {/* ═══ 评分轨迹（P3 飞轮：评分的时间维度证据链，0–10 制） ═══ */}
+        {scoreHistory.length > 0 && (
+          <section className="opp-section">
+            <h2 className="opp-section-title">评分轨迹 <span className="opp-section-sub">{scoreHistory.length} 次评分 · 0–10 制 · 复评依据为上周评分后的新雷达信号</span></h2>
+            <ScoreSparkline history={scoreHistory} />
+            <ul className="opp-scorehist">
+              {[...scoreHistory].reverse().map(h => (
+                <li key={h.id} className="opp-scorehist-item">
+                  <div className="opp-scorehist-head">
+                    <span className="opp-scorehist-score">{Number(h.score).toFixed(1)}</span>
+                    <span className="opp-scorehist-source">{SCORE_SOURCE_MAP[h.source] || h.source}</span>
+                    <span className="opp-scorehist-date">{h.created_at.slice(0, 10)}</span>
+                    {h.signal_count > 0 && <span className="opp-scorehist-signals">{h.source === 'initial' ? `证据 ${h.signal_count} 条` : `新信号 ${h.signal_count} 条`}</span>}
+                  </div>
+                  {h.reason && <p className="opp-scorehist-reason">{h.reason}</p>}
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
         {/* ═══ 主编判断 ═══ */}
         {opp.editor_take && (

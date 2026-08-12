@@ -162,7 +162,7 @@ export default function AdminPage() {
     }
   }
 
-  async function trigger(workflow: 'daily-radar' | 'weekly-newsletter' | 'weekly-opportunities') {
+  async function trigger(workflow: 'daily-radar' | 'weekly-newsletter' | 'weekly-opportunities', opts?: { rescoreOnly?: boolean }) {
     if (busy) return;
     setBusy(true);
     setMessage('');
@@ -170,7 +170,7 @@ export default function AdminPage() {
       const res = await fetch('/api/admin/trigger', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-admin-token': token },
-        body: JSON.stringify({ workflow }),
+        body: JSON.stringify({ workflow, rescore_only: opts?.rescoreOnly === true }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -181,7 +181,9 @@ export default function AdminPage() {
             ? '已触发雷达抓取 + 生成 ⚡ 约 2–3 分钟后点「刷新」查看新草稿'
             : workflow === 'weekly-newsletter'
               ? '已触发周报生成 ⚡ 约 3–5 分钟后点「刷新」查看草稿'
-              : '已触发机会生产线 ⚡ 约 3–5 分钟后点「刷新」查看机会草稿',
+              : opts?.rescoreOnly
+                ? '已触发评分复评 🔁 约 1–2 分钟完成，结果见机会详情页「评分轨迹」'
+                : '已触发机会生产线 ⚡ 约 3–5 分钟后点「刷新」查看机会草稿',
         );
       }
     } catch {
@@ -302,6 +304,13 @@ export default function AdminPage() {
                   disabled={busy}
                 >
                   ⚡ 生成机会
+                </button>
+                <button
+                  className="admin-btn"
+                  onClick={() => void trigger('weekly-opportunities', { rescoreOnly: true })}
+                  disabled={busy}
+                >
+                  🔁 复评评分
                 </button>
                 <button className="admin-btn" onClick={() => void load(token)} disabled={loading}>
                   {loading ? '刷新中…' : '刷新'}

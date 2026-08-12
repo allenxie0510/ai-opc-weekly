@@ -155,6 +155,31 @@ async function urlOk(url) {
 
 const clamp = v => Math.max(0, Math.min(100, parseInt(v, 10) || 0));
 
+// ─── Stage 5：初评落库 score history（P3 飞轮第一块：评分带时间维度）───
+// 量纲：score_total 0–100 → history 存 0–10 一位小数；幂等：已有 initial 记录则跳过。
+// 表未建（migration-002 未执行）等情况只 log 不阻塞生产线。
+async function recordInitialScore(slug, scoreTotal, reason, signalCount) {
+  try {
+    const back = await sb(`/opportunities?slug=eq.${encodeURIComponent(slug)}&select=id&limit=1`);
+    const oppId = back?.[0]?.id;
+    if (!oppId) return;
+    const dup = await sb(`/opportunity_score_history?opportunity_id=eq.${oppId}&source=eq.initial&select=id&limit=1`);
+    if (dup && dup.length > 0) return;
+    await sb('/opportunity_score_history', {
+      method: 'POST', headers: { Prefer: 'return=minimal' },
+      body: JSON.stringify({
+        opportunity_id: oppId,
+        score: Math.round(scoreTotal) / 10,
+        signal_count: signalCount,
+        reason: String(reason || '').slice(0, 200),
+        source: 'initial',
+      }),
+    });
+  } catch (e) {
+    console.log(`   ⚠️ score history 落库失败（不阻塞，请先执行 migration-002）: ${e.message.slice(0, 80)}`);
+  }
+}
+
 // ─── Stage 3 主编判断：抽象风格规则（不进样本原文，防抄写）───
 const TAKE_STYLE_RULES = `你是一个 AI 一人公司创业情报站的主编，刚调研完一个方向，写下你的判断。风格：
 - 第一人称"我"，克制书面语，长短句交错
@@ -508,6 +533,7 @@ ${clusterSignals}
     try {
       await sb('/opportunities', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(row) });
       created++;
+      await recordInitialScore(slug, scoreTotal, opp.recommendation_reason || row.thesis, evidence.length);
       console.log(`   ✅ ${row.title} | Score ${scoreTotal} / Evidence ${evidenceGrade} / ${row.recommendation} | 证据 ${evidence.length} 条 / 案例 ${cases.length} 个`);
     } catch (e) {
       // 兼容旧表：opportunities 还没有 cover_url 列时，去掉该字段重试
@@ -517,6 +543,7 @@ ${clusterSignals}
           const { cover_url, ...rowWithoutCover } = row;
           await sb('/opportunities', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(rowWithoutCover) });
           created++;
+          await recordInitialScore(slug, scoreTotal, opp.recommendation_reason || row.thesis, evidence.length);
           console.log(`   ✅ ${row.title} | Score ${scoreTotal} / Evidence ${evidenceGrade} / ${row.recommendation}（无封面入库）`);
         } catch (e2) {
           console.log(`   ❌ opportunity 写入失败: ${e2.message.slice(0, 100)}`);

@@ -86,7 +86,11 @@ export function OpportunityCard({ opportunity: o, variant = 'default' }: { oppor
         <CoverFallback category={o.category} seed={o.slug || o.id} />
         {o.cover_url && <CoverImg src={o.cover_url} alt={o.title} />}
         <span className="opcard-rec">{rec.label}</span>
-        <span className="opcard-score"><em>OPC</em>{o.score_total}</span>
+        <span className="opcard-score">
+          <em>OPC</em>{o.score_total}
+          {o.score_trend === 'up' && <span className="opcard-trend up" title="评分轨迹上行">↗</span>}
+          {o.score_trend === 'down' && <span className="opcard-trend down" title="评分轨迹下行">↘</span>}
+        </span>
       </div>
       <div className="opcard-body">
         <h3 className="opcard-title">{o.title}</h3>

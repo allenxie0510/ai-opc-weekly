@@ -1,0 +1,187 @@
+/**
+ * AI OPC · 机会评分周度复评（P3 飞轮 · Score 历史追踪）
+ * 拉取近 30 天发布的机会（最多 10 条，老的优先），找出上次评分以来
+ * 雷达里的相关新信号，让 GLM 复评打分并落 opportunity_score_history，
+ * 使"情报准不准"可回溯验证。
+ *
+ * 用法：node scripts/rescore-opportunities.mjs
+ *   RESCORE_SOURCE=weekly-rescore（workflow 周度）/ manual（手动，默认）
+ *
+ * 由 GitHub Actions 每周执行（weekly-opportunities.yml 生成 Stage 之后），
+ * 也可 admin 后台「🔁 复评评分」按钮手动触发。
+ *
+ * 铁律：
+ * - 单条失败跳过继续，全程 exit 0 不挂 workflow（错误汇总在 log）
+ * - 无新信号的机会跳过不复评（没有理由的分数变化是噪音）
+ * - 分数量纲：history 存 0–10 一位小数；opportunities.score_total 是 0–100，
+ *   仅当复评分换算后差距 ≥10 才回写 score_total
+ *
+ * 前置条件：已执行 migrations/migration-002-score-history.sql（否则 42P01 全部跳过）
+ * 环境变量：NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY + ZHIPU_API_KEY
+ */
+
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SRK = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const ZK = process.env.ZHIPU_API_KEY;
+
+if (!SUPABASE_URL) { console.error('❌ 缺少 NEXT_PUBLIC_SUPABASE_URL'); process.exit(1); }
+if (!SRK) { console.error('❌ 缺少 SUPABASE_SERVICE_ROLE_KEY'); process.exit(1); }
+if (!ZK) { console.error('❌ 缺少 ZHIPU_API_KEY'); process.exit(1); }
+
+const SOURCE = ['weekly-rescore', 'manual'].includes(process.env.RESCORE_SOURCE)
+  ? process.env.RESCORE_SOURCE : 'manual';
+const GLM_MODEL = 'glm-4.7-flash';
+const ZHIPU_API = 'https://open.bigmodel.cn/api/paas/v4/chat/completions';
+const MAX_OPPS = 10;        // 每轮最多复评 10 条
+const WINDOW_DAYS = 30;     // 只复评近 30 天发布的机会
+const MAX_SIGNALS = 10;     // 每条机会最多喂 10 条新信号
+const UPDATE_THRESHOLD = 10; // 复评分 ×10 与 score_total 差距 ≥10 才回写（即 0–10 制差 1 分）
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+async function sb(path, opts = {}) {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1${path}`, { ...opts,
+    headers: { apikey: SRK, Authorization: `Bearer ${SRK}`, 'Content-Type': 'application/json', ...opts.headers }
+  });
+  const txt = await res.text();
+  if (!res.ok) throw new Error(`SB ${res.status}: ${txt.slice(0, 200)}`);
+  try { return txt ? JSON.parse(txt) : null } catch { return null; }
+}
+
+// ─── GLM：复评打分（thinking disabled + json 输出，429 退避重试 2 次）───
+async function callGLM(userPrompt) {
+  let lastErr;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const res = await fetch(ZHIPU_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ZK}` },
+        body: JSON.stringify({
+          model: GLM_MODEL,
+          messages: [{ role: 'user', content: userPrompt }],
+          temperature: 0.3,
+          max_tokens: 1000,
+          thinking: { type: 'disabled' }, // 简单评分任务关掉推理，否则 reasoning 烧光 max_tokens
+        }),
+        signal: AbortSignal.timeout(60000),
+      });
+      const txt = await res.text();
+      if (!res.ok) {
+        const err = new Error(`GLM ${res.status}: ${txt.slice(0, 150)}`);
+        err.congested = res.status === 429 || txt.includes('1305');
+        throw err;
+      }
+      const data = JSON.parse(txt);
+      const content = data.choices?.[0]?.message?.content || '';
+      const m = content.match(/\{[\s\S]*\}/);
+      if (!m) throw new Error(`无JSON: ${content.slice(0, 100)}`);
+      return JSON.parse(m[0]);
+    } catch (e) {
+      lastErr = e;
+      if (e.congested && attempt < 2) {
+        console.log(`   ⚠️ GLM 拥挤(429)，${(attempt + 1) * 20}s 后重试...`);
+        await sleep((attempt + 1) * 20000);
+        continue;
+      }
+      if (attempt < 2) { await sleep(5000); continue; }
+    }
+  }
+  throw lastErr;
+}
+
+// ─── 关键词粗筛：从机会标题/论断提取英文关键词（≥4 字符），匹配新雷达条目 ───
+const STOP_WORDS = new Set(['with', 'from', 'that', 'this', 'your', 'their', 'will', 'into', 'over', 'more', 'than', 'when', 'what', 'how', 'the', 'and', 'for', 'are']);
+function keywordsOf(opp) {
+  const text = `${opp.title || ''} ${opp.thesis || ''} ${String(opp.category || '').replace(/-/g, ' ')}`;
+  const words = text.toLowerCase().match(/[a-z][a-z0-9-]{3,}/g) || [];
+  return [...new Set(words.filter(w => !STOP_WORDS.has(w)))].slice(0, 12);
+}
+function matchSignals(opp, items) {
+  const kws = keywordsOf(opp);
+  if (kws.length === 0) return [];
+  return items.filter(it => {
+    const hay = `${it.title || ''} ${it.summary || ''}`.toLowerCase();
+    return kws.some(k => hay.includes(k));
+  }).slice(0, MAX_SIGNALS);
+}
+
+async function rescoreOne(opp) {
+  // 最近一次评分记录（决定 since 和当前分）；无记录则以机会创建时间为起点
+  const hist = await sb(`/opportunity_score_history?opportunity_id=eq.${opp.id}&select=score,created_at&order=created_at.desc&limit=1`);
+  const last = hist?.[0] || null;
+  const since = last?.created_at || opp.created_at;
+  const currentScore10 = last ? Number(last.score) : Math.round(opp.score_total) / 10;
+
+  // 拉上次评分以来的新雷达条目，关键词粗筛相关性
+  const items = await sb(`/radar_items?select=id,title,summary,source_name,score,created_at&status=eq.published&created_at=gt.${encodeURIComponent(since)}&order=score.desc&limit=100`);
+  const signals = matchSignals(opp, items || []);
+  if (signals.length === 0) {
+    console.log(`   ⏭️ 无新相关信号，跳过: ${opp.title.slice(0, 40)}`);
+    return 'skipped';
+  }
+
+  const prompt = `你是 AI 创业情报分析师。以下是一条创业机会的现有评分和自上次评分以来的新市场信号，请复评。
+
+机会：${opp.title}
+论断：${String(opp.thesis || '').slice(0, 200)}
+当前评分：${currentScore10}/10
+新信号（${signals.length} 条）：
+${signals.map((s, i) => `${i + 1}. ${s.title}（${s.source_name || '未知来源'}）`).join('\n')}
+
+根据新信号判断这个机会的论据是变强、持平还是变弱，给出复评分。
+只返回 JSON 对象：{"score": 1到10的数字（可一位小数）, "reason": "一句话中文理由（不超过60字）", "signal_strength": "stronger或stable或weaker"}`;
+
+  const r = await callGLM(prompt);
+  const score = Math.max(1, Math.min(10, Math.round(Number(r.score) * 10) / 10));
+  if (!Number.isFinite(score) || score <= 0) throw new Error(`GLM 返回非法分数: ${JSON.stringify(r).slice(0, 80)}`);
+  const reason = String(r.reason || '').slice(0, 120);
+  const strength = ['stronger', 'stable', 'weaker'].includes(r.signal_strength) ? r.signal_strength : 'stable';
+
+  await sb('/opportunity_score_history', {
+    method: 'POST', headers: { Prefer: 'return=minimal' },
+    body: JSON.stringify({
+      opportunity_id: opp.id,
+      score,
+      signal_count: signals.length,
+      reason,
+      source: SOURCE,
+    }),
+  });
+  const mark = strength === 'stronger' ? '↗' : strength === 'weaker' ? '↘' : '→';
+  console.log(`   ${mark} ${opp.title.slice(0, 40)} | ${currentScore10} → ${score}（${strength}，新信号 ${signals.length} 条）${reason ? ` | ${reason.slice(0, 50)}` : ''}`);
+
+  // 差距 ≥1 分（0–10 制）才回写 score_total（0–100 制）
+  const newTotal = Math.round(score * 10);
+  if (Math.abs(newTotal - opp.score_total) >= UPDATE_THRESHOLD) {
+    await sb(`/opportunities?id=eq.${opp.id}`, {
+      method: 'PATCH', headers: { Prefer: 'return=minimal' },
+      body: JSON.stringify({ score_total: newTotal }),
+    });
+    console.log(`   📝 score_total 已更新: ${opp.score_total} → ${newTotal}`);
+  }
+  return 'ok';
+}
+
+async function main() {
+  console.log(`🔁 AI OPC · 机会评分复评（source=${SOURCE}）\n`);
+
+  const cutoff = new Date(Date.now() - WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  const opps = await sb(`/opportunities?select=id,slug,title,thesis,category,score_total,created_at&status=eq.published&created_at=gte.${encodeURIComponent(cutoff)}&order=created_at.asc&limit=${MAX_OPPS}`);
+  console.log(`📋 待复评机会: ${(opps || []).length} 条（近 ${WINDOW_DAYS} 天发布，最多 ${MAX_OPPS} 条，老的优先）`);
+  if (!opps || opps.length === 0) { console.log('✅ 无需复评，结束'); return; }
+
+  let ok = 0, skipped = 0, failed = 0;
+  for (const opp of opps) {
+    try {
+      const r = await rescoreOne(opp);
+      if (r === 'ok') ok++; else skipped++;
+    } catch (e) {
+      failed++;
+      console.log(`   ⚠️ 复评失败（跳过该条）: ${opp.title.slice(0, 40)} | ${e.message.slice(0, 100)}`);
+    }
+  }
+  console.log(`\n📊 汇总: 复评 ${ok} 条 / 无新信号跳过 ${skipped} 条 / 失败 ${failed} 条`);
+  console.log('✅ 复评完成');
+}
+
+main().catch(e => { console.error('\n💥', e.message); process.exit(1); });

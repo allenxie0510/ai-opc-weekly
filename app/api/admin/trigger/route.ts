@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  let body: { workflow?: string };
+  let body: { workflow?: string; rescore_only?: boolean };
   try {
     body = await req.json();
   } catch {
@@ -39,6 +39,12 @@ export async function POST(req: NextRequest) {
     : body.workflow === 'reports-monitor' ? 'reports-monitor.yml'
     : 'daily-radar.yml';
 
+  // weekly-opportunities 支持 rescore_only 输入：true 时跳过生成只跑评分复评（P3 飞轮）
+  const dispatchBody: { ref: string; inputs?: Record<string, string> } = { ref: 'main' };
+  if (body.workflow === 'weekly-opportunities' && body.rescore_only) {
+    dispatchBody.inputs = { rescore_only: 'true' };
+  }
+
   const res = await fetch(
     `https://api.github.com/repos/${REPO}/actions/workflows/${workflowFile}/dispatches`,
     {
@@ -49,7 +55,7 @@ export async function POST(req: NextRequest) {
         'Content-Type': 'application/json',
         'User-Agent': 'aiopc-admin',
       },
-      body: JSON.stringify({ ref: 'main' }),
+      body: JSON.stringify(dispatchBody),
     },
   );
 

@@ -1,12 +1,19 @@
 name: Weekly Opportunities
 
 # 机会生产线：每周三 09:23 北京时间（UTC 01:23）自动跑一轮，
-# 也可 Actions 页面手动触发（workflow_dispatch）。
+# 也可 Actions 页面手动触发（workflow_dispatch，可勾选 rescore_only 只复评不生成）。
 # 两段式：近 7 天已发布雷达信号聚类（≥3 信号成机会）→ 逐机会联网深研，
 # 产出 OPC Score / Evidence Grade / Recommendation 草稿，写入 opportunities 表待审。
+# 生成 Stage 之后接复评 Stage（P3 飞轮）：近 30 天已发布机会按新信号复评打分，
+# 落 opportunity_score_history（需先执行 migrations/migration-002-score-history.sql）。
 
 on:
   workflow_dispatch:
+    inputs:
+      rescore_only:
+        description: '只跑评分复评，跳过机会生成'
+        type: boolean
+        default: false
   schedule:
     - cron: '23 1 * * 3'
 
@@ -20,9 +27,17 @@ jobs:
           node-version: 22
       - run: npm ci
       - name: Generate opportunity drafts
+        if: ${{ inputs.rescore_only != true }}
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           ZHIPU_API_KEY: ${{ secrets.ZHIPU_API_KEY }}
           ARK_API_KEY: ${{ secrets.ARK_API_KEY }}
         run: node scripts/generate-opportunities.mjs
+      - name: Rescore published opportunities
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ZHIPU_API_KEY: ${{ secrets.ZHIPU_API_KEY }}
+          RESCORE_SOURCE: weekly-rescore
+        run: node scripts/rescore-opportunities.mjs

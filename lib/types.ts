@@ -111,6 +111,18 @@ export interface ValidationPlan {
   recommendation_reason?: string;
 }
 
+export interface OpportunityScoreHistory {
+  id: string;
+  opportunity_id: string;
+  /** 0–10 一位小数（opportunities.score_total 0–100 除以 10） */
+  score: number;
+  /** 本次评分依据的新信号数（初评=证据数） */
+  signal_count: number;
+  reason: string | null;
+  source: 'initial' | 'weekly-rescore' | 'manual' | string;
+  created_at: string;
+}
+
 export interface Opportunity {
   id: string;
   slug: string;
@@ -153,6 +165,8 @@ export interface Opportunity {
   status: 'draft' | 'published' | 'archived';
   published_at: string;
   created_at: string;
+  /** 评分趋势标（P3 飞轮）：history ≥2 条且最新分-首条分 ≥0.5 → up，≤-0.5 → down；查询填充，非表字段 */
+  score_trend?: 'up' | 'down';
 }
 
 export interface OpportunityCase {
