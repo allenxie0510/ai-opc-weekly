@@ -66,12 +66,12 @@ export function CoverFallback({ category, seed }: { category?: Category | null; 
   );
 }
 
-/** 封面视觉（含兜底 + 真图覆盖），详情页 hero 也可复用 */
+/** 封面视觉：有 cover_url 时加载中保持空白、失败才落兜底；无 cover_url 直接渲染兜底 */
 export function OpportunityCoverVisual({ opportunity: o, className }: { opportunity: Opportunity; className?: string }) {
+  const fallback = <CoverFallback category={o.category} seed={o.slug || o.id} />;
   return (
     <div className={`opcard-cover${className ? ` ${className}` : ''}`}>
-      <CoverFallback category={o.category} seed={o.slug || o.id} />
-      {o.cover_url && <CoverImg src={o.cover_url} alt={o.title} />}
+      {o.cover_url ? <CoverImg src={o.cover_url} alt={o.title}>{fallback}</CoverImg> : fallback}
     </div>
   );
 }
@@ -83,8 +83,9 @@ export function OpportunityCard({ opportunity: o, variant = 'default' }: { oppor
   return (
     <Link href={`/opportunities/${o.slug}`} className={`opcard${variant === 'featured' ? ' featured' : ''}`}>
       <div className="opcard-cover">
-        <CoverFallback category={o.category} seed={o.slug || o.id} />
-        {o.cover_url && <CoverImg src={o.cover_url} alt={o.title} />}
+        {o.cover_url
+          ? <CoverImg src={o.cover_url} alt={o.title}><CoverFallback category={o.category} seed={o.slug || o.id} /></CoverImg>
+          : <CoverFallback category={o.category} seed={o.slug || o.id} />}
         <span className="opcard-rec">{rec.label}</span>
         <span className="opcard-score">
           <em>OPC</em>{o.score_total}
