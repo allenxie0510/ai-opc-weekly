@@ -14,8 +14,11 @@
 
 const COGVIEW_API = 'https://open.bigmodel.cn/api/paas/v4/images/generations';
 const ZHIPU_CHAT_API = 'https://open.bigmodel.cn/api/paas/v4/chat/completions';
-// 模型降级链：glm-image（智谱 SOTA 认知型图像模型，指令跟随/美感最强）
-//   → cogview-4（¥0.06/张）→ cogview-3-plus（¥0.1/张）→ cogview-3-flash（免费兜底）
+// 火山引擎 ARK（Seedream）：指令跟随/插画美感国内第一梯队，"无文字"约束稳定生效
+const ARK_API = 'https://ark.cn-beijing.volces.com/api/v3/images/generations';
+const SEEDREAM_MODELS = (process.env.SEEDREAM_MODEL || 'doubao-seedream-4-5-251128,doubao-seedream-4-0-250828')
+  .split(',').map(s => s.trim()).filter(Boolean);
+// 智谱降级链：glm-image（SOTA 认知型图像模型）→ cogview-4 → cogview-3-plus → cogview-3-flash
 const MODEL_CHAIN = (process.env.COGVIEW_MODEL || 'glm-image,cogview-4,cogview-3-plus,cogview-3-flash')
   .split(',').map(s => s.trim()).filter(Boolean);
 const GLM_MODEL = 'glm-4.7-flash';
@@ -98,6 +101,55 @@ export function buildCoverPrompt({ scene, category }) {
     `风格要求：精确的扁平矢量造型配柔和微妙的渐变，安静低饱和背景（淡蓝灰或暖浅灰），深蓝与青色为主色调、点缀一处暖橙色，主体是唯一且清晰的、由可识别的现实物体构成（芯片、设备、工具、植物等），可有细腻的电路线或几何纹理与柔和辉光，隐喻式叙事，构图平衡、留白充分，边缘干净锐利，整体精致专业。`,
     `最重要的要求：画面中绝对禁止出现任何文字——不要字母、不要单词、不要数字、不要汉字、不要标题、不要 caption、不要带字的文档/屏幕/报纸，不要 logo，不要水印，也不要预留任何标题或横幅区域，场景本身铺满整个画面。纯粹无字的视觉场景，不要写实照片风。`,
   ].join('');
+}
+
+/** 调火山引擎 Seedream 生成一张图，返回临时 URL；失败抛错 */
+async function seedreamGenerate(arkKey, prompt) {
+  let lastErr;
+  for (const model of SEEDREAM_MODELS) {
+    // 429 重试 1 次
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const res = await fetch(ARK_API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${arkKey}` },
+          body: JSON.stringify({
+            model,
+            prompt,
+            size: '2560x1440', // 16:9，卡片 object-fit 裁切即可
+            response_format: 'url',
+            watermark: false,
+          }),
+          signal: AbortSignal.timeout(120000),
+        });
+        const txt = await res.text();
+        if (!res.ok) {
+          const err = new Error(`Seedream ${res.status}: ${txt.slice(0, 150)}`);
+          err.congested = res.status === 429;
+          // 模型不存在/未开通：降级下一个模型
+          if (res.status === 400 || res.status === 404) err.modelRejected = true;
+          throw err;
+        }
+        const url = JSON.parse(txt).data?.[0]?.url;
+        if (!url) throw new Error('Seedream 响应无 data[0].url');
+        console.log(`   🎨 Seedream 出图（${model}）`);
+        return url;
+      } catch (e) {
+        lastErr = e;
+        if (e.modelRejected) {
+          console.log(`   ⚠️ Seedream 模型 ${model} 不可用，降级下一个...`);
+          break;
+        }
+        if (e.congested && attempt === 0) {
+          console.log(`   ⚠️ Seedream 拥挤(429)，15s 后重试...`);
+          await sleep(15000);
+          continue;
+        }
+        break;
+      }
+    }
+  }
+  throw lastErr;
 }
 
 /** 调 CogView 生成一张图，返回临时 URL；失败抛错 */
@@ -218,7 +270,17 @@ export async function generateOpportunityCover(opp) {
       scene = `${opp.title || ''}. ${String(opp.thesis || '').slice(0, 150)}`.trim();
     }
     const prompt = buildCoverPrompt({ scene, category: opp.category });
-    const tmpUrl = await cogviewGenerate(zk, prompt);
+    // 出图优先级：Seedream（需 ARK_API_KEY）→ 智谱链（glm-image → cogview 系列）
+    let tmpUrl = '';
+    const arkKey = process.env.ARK_API_KEY;
+    if (arkKey) {
+      try {
+        tmpUrl = await seedreamGenerate(arkKey, prompt);
+      } catch (e) {
+        console.log(`   ⚠️ Seedream 失败，回退智谱链: ${e.message.slice(0, 80)}`);
+      }
+    }
+    if (!tmpUrl) tmpUrl = await cogviewGenerate(zk, prompt);
 
     // 下载临时图片字节
     const imgRes = await fetch(tmpUrl, { signal: AbortSignal.timeout(30000) });
