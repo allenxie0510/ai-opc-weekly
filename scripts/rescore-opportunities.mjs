@@ -146,8 +146,13 @@ async function rescoreOne(opp) {
 ${signals.map((s, i) => `${i + 1}. ${s.title}（${s.source_name || '未知来源'}）`).join('\n')}${forceNote}
 
 任务一：根据新信号判断这个机会的论据是变强、持平还是变弱，给出复评分。
-任务二（校准）：明确对比"当初的初评判断"和"本周新证据"，判定初评是否站得住——
-confirmed=新信号直接证实了初评判断；partially=部分证实、仍有未验证环节；refuted=新信号与初评判断相矛盾；too-early=新信号不足以判定。
+任务二（校准）：对比"当初的初评判断"（见上）和"本周新信号"，克制地判定初评是否站得住。
+判定标准（严格，宁低勿高）：
+- confirmed = 至少一条新信号【直接】证实初评论断中的具体主张（必须能点名是哪条信号、证实了哪句论断）；仅行业氛围利好、间接相关、方向性一致都不算 confirmed；
+- partially = 有信号支持初评的部分主张，但核心主张未被直接证实；
+- refuted = 新信号与初评论断的具体主张相矛盾（如当初说"窗口期开启"，新证据显示大厂已封死该空间）；
+- too-early = 信号数量不足、相关性弱、或无法点名对应关系——拿不准一律选它。
+calibration_note 要求：必须引用具体信号标题，句式"当初认为X；本周《信号标题》表明Y，因此判定Z"（60字内）；禁止"证实了可行性""获得认可"这类无指向的套话。
 只返回 JSON 对象：{"score": 1到10的数字（可一位小数）, "reason": "一句话中文理由（不超过60字）", "signal_strength": "stronger或stable或weaker", "verdict": "confirmed或partially或refuted或too-early", "calibration_note": "一句话中文复盘：当初认为X，本周新信号Y证实/削弱了它（不超过60字）"}`;
 
   const r = await callGLM(prompt);
