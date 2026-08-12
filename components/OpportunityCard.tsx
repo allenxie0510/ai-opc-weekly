@@ -76,12 +76,48 @@ export function OpportunityCoverVisual({ opportunity: o, className }: { opportun
   );
 }
 
-export function OpportunityCard({ opportunity: o, variant = 'default' }: { opportunity: Opportunity; variant?: 'default' | 'featured' }) {
+/**
+ * P0.2 首页 featured 机会 hero：左文（55%）右图（45%）。
+ * 左栏：分类+日期小字 → 大标题 → thesis → 主编判断前置（品牌橙左边线引用块）
+ * → 推荐胶囊 + 分数徽章；移动端上下堆叠，标题在封面之上。
+ */
+export function FeaturedOpportunity({ opportunity: o }: { opportunity: Opportunity }) {
   const rec = RECOMMENDATION_MAP[o.recommendation] || RECOMMENDATION_MAP.WATCH;
   const cat = o.category ? CATEGORY_MAP[o.category] : null;
   const date = (o.published_at || '').slice(0, 10);
+  const fallback = <CoverFallback category={o.category} seed={o.slug || o.id} />;
   return (
-    <Link href={`/opportunities/${o.slug}`} className={`opcard${variant === 'featured' ? ' featured' : ''}`}>
+    <Link href={`/opportunities/${o.slug}`} className="home-hero">
+      <div className="home-hero-main">
+        <div className="home-hero-meta">{[cat?.label, date].filter(Boolean).join(' · ')}</div>
+        <h2 className="home-hero-title">{o.title}</h2>
+        {o.thesis && <p className="home-hero-thesis">{o.thesis}</p>}
+        {o.editor_take && <blockquote className="home-hero-take">🖊 {o.editor_take}</blockquote>}
+        <div className="home-hero-badges">
+          <span className={`opp-rec ${rec.cssClass}`}>{rec.label}</span>
+          <span className="home-hero-score">
+            <em>OPC</em>{o.score_total}
+            {o.score_trend === 'up' && <span className="opcard-trend up" title="评分轨迹上行">↗</span>}
+            {o.score_trend === 'down' && <span className="opcard-trend down" title="评分轨迹下行">↘</span>}
+          </span>
+        </div>
+      </div>
+      <div className="home-hero-cover">
+        {o.cover_url ? <CoverImg src={o.cover_url} alt={o.title}>{fallback}</CoverImg> : fallback}
+      </div>
+    </Link>
+  );
+}
+
+export function OpportunityCard({ opportunity: o }: { opportunity: Opportunity }) {
+  const rec = RECOMMENDATION_MAP[o.recommendation] || RECOMMENDATION_MAP.WATCH;
+  const cat = o.category ? CATEGORY_MAP[o.category] : null;
+  const date = (o.published_at || '').slice(0, 10);
+  // P0 标签瘦身：封面上只保留推荐胶囊 + 分数徽章（含趋势标）；
+  // meta 行降级为纯文字「证据 A 级 · 小而美 · 2026-08-11」，无底色无描边；底部 CTA 已删
+  const metaText = [`证据 ${o.evidence_grade} 级`, cat?.label, date].filter(Boolean).join(' · ');
+  return (
+    <Link href={`/opportunities/${o.slug}`} className="opcard">
       <div className="opcard-cover">
         {o.cover_url
           ? <CoverImg src={o.cover_url} alt={o.title}><CoverFallback category={o.category} seed={o.slug || o.id} /></CoverImg>
@@ -96,13 +132,7 @@ export function OpportunityCard({ opportunity: o, variant = 'default' }: { oppor
       <div className="opcard-body">
         <h3 className="opcard-title">{o.title}</h3>
         {o.thesis && <p className="opcard-thesis">{o.thesis}</p>}
-        {variant === 'featured' && o.editor_take && <p className="opcard-take">🖊 {o.editor_take}</p>}
-        <div className="opcard-meta">
-          <span className={`opp-evidence grade-${o.evidence_grade}`}>证据 {o.evidence_grade} 级</span>
-          {cat && <span className={`art-cat-pill ${cat.cssClass}`}>{cat.label}</span>}
-          {date && <span>{date}</span>}
-        </div>
-        <div className="opcard-cta"><span>查看完整判断 →</span></div>
+        <div className="opcard-meta"><span>{metaText}</span></div>
       </div>
     </Link>
   );

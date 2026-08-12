@@ -15,7 +15,7 @@ function PulseSparkline({ daily, trend }: { daily: number[]; trend: MarketPulseI
     const y = P + (1 - v / max) * (H - 2 * P);
     return { x, y };
   });
-  const color = trend === 'up' ? '#0a7d4f' : trend === 'down' ? '#b45309' : '#8e8e93';
+  const color = trend === 'up' ? '#0a7d4f' : trend === 'down' ? 'var(--color-down)' : '#8e8e93';
   const last = pts[pts.length - 1];
   return (
     <svg className="pulse-spark" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`近 14 天信号量：${daily.join(',')}`}>

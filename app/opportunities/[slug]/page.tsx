@@ -83,7 +83,7 @@ function ScoreSparkline({ history }: { history: OpportunityScoreHistory[] }) {
   const first = pts[0];
   const last = pts[pts.length - 1];
   const delta = last.score - first.score;
-  const trendColor = delta >= 0.5 ? '#0a7d4f' : delta <= -0.5 ? '#b45309' : '#8e8e93';
+  const trendColor = delta >= 0.5 ? '#0a7d4f' : delta <= -0.5 ? 'var(--color-down)' : '#8e8e93';
   return (
     <div className="opp-sparkline">
       <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`评分轨迹：${first.score} → ${last.score}`}>

@@ -28,14 +28,9 @@ export function dayLabel(key: string): string {
   return `${d.getMonth() + 1}月${d.getDate()}日 ${WEEKDAYS[d.getDay()]}`;
 }
 
-function scoreClass(score: number): string {
-  if (score >= 80) return 'radar-score high';
-  if (score >= 60) return 'radar-score mid';
-  return 'radar-score';
-}
-
 export function RadarCard({ item }: { item: RadarItem }) {
   const cat = item.category ? CATEGORY_MAP[item.category] : null;
+  const hasScore = Number.isFinite(item.score) && item.score > 0;
   return (
     <article className="radar-card">
       <AdminEditButton
@@ -52,20 +47,23 @@ export function RadarCard({ item }: { item: RadarItem }) {
       />
       {item.image_url && <RadarCover src={item.image_url} alt={item.title} />}
       <div className="radar-card-body">
+        {/* P0 标签瘦身：只保留收录理由一个胶囊（低饱和）；分类并入来源行纯文字 */}
         <div className="radar-card-top">
-          {cat && <span className={`art-cat-pill ${cat.cssClass}`}>{cat.label}</span>}
           {item.pick_reason && <span className="radar-pick">{item.pick_reason}</span>}
           <span className="radar-meta">
             {item.source_name}
+            {cat && <><span className="radar-meta-sep">·</span>{cat.label}</>}
             <span className="radar-meta-sep">·</span>
             <time>{timeAgo(item.published_at)}</time>
           </span>
-          <span className={scoreClass(item.score)}>{item.score}</span>
         </div>
 
-        <a href={item.source_url} target="_blank" rel="noopener noreferrer" className="radar-title">
-          {item.title}
-        </a>
+        <div className="radar-title-row">
+          <a href={item.source_url} target="_blank" rel="noopener noreferrer" className="radar-title">
+            {item.title}
+          </a>
+          {hasScore && <span className="radar-title-score">{item.score}分</span>}
+        </div>
 
         {item.summary && <p className="radar-summary">{item.summary}</p>}
 

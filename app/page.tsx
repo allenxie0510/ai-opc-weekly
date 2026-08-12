@@ -3,7 +3,7 @@ import { getRadarItems, getLatestIssue, getOpportunities, getMarketPulse, format
 import { Header } from '@/components/page-shell';
 import { PageViewCounter } from '@/components/page-view-counter';
 import { RadarCard, dayKey, dayLabel } from '@/components/radar-card';
-import { OpportunityCard } from '@/components/OpportunityCard';
+import { OpportunityCard, FeaturedOpportunity } from '@/components/OpportunityCard';
 import { MarketPulse } from '@/components/market-pulse';
 
 export const revalidate = 300;
@@ -45,7 +45,7 @@ export default async function Home() {
               <Link href="/opportunities" className="home-more">全部机会 →</Link>
             </div>
 
-            <OpportunityCard opportunity={featured} variant="featured" />
+            <FeaturedOpportunity opportunity={featured} />
 
             {secondary.length > 0 && (
               <div className="home-opp-grid">
