@@ -22,9 +22,9 @@ export default async function Home() {
     ? items.filter(it => dayKey(it.published_at) === latestDay).slice(0, 4)
     : [];
 
-  // 机会：最高分 1 个做头条，其余最多 2 个做副条（按 score_total 降序，data 层已排序）
-  const featured = opps[0] || null;
-  const secondary = opps.slice(1, 3);
+  // 机会：优先取「手动推荐位(featured=true)」，未设置时回退最高分；其余最多 2 个做副条
+  const featured = opps.find((o) => o.featured) ?? opps[0] ?? null;
+  const secondary = opps.filter((o) => !featured || o.id !== featured.id).slice(0, 2);
 
   return (
     <>

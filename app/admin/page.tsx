@@ -49,6 +49,8 @@ type OpportunityDraft = {
   editor_take: string | null;
   evidence: { claim?: string; source_name?: string; source_url?: string; quote?: string; tier?: string }[] | null;
   created_at: string;
+  featured?: boolean;
+  published_at?: string;
 };
 
 export default function AdminPage() {
@@ -59,6 +61,7 @@ export default function AdminPage() {
   const [weeklyDrafts, setWeeklyDrafts] = useState<WeeklyDraft[]>([]);
   const [radarRejected, setRadarRejected] = useState<RadarRejected[]>([]);
   const [opportunityDrafts, setOpportunityDrafts] = useState<OpportunityDraft[]>([]);
+  const [opportunityPublished, setOpportunityPublished] = useState<OpportunityDraft[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [expandedNote, setExpandedNote] = useState<Set<string>>(new Set());
   const [expandedIssue, setExpandedIssue] = useState<Set<string>>(new Set());
@@ -92,6 +95,7 @@ export default function AdminPage() {
       setWeeklyDrafts(data.weeklyDrafts || []);
       setRadarRejected(data.radarRejected || []);
       setOpportunityDrafts(data.opportunityDrafts || []);
+      setOpportunityPublished(data.opportunityPublished || []);
       setSelected(new Set());
       setAuthed(true);
     } catch {
@@ -129,9 +133,9 @@ export default function AdminPage() {
     }
   }
 
-  async function act(action: 'publish' | 'discard' | 'unpublish', type: 'radar' | 'weekly' | 'opportunity', ids: string[]) {
+  async function act(action: 'publish' | 'discard' | 'unpublish' | 'feature' | 'unfeature', type: 'radar' | 'weekly' | 'opportunity', ids: string[]) {
     if (ids.length === 0 || busy) return;
-    if (action === 'discard' && !window.confirm(`确认丢弃 ${ids.length} 条？不可恢复。`)) return;
+    if (action === 'discard' && !window.confirm(`确认删除 ${ids.length} 条？此操作不可恢复。`)) return;
     if (action === 'unpublish' && !window.confirm(`确认下架 ${ids.length} 条？前台将不可见，可在草稿区编辑后重新发布。`)) return;
     setBusy(true);
     setMessage('');
@@ -150,7 +154,11 @@ export default function AdminPage() {
             ? `已发布 ${data.affected} 条 ✓（前台即时生效）`
             : action === 'unpublish'
               ? `已下架 ${data.affected} 条（已退回草稿区）`
-              : `已丢弃 ${data.affected} 条`,
+              : action === 'feature'
+                ? `已设为首页推荐 ✓`
+                : action === 'unfeature'
+                  ? `已取消首页推荐`
+                  : `已删除 ${data.affected} 条`,
         );
         await revalidateSite();
         await load(token);
@@ -633,7 +641,7 @@ export default function AdminPage() {
                       disabled={busy}
                       onClick={() => void act('discard', 'opportunity', opportunityDrafts.map((o) => o.id))}
                     >
-                      清空全部草稿（{opportunityDrafts.length}）
+                      删除全部草稿（{opportunityDrafts.length}）
                     </button>
                   </div>
                 )}
@@ -777,8 +785,165 @@ export default function AdminPage() {
                               disabled={busy}
                               onClick={() => void act('discard', 'opportunity', [o.id])}
                             >
-                              丢弃
+                              删除
                             </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            {/* ---------- 已发布机会（编辑/下架/删除/推荐位） ---------- */}
+            <section className="admin-section">
+              <div className="admin-section-head">
+                <h2>
+                  已发布机会 <span className="admin-count">{opportunityPublished.length}</span>
+                </h2>
+              </div>
+              {opportunityPublished.length === 0 ? (
+                <p className="admin-empty">暂无已发布机会</p>
+              ) : (
+                <div className="admin-list">
+                  {opportunityPublished.map((o) => (
+                    <div key={o.id} className="admin-item weekly">
+                      {editing?.type === 'opportunity' && editing.id === o.id ? (
+                        <div className="admin-edit-form">
+                          <label className="admin-field">
+                            <span>标题</span>
+                            <input
+                              value={String(editForm.title ?? '')}
+                              onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                            />
+                          </label>
+                          <label className="admin-field">
+                            <span>机会论断（thesis）</span>
+                            <textarea
+                              rows={2}
+                              value={String(editForm.thesis ?? '')}
+                              onChange={(e) => setEditForm({ ...editForm, thesis: e.target.value })}
+                            />
+                          </label>
+                          <label className="admin-field">
+                            <span>主编点评（editor_take）</span>
+                            <textarea
+                              rows={3}
+                              value={String(editForm.editor_take ?? '')}
+                              onChange={(e) => setEditForm({ ...editForm, editor_take: e.target.value })}
+                            />
+                          </label>
+                          <div className="admin-field-row">
+                            <label className="admin-field">
+                              <span>建议结论</span>
+                              <select
+                                value={String(editForm.recommendation ?? 'WATCH')}
+                                onChange={(e) => setEditForm({ ...editForm, recommendation: e.target.value })}
+                              >
+                                <option value="BUILD">立即动手</option>
+                                <option value="WATCH">保持关注</option>
+                                <option value="NICHE_ONLY">垂直切入</option>
+                                <option value="SKIP">不建议</option>
+                              </select>
+                            </label>
+                            <label className="admin-field">
+                              <span>主编信心</span>
+                              <select
+                                value={String(editForm.editor_conviction ?? 'medium')}
+                                onChange={(e) => setEditForm({ ...editForm, editor_conviction: e.target.value })}
+                              >
+                                <option value="high">高</option>
+                                <option value="medium">中</option>
+                                <option value="low">低</option>
+                              </select>
+                            </label>
+                            <label className="admin-field">
+                              <span>分类</span>
+                              <input
+                                value={String(editForm.category ?? '')}
+                                onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
+                              />
+                            </label>
+                          </div>
+                          <div className="admin-edit-btns">
+                            <button className="admin-btn primary" disabled={busy} onClick={() => void saveEdit(false)}>
+                              仅保存
+                            </button>
+                            <button className="admin-btn" disabled={busy} onClick={cancelEdit}>
+                              取消
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="admin-item-main">
+                            <div className="admin-item-body">
+                              <span className="admin-item-title-row">
+                                <span className="admin-score">{o.score_total ?? '–'}</span>
+                                <span className="admin-item-title">{o.title}</span>
+                                {o.featured && (
+                                  <span className="admin-score" style={{ color: 'var(--color-brand)', borderColor: 'var(--color-brand)' }}>
+                                    ★ 首页推荐
+                                  </span>
+                                )}
+                              </span>
+                              <span className="admin-item-meta">
+                                证据 {o.evidence_grade || '–'} 级 · {RECOMMENDATION_MAP[o.recommendation as keyof typeof RECOMMENDATION_MAP]?.label || o.recommendation || '–'}
+                                {o.editor_conviction ? ` · 信心 ${CONVICTION_MAP[o.editor_conviction as keyof typeof CONVICTION_MAP] || o.editor_conviction}` : ''}
+                                {o.category ? ` · ${CATEGORY_MAP[o.category as keyof typeof CATEGORY_MAP]?.label || o.category}` : ''} · 发布 {o.published_at?.slice(0, 10)}
+                              </span>
+                              {o.thesis && <span className="admin-item-reason">✦ {o.thesis}</span>}
+                            </div>
+                          </div>
+                          <div className="admin-item-btns">
+                            <button
+                              className="admin-btn sm"
+                              disabled={busy}
+                              onClick={() =>
+                                startEdit('opportunity', o.id, {
+                                  title: o.title,
+                                  thesis: o.thesis || '',
+                                  editor_take: o.editor_take || '',
+                                  recommendation: o.recommendation || 'WATCH',
+                                  editor_conviction: o.editor_conviction || 'medium',
+                                  category: o.category || '',
+                                })
+                              }
+                            >
+                              编辑
+                            </button>
+                            <button
+                              className="admin-btn sm"
+                              disabled={busy}
+                              onClick={() => void act('unpublish', 'opportunity', [o.id])}
+                            >
+                              下架
+                            </button>
+                            <button
+                              className="admin-btn danger sm"
+                              disabled={busy}
+                              onClick={() => void act('discard', 'opportunity', [o.id])}
+                            >
+                              删除
+                            </button>
+                            {o.featured ? (
+                              <button
+                                className="admin-btn sm"
+                                disabled={busy}
+                                onClick={() => void act('unfeature', 'opportunity', [o.id])}
+                              >
+                                取消推荐
+                              </button>
+                            ) : (
+                              <button
+                                className="admin-btn primary sm"
+                                disabled={busy}
+                                onClick={() => void act('feature', 'opportunity', [o.id])}
+                              >
+                                设为首页推荐
+                              </button>
+                            )}
                           </div>
                         </>
                       )}
