@@ -2,7 +2,7 @@ name: Weekly Opportunities
 
 # 机会生产线：每周三 09:23 北京时间（UTC 01:23）自动跑一轮，
 # 也可 Actions 页面手动触发（workflow_dispatch，可勾选 rescore_only 只复评不生成）。
-# 两段式：近 7 天已发布雷达信号聚类（≥3 信号成机会）→ 逐机会联网深研，
+# 两段式：近 14 天已发布雷达信号（排除历史机会已占用信号）聚类（≥3 信号成机会）→ 逐机会联网深研，
 # 产出 OPC Score / Evidence Grade / Recommendation 草稿，写入 opportunities 表待审。
 # 生成 Stage 之后接复评 Stage（P3 飞轮）：近 30 天已发布机会按新信号复评打分，
 # 落 opportunity_score_history（需先执行 migrations/migration-002-score-history.sql）。

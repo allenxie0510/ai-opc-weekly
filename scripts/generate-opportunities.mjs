@@ -1,6 +1,6 @@
 /**
  * AI OPC · 机会生产线（Decision Engine v1）
- * 每周从近 7 天 Signals（radar_items）聚类 + GLM 联网调研，
+ * 每周从近 14 天 Signals（radar_items，排除已被历史机会占用的信号）聚类 + GLM 联网调研，
  * 生成 2–3 个 Opportunity 草稿（七维评分 + Evidence Grade + Recommendation），
  * 再经 Stage 4 封面两级管线（og:image 原图 → Seedream 4.5 静物生成），
  * 写入 opportunities / cases 表，人工在 /admin 审核后发布。
@@ -149,11 +149,41 @@ async function urlOk(url) {
       method: 'GET', signal: AbortSignal.timeout(8000), redirect: 'follow',
       headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/126.0 Safari/537.36' },
     });
-    return res.status < 400;
+    // 403 放行：Product Hunt 等站对爬虫 UA 反爬返 403，但页面真实存在（误杀真实证据比放行 403 危害更大）
+    return res.status < 400 || res.status === 403;
   } catch { return false; }
 }
 
 const clamp = v => Math.max(0, Math.min(100, parseInt(v, 10) || 0));
+
+// ─── 主题级去重：新机会 vs 现有机会 title/thesis 词重合度 ───
+// 英文 ≥3 字符词 + 中文 bigram；重合度 = |交集| / min(|a|,|b|)（containment，对长短标题更稳）
+const TOPIC_STOP = new Set([
+  'ai', 'the', 'and', 'for', 'with', 'app', 'saas', 'agent', 'agents', 'tool', 'tools',
+  '工具', '平台', '助手', '应用', '系统', '服务', '方案', '工作', '作流', '流程',
+  '自动', '动化', '智能', '原生', '驱动', '基于', '一人', '公司', '创业', '机会',
+  '垂直', '领域', '构建', '开发', '辅助', '生成', '管理', '解决',
+]);
+function topicTokens(text) {
+  const tokens = new Set();
+  const lower = String(text || '').toLowerCase();
+  for (const m of lower.matchAll(/[a-z0-9]+/g)) {
+    if (m[0].length >= 3 && !TOPIC_STOP.has(m[0])) tokens.add(m[0]);
+  }
+  for (const seg of lower.match(/[一-鿿]+/g) || []) {
+    for (let i = 0; i + 2 <= seg.length; i++) {
+      const bg = seg.slice(i, i + 2);
+      if (!TOPIC_STOP.has(bg)) tokens.add(bg);
+    }
+  }
+  return tokens;
+}
+function topicOverlap(a, b) {
+  if (!a.size || !b.size) return 0;
+  let hit = 0;
+  for (const t of a) if (b.has(t)) hit++;
+  return hit / Math.min(a.size, b.size);
+}
 
 // ─── Stage 5：初评落库 score history（P3 飞轮第一块：评分带时间维度）───
 // 量纲：score_total 0–100 → history 存 0–10 一位小数；幂等：已有 initial 记录则跳过。
@@ -212,12 +242,19 @@ async function main() {
   const MIN_SIGNALS = parseInt(process.env.OPP_MIN_SIGNALS || '6', 10);
   console.log(`📡 读取近 ${WINDOW_DAYS} 天 Signals...`);
   const cutoff = new Date(Date.now() - WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
-  const signals = await sb(
+  const rawSignals = await sb(
     `/radar_items?select=id,title,summary,source_name,source_url,signal_type,source_tier,score,published_at,created_at&status=eq.published&created_at=gte.${encodeURIComponent(cutoff)}&order=score.desc&limit=60`
   );
-  console.log(`   signals: ${(signals || []).length} 条`);
-  if (!signals || signals.length < MIN_SIGNALS) {
-    console.log(`⚠️ 信号不足（<${MIN_SIGNALS} 条），本期不生成机会`);
+  console.log(`   signals: ${(rawSignals || []).length} 条`);
+
+  // 1.1 信号级去重：排除已被历史机会（draft/published，archived 除外）signal_ids 占用过的信号。
+  // 背景：published 信号池浅（~18条/14天），不排除已用信号则每周采同一池、产出雷同主题。
+  const usedRows = await sb(`/opportunities?select=signal_ids&status=neq.archived&limit=1000`);
+  const usedIds = new Set((usedRows || []).flatMap(r => Array.isArray(r.signal_ids) ? r.signal_ids : []));
+  const signals = (rawSignals || []).filter(s => !usedIds.has(s.id));
+  console.log(`   信号级去重: 历史机会已占用 ${usedIds.size} 个信号 id，排除后剩余 ${signals.length}/${(rawSignals || []).length} 条`);
+  if (signals.length < MIN_SIGNALS) {
+    console.log(`⚠️ 新信号不足（去重后 ${signals.length} < ${MIN_SIGNALS} 条），本期不生成机会——这是正确行为：宁可空窗，不用旧信号重复造题`);
     return;
   }
 
@@ -273,6 +310,13 @@ ${digest}
   const usedOgUrls = new Set(); // 本轮已占用的 og 图 URL（URL 级去重）
   const usedHashes = new Set(); // 本轮已占用图片的 sha256（内容级去重）
   const samples = loadStyleSamples();  // 仅用于 Stage 3 相似度校验，不进任何 prompt
+  // 主题级去重候选池：现有机会（draft/published 近 30 条）的 title+thesis 词集，防止换皮重复
+  const existingOpps = await sb(`/opportunities?select=title,thesis&status=in.(draft,published)&order=created_at.desc&limit=30`);
+  const existingTopics = (existingOpps || []).map(o => ({
+    title: String(o.title || ''),
+    tokens: topicTokens(`${o.title || ''} ${o.thesis || ''}`),
+  }));
+  console.log(`\n🧯 主题去重池: ${existingTopics.length} 个现有机会（draft+published）`);
   for (const [ci, cluster] of clusters.entries()) {
     console.log(`\n🔬 Stage 2 [${ci + 1}/${clusters.length}]: ${cluster.theme}（${cluster.signal_indexes.length} 条信号）...`);
     const clusterSignals = cluster.signal_indexes.map(i => `#${i} ${signals[i].title}\n   ${signals[i].summary || ''}\n   URL: ${signals[i].source_url}`).join('\n');
@@ -361,6 +405,14 @@ ${clusterSignals}
       continue;
     }
 
+    // 4.0 主题级去重：与现有机会（含 draft 及本轮已生成）title/thesis 词重合度 ≥60% 判为本质重复，直接丢弃不插库
+    const newTopicTokens = topicTokens(`${opp.title || ''} ${opp.thesis || ''}`);
+    const dupTopic = existingTopics.find(e => topicOverlap(newTopicTokens, e.tokens) >= 0.6);
+    if (dupTopic) {
+      console.log(`   🚫 主题重复，丢弃: 「${opp.title}」≈ 现有「${dupTopic.title}」（词重合度 ≥60%）`);
+      continue;
+    }
+
     // 4. 终审与确定性计算
     // 4.1 evidence URL 校验 + tier 代码重定
     const rawEvidence = (Array.isArray(opp.evidence) ? opp.evidence : []).slice(0, 4);
@@ -383,9 +435,10 @@ ${clusterSignals}
       console.log(`   🚫 拒收（无有效证据）: ${opp.title}`);
       continue;
     }
-    // Evidence Grade 代码计算：A=≥2条且≥1条S/A；B=≥1条有效；C=仅信号支撑
+    // Evidence Grade 代码计算（基于 URL 校验通过的有效 evidence）：
+    // A=≥2条且≥1条S/A；B=≥2条；C=仅1条——单条幸存证据撑不起 B，防止"编4条被毙3条"仍拿 B
     const hasPrimary = evidence.some(e => e.tier === 'S' || e.tier === 'A');
-    const evidenceGrade = evidence.length >= 2 && hasPrimary ? 'A' : evidence.length >= 1 ? 'B' : 'C';
+    const evidenceGrade = evidence.length >= 2 && hasPrimary ? 'A' : evidence.length >= 2 ? 'B' : 'C';
 
     // 4.2 七维分数 + 代码加权总分
     const scores = {};
@@ -533,6 +586,7 @@ ${clusterSignals}
     try {
       await sb('/opportunities', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(row) });
       created++;
+      existingTopics.push({ title: row.title, tokens: newTopicTokens }); // 本轮内主题互斥
       await recordInitialScore(slug, scoreTotal, opp.recommendation_reason || row.thesis, evidence.length);
       console.log(`   ✅ ${row.title} | Score ${scoreTotal} / Evidence ${evidenceGrade} / ${row.recommendation} | 证据 ${evidence.length} 条 / 案例 ${cases.length} 个`);
     } catch (e) {
@@ -543,6 +597,7 @@ ${clusterSignals}
           const { cover_url, ...rowWithoutCover } = row;
           await sb('/opportunities', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(rowWithoutCover) });
           created++;
+          existingTopics.push({ title: row.title, tokens: newTopicTokens }); // 本轮内主题互斥
           await recordInitialScore(slug, scoreTotal, opp.recommendation_reason || row.thesis, evidence.length);
           console.log(`   ✅ ${row.title} | Score ${scoreTotal} / Evidence ${evidenceGrade} / ${row.recommendation}（无封面入库）`);
         } catch (e2) {
