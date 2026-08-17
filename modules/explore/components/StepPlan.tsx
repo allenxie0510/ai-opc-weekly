@@ -1,25 +1,28 @@
 import { useState } from 'react';
-import type { AIConfig, BackcastPlan, Opportunity, ThemeProfile } from '../lib/types';
+import type { AIConfig, BackcastPlan, Opportunity, PlansMap, ThemeProfile } from '../lib/types';
 import { ai, isMock } from '../lib/ai';
+import { exportPlanPdf } from '../lib/pdf';
 import { Button, Head, Pill, Spinner } from './ui';
 
 export function StepPlan({
   config,
   profile,
   candidates,
+  plans,
   onPlanChange,
 }: {
   config: AIConfig;
   profile: ThemeProfile;
   candidates: Opportunity[];
-  onPlanChange?: (p: BackcastPlan) => void;
+  plans: PlansMap;
+  onPlanChange: (ideaId: string, plan: BackcastPlan) => void;
 }) {
   const [selectedId, setSelectedId] = useState(candidates[0]?.id ?? '');
-  const [plan, setPlan] = useState<BackcastPlan | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   const selected = candidates.find((c) => c.id === selectedId) ?? candidates[0];
+  const plan = selected ? plans[selected.id] ?? null : null;
 
   async function generate() {
     if (!selected) return;
@@ -27,8 +30,7 @@ export function StepPlan({
     setError('');
     try {
       const p = await ai.buildPlan(config, profile, selected);
-      setPlan(p);
-      onPlanChange?.(p);
+      onPlanChange(selected.id, p);
     } catch (e: any) {
       setError(e?.message || '生成失败');
     } finally {
@@ -73,24 +75,29 @@ export function StepPlan({
 
       <div className="xpl-plan-select">
         <label>选择要规划的方向（短名单 / 收藏）</label>
-        <select className="xpl-select" value={selected?.id} onChange={(e) => { setSelectedId(e.target.value); setPlan(null); }}>
+        <select className="xpl-select" value={selected?.id} onChange={(e) => setSelectedId(e.target.value)}>
           {candidates.map((c) => (
             <option key={c.id} value={c.id}>
-              {c.name}（{c.category}）
+              {c.name}（{c.category}）{plans[c.id] ? ' · 已规划' : ''}
             </option>
           ))}
         </select>
         <Button onClick={generate} disabled={!selected || loading}>
-          {loading ? '逆向规划中…' : '🧭 生成逆向规划'}
+          {loading ? '逆向规划中…' : plan ? '🔄 重新生成' : '🧭 生成逆向规划'}
         </Button>
-        {plan && <Button variant="outline" onClick={copyMarkdown}>复制 Markdown</Button>}
+        {plan && (
+          <>
+            <Button variant="accent" onClick={() => exportPlanPdf(selected!, plan, profile)}>📄 导出 PDF</Button>
+            <Button variant="outline" onClick={copyMarkdown}>复制 Markdown</Button>
+          </>
+        )}
         {isMock(config) && <span className="xpl-muted">演示模式</span>}
       </div>
 
       {error && <div className="xpl-error">{error}</div>}
       {loading && <Spinner label="AI 正在从终局倒推里程碑…" />}
 
-      {plan && selected && (
+      {plan && selected ? (
         <div className="xpl-plan-result">
           <div className="xpl-vision">
             <Pill tone="blue">终局愿景（{profile.horizonYears} 年后）</Pill>
@@ -135,6 +142,12 @@ export function StepPlan({
             <Button variant="ghost" onClick={generate} disabled={loading}>换一个版本重跑</Button>
           </div>
         </div>
+      ) : (
+        !loading && (
+          <div className="xpl-empty">
+            选定方向后点击「生成逆向规划」——规划会保存到当前探索，并可在方向上看到「已规划」标识。
+          </div>
+        )
       )}
     </div>
   );

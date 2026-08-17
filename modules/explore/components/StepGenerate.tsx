@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { AIConfig, Opportunity, ThemeProfile } from '../lib/types';
+import type { AIConfig, Opportunity, PlansMap, ThemeProfile } from '../lib/types';
 import { ai, isMock } from '../lib/ai';
 import { computeTotal, grade } from '../lib/scoring';
 import { Button, Head, Modal, Pill } from './ui';
@@ -12,6 +12,7 @@ export function StepGenerate({
   config,
   profile,
   opportunities,
+  plans,
   onAppend,
   onPatch,
   onDelete,
@@ -20,6 +21,7 @@ export function StepGenerate({
   config: AIConfig;
   profile: ThemeProfile;
   opportunities: Opportunity[];
+  plans: PlansMap;
   onAppend: (list: Opportunity[]) => void;
   onPatch: (id: string, patch: Partial<Opportunity>) => void;
   onDelete: (ids: string[]) => void;
@@ -183,6 +185,7 @@ export function StepGenerate({
                     <Pill tone={o.source === 'mock' ? 'warn' : 'blue'}>{o.source === 'mock' ? '演示数据' : '真实 AI'}</Pill>
                     <Pill tone={o.capitalNeed === '低' ? 'good' : o.capitalNeed === '中' ? 'warn' : 'bad'}>资金{o.capitalNeed}</Pill>
                     <Pill tone={o.competition === '低' ? 'good' : o.competition === '中' ? 'warn' : 'bad'}>竞争{o.competition}</Pill>
+                    {plans[o.id] && <Pill tone="accent">📋 已规划</Pill>}
                   </div>
                   <div className="xpl-card-meta">
                     <div><strong>痛点</strong>{o.painPoint}</div>
