@@ -239,7 +239,7 @@ async function main() {
 
   // 1. 读取近 14 天 Signals（用 created_at 兜底：早期在 Table Editor 手动改状态的条目 published_at 为 NULL）
   const WINDOW_DAYS = parseInt(process.env.OPP_WINDOW_DAYS || '14', 10);
-  const MIN_SIGNALS = parseInt(process.env.OPP_MIN_SIGNALS || '6', 10);
+  const MIN_SIGNALS = parseInt(process.env.OPP_MIN_SIGNALS || '3', 10);
   console.log(`📡 读取近 ${WINDOW_DAYS} 天 Signals...`);
   const cutoff = new Date(Date.now() - WINDOW_DAYS * 24 * 60 * 60 * 1000).toISOString();
   const rawSignals = await sb(
@@ -247,12 +247,13 @@ async function main() {
   );
   console.log(`   signals: ${(rawSignals || []).length} 条`);
 
-  // 1.1 信号级去重：排除已被历史机会（draft/published，archived 除外）signal_ids 占用过的信号。
-  // 背景：published 信号池浅（~18条/14天），不排除已用信号则每周采同一池、产出雷同主题。
-  const usedRows = await sb(`/opportunities?select=signal_ids&status=neq.archived&limit=1000`);
+  // 1.1 信号级去重：只排除已被【已发布(published)】机会占用的信号。
+  // 背景：draft 机会未定稿、审核积压时不应长期锁信号；只锁 published 已占用信号，
+  //       避免「池浅 + 大量 draft 未决」导致长期空窗（主题级去重仍会拦截近重复选题）。
+  const usedRows = await sb(`/opportunities?select=signal_ids&status=eq.published&limit=1000`);
   const usedIds = new Set((usedRows || []).flatMap(r => Array.isArray(r.signal_ids) ? r.signal_ids : []));
   const signals = (rawSignals || []).filter(s => !usedIds.has(s.id));
-  console.log(`   信号级去重: 历史机会已占用 ${usedIds.size} 个信号 id，排除后剩余 ${signals.length}/${(rawSignals || []).length} 条`);
+  console.log(`   信号级去重: 已发布机会占用 ${usedIds.size} 个信号 id，排除后剩余 ${signals.length}/${(rawSignals || []).length} 条`);
   if (signals.length < MIN_SIGNALS) {
     console.log(`⚠️ 新信号不足（去重后 ${signals.length} < ${MIN_SIGNALS} 条），本期不生成机会——这是正确行为：宁可空窗，不用旧信号重复造题`);
     return;
