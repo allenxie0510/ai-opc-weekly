@@ -1,11 +1,11 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import type { AIConfig, Opportunity, ThemeProfile } from './lib/types';
+import type { AIConfig, BackcastPlan, Opportunity, ThemeProfile } from './lib/types';
 import { EMPTY_PROFILE } from './lib/types';
 import { DEFAULT_CONFIG } from './lib/ai';
 import { CRITERIA } from './lib/criteria';
-import { clearState, loadState, saveState } from './lib/store';
+import { clearState, fetchCloudState, getUid, loadState, saveCloudState, saveState } from './lib/store';
 import { Methodology } from './components/Methodology';
 import { StepVision } from './components/StepVision';
 import { StepGenerate } from './components/StepGenerate';
@@ -22,6 +22,8 @@ const STEPS = [
 
 export function ExploreApp() {
   const [mounted, setMounted] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
+  const [uid, setUid] = useState('');
   const [view, setView] = useState<'method' | 'engine'>('engine');
   const [step, setStep] = useState(0);
   const [config, setConfig] = useState<AIConfig>(DEFAULT_CONFIG);
@@ -32,21 +34,52 @@ export function ExploreApp() {
     return w;
   });
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
+  const [plan, setPlan] = useState<BackcastPlan | null>(null);
   const [configOpen, setConfigOpen] = useState(false);
 
-  // 客户端挂载后读取持久化状态，避免 SSR/hydration 不一致
+  // 客户端挂载：读本地 → 生成匿名 uid → 本地为空时从云端恢复
   useEffect(() => {
     const s = loadState();
+    const id = getUid();
+    setUid(id);
     setConfig(s.config);
     setProfile(s.profile);
     setWeights(s.weights);
     setOpportunities(s.opportunities);
     setMounted(true);
+
+    const isEmpty =
+      s.opportunities.length === 0 &&
+      !s.profile.vision &&
+      !s.profile.direction &&
+      !s.profile.interests;
+    (async () => {
+      if (isEmpty) {
+        const cs = await fetchCloudState(id);
+        if (cs) {
+          if (cs.profile) setProfile(cs.profile);
+          if (cs.weights) setWeights(cs.weights);
+          if (cs.opportunities) setOpportunities(cs.opportunities);
+          if (cs.plan) setPlan(cs.plan);
+        }
+      }
+      setHydrated(true);
+    })();
   }, []);
 
+  // 本地兜底存储
   useEffect(() => {
     if (mounted) saveState({ config, profile, weights, opportunities });
   }, [mounted, config, profile, weights, opportunities]);
+
+  // 云端存储（防抖；hydrated 之后才允许，避免用空状态覆盖云端数据）
+  useEffect(() => {
+    if (!hydrated || !uid) return;
+    const t = setTimeout(() => {
+      saveCloudState(uid, { profile, weights, opportunities, plan });
+    }, 800);
+    return () => clearTimeout(t);
+  }, [hydrated, uid, profile, weights, opportunities, plan]);
 
   function patchProfile(p: ThemeProfile) {
     setProfile(p);
@@ -79,6 +112,7 @@ export function ExploreApp() {
     setProfile(EMPTY_PROFILE);
     resetWeights();
     setOpportunities([]);
+    setPlan(null);
   }
 
   const candidates = useMemo(() => {
@@ -143,7 +177,9 @@ export function ExploreApp() {
               onNext={() => setStep(3)}
             />
           )}
-          {step === 3 && <StepPlan config={config} profile={profile} candidates={candidates} />}
+          {step === 3 && (
+            <StepPlan config={config} profile={profile} candidates={candidates} onPlanChange={setPlan} />
+          )}
         </>
       )}
 
@@ -172,14 +208,23 @@ function ConfigModal({
     <Modal open={open} title="AI 设置" onClose={onClose}>
       <Field label="运行模式">
         <div className="xpl-seg">
+          <button className={draft.provider === 'server' ? 'xpl-on' : ''} onClick={() => set({ provider: 'server' })}>
+            服务端 AI（推荐 · 免 Key）
+          </button>
           <button className={draft.provider === 'mock' ? 'xpl-on' : ''} onClick={() => set({ provider: 'mock' })}>
-            演示模式（无需 Key）
+            演示模式
           </button>
           <button className={draft.provider === 'openai' ? 'xpl-on' : ''} onClick={() => set({ provider: 'openai' })}>
-            真实模型
+            自带 Key
           </button>
         </div>
       </Field>
+      {draft.provider === 'server' && (
+        <p className="xpl-small">
+          使用站长在服务端配置的 DeepSeek 密钥，访客无需自己填 Key。
+          若服务器未配置，将提示错误，此时可切换为「演示模式」。
+        </p>
+      )}
       {draft.provider === 'openai' && (
         <>
           <Field label="API 端点（OpenAI 兼容）" hint="默认 DeepSeek，也可填任意 OpenAI 兼容服务">
@@ -188,13 +233,13 @@ function ConfigModal({
           <Field label="模型">
             <input className="xpl-input" value={draft.model} onChange={(e) => set({ model: e.target.value })} placeholder="deepseek-v4-flash" />
           </Field>
-          <Field label="API Key" hint="仅保存在你的浏览器 localStorage，不会上传到任何服务器">
+          <Field label="API Key" hint="仅保存在你的浏览器 localStorage，不会上传到服务器">
             <input className="xpl-input" type="password" value={draft.apiKey} onChange={(e) => set({ apiKey: e.target.value })} placeholder="sk-..." />
           </Field>
         </>
       )}
       <p className="xpl-small">
-        演示模式内置 40+ 个结构化样本与模拟打分，可完整体验全流程；接入真实模型后可海量生成 + 深度研判 + 逆向规划。
+        演示模式内置 40+ 个结构化样本与模拟打分，可完整体验全流程；服务端 AI / 自带 Key 可海量生成 + 深度研判 + 逆向规划。
       </p>
       <div className="xpl-foot-row">
         <Button variant="ghost" onClick={() => set({ ...DEFAULT_CONFIG })}>恢复默认</Button>

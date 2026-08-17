@@ -7,10 +7,12 @@ export function StepPlan({
   config,
   profile,
   candidates,
+  onPlanChange,
 }: {
   config: AIConfig;
   profile: ThemeProfile;
   candidates: Opportunity[];
+  onPlanChange?: (p: BackcastPlan) => void;
 }) {
   const [selectedId, setSelectedId] = useState(candidates[0]?.id ?? '');
   const [plan, setPlan] = useState<BackcastPlan | null>(null);
@@ -26,6 +28,7 @@ export function StepPlan({
     try {
       const p = await ai.buildPlan(config, profile, selected);
       setPlan(p);
+      onPlanChange?.(p);
     } catch (e: any) {
       setError(e?.message || '生成失败');
     } finally {
