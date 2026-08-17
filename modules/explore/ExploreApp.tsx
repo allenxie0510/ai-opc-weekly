@@ -1,16 +1,20 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import type { AIConfig, BackcastPlan, Opportunity, ThemeProfile } from './lib/types';
+import type { User } from '@supabase/supabase-js';
+import type { AIConfig, BackcastPlan, ExploreSession, Opportunity, PlansMap, ThemeProfile } from './lib/types';
 import { EMPTY_PROFILE } from './lib/types';
 import { DEFAULT_CONFIG } from './lib/ai';
 import { CRITERIA } from './lib/criteria';
-import { clearState, fetchCloudState, getUid, loadState, saveCloudState, saveState } from './lib/store';
+import { clearState, loadState, saveState } from './lib/store';
+import { getSession, getToken, onAuthChange } from './lib/auth';
 import { Methodology } from './components/Methodology';
 import { StepVision } from './components/StepVision';
 import { StepGenerate } from './components/StepGenerate';
 import { StepScreen } from './components/StepScreen';
 import { StepPlan } from './components/StepPlan';
+import { LoginModal } from './components/LoginModal';
+import { SessionsModal } from './components/SessionsModal';
 import { Button, Field, Modal, Stepper } from './components/ui';
 
 const STEPS = [
@@ -20,51 +24,51 @@ const STEPS = [
   { id: 3, label: '逆向规划', sub: '倒推里程碑' },
 ];
 
+function defaultWeights(): Record<string, number> {
+  const w: Record<string, number> = {};
+  CRITERIA.forEach((c) => (w[c.id] = c.weight));
+  return w;
+}
+
+function normalizeSession(raw: any): ExploreSession {
+  return {
+    id: String(raw.id || ''),
+    title: String(raw.title || '未命名探索'),
+    profile: raw.profile && typeof raw.profile === 'object' ? raw.profile : { ...EMPTY_PROFILE },
+    weights: raw.weights && typeof raw.weights === 'object' ? raw.weights : defaultWeights(),
+    opportunities: Array.isArray(raw.opportunities) ? raw.opportunities : [],
+    plans: raw.plans && typeof raw.plans === 'object' ? raw.plans : {},
+    created_at: String(raw.created_at || ''),
+    updated_at: String(raw.updated_at || ''),
+  };
+}
+
 export function ExploreApp() {
   const [mounted, setMounted] = useState(false);
-  const [hydrated, setHydrated] = useState(false);
-  const [uid, setUid] = useState('');
   const [view, setView] = useState<'method' | 'engine'>('engine');
   const [step, setStep] = useState(0);
   const [config, setConfig] = useState<AIConfig>(DEFAULT_CONFIG);
   const [profile, setProfile] = useState<ThemeProfile>(EMPTY_PROFILE);
-  const [weights, setWeights] = useState<Record<string, number>>(() => {
-    const w: Record<string, number> = {};
-    CRITERIA.forEach((c) => (w[c.id] = c.weight));
-    return w;
-  });
+  const [weights, setWeights] = useState<Record<string, number>>(defaultWeights);
   const [opportunities, setOpportunities] = useState<Opportunity[]>([]);
-  const [plan, setPlan] = useState<BackcastPlan | null>(null);
+  const [plans, setPlans] = useState<PlansMap>({});
   const [configOpen, setConfigOpen] = useState(false);
 
-  // 客户端挂载：读本地 → 生成匿名 uid → 本地为空时从云端恢复
+  // 登录与会话
+  const [user, setUser] = useState<User | null>(null);
+  const [loginOpen, setLoginOpen] = useState(false);
+  const [sessionsOpen, setSessionsOpen] = useState(false);
+  const [sessions, setSessions] = useState<ExploreSession[]>([]);
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+
+  // 客户端挂载：读本地草稿
   useEffect(() => {
     const s = loadState();
-    const id = getUid();
-    setUid(id);
     setConfig(s.config);
     setProfile(s.profile);
     setWeights(s.weights);
     setOpportunities(s.opportunities);
     setMounted(true);
-
-    const isEmpty =
-      s.opportunities.length === 0 &&
-      !s.profile.vision &&
-      !s.profile.direction &&
-      !s.profile.interests;
-    (async () => {
-      if (isEmpty) {
-        const cs = await fetchCloudState(id);
-        if (cs) {
-          if (cs.profile) setProfile(cs.profile);
-          if (cs.weights) setWeights(cs.weights);
-          if (cs.opportunities) setOpportunities(cs.opportunities);
-          if (cs.plan) setPlan(cs.plan);
-        }
-      }
-      setHydrated(true);
-    })();
   }, []);
 
   // 本地兜底存储
@@ -72,14 +76,88 @@ export function ExploreApp() {
     if (mounted) saveState({ config, profile, weights, opportunities });
   }, [mounted, config, profile, weights, opportunities]);
 
-  // 云端存储（防抖；hydrated 之后才允许，避免用空状态覆盖云端数据）
+  // 登录态监听
   useEffect(() => {
-    if (!hydrated || !uid) return;
-    const t = setTimeout(() => {
-      saveCloudState(uid, { profile, weights, opportunities, plan });
-    }, 800);
-    return () => clearTimeout(t);
-  }, [hydrated, uid, profile, weights, opportunities, plan]);
+    getSession().then((s) => setUser(s?.user ?? null));
+    return onAuthChange((s) => setUser(s?.user ?? null));
+  }, []);
+
+  // 登录后拉取会话列表
+  useEffect(() => {
+    if (user) {
+      loadSessions();
+    } else {
+      setSessions([]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
+  async function loadSessions() {
+    const t = await getToken();
+    if (!t) return;
+    const res = await fetch('/api/explore/sessions', { headers: { Authorization: `Bearer ${t}` } });
+    if (!res.ok) return;
+    const d = await res.json();
+    setSessions((d.sessions || []).map(normalizeSession));
+  }
+
+  async function saveSession(title: string) {
+    const t = await getToken();
+    if (!t) {
+      setLoginOpen(true);
+      return;
+    }
+    const payload = { title: title.trim() || '未命名探索', profile, weights, opportunities, plans };
+    const res = await fetch(currentSessionId ? `/api/explore/sessions/${currentSessionId}` : '/api/explore/sessions', {
+      method: currentSessionId ? 'PUT' : 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
+      body: JSON.stringify(payload),
+    });
+    if (res.ok) {
+      const d = await res.json();
+      if (d.session?.id) setCurrentSessionId(d.session.id);
+      await loadSessions();
+    } else {
+      const d = await res.json().catch(() => ({}));
+      alert(d.error || '保存失败');
+    }
+  }
+
+  function loadSession(s: ExploreSession) {
+    setCurrentSessionId(s.id);
+    setProfile(s.profile || { ...EMPTY_PROFILE });
+    setWeights(s.weights || defaultWeights());
+    setOpportunities(s.opportunities || []);
+    setPlans(s.plans || {});
+    setStep(0);
+    setView('engine');
+  }
+
+  async function deleteSession(id: string) {
+    if (!confirm('删除这个探索？此操作不可恢复。')) return;
+    const t = await getToken();
+    if (!t) return;
+    const res = await fetch(`/api/explore/sessions/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${t}` } });
+    if (res.ok) {
+      if (currentSessionId === id) setCurrentSessionId(null);
+      await loadSessions();
+    } else {
+      const d = await res.json().catch(() => ({}));
+      alert(d.error || '删除失败');
+    }
+  }
+
+  function newExploration() {
+    const hasContent = opportunities.length > 0 || profile.vision || profile.direction || profile.interests;
+    if (hasContent && !confirm('新建空白探索会清空当前进度，建议先「保存当前探索」。确定继续？')) return;
+    setCurrentSessionId(null);
+    setProfile({ ...EMPTY_PROFILE });
+    setWeights(defaultWeights());
+    setOpportunities([]);
+    setPlans({});
+    setStep(0);
+    setView('engine');
+  }
 
   function patchProfile(p: ThemeProfile) {
     setProfile(p);
@@ -101,18 +179,20 @@ export function ExploreApp() {
     setWeights((prev) => ({ ...prev, [id]: n }));
   }
   function resetWeights() {
-    const w: Record<string, number> = {};
-    CRITERIA.forEach((c) => (w[c.id] = c.weight));
-    setWeights(w);
+    setWeights(defaultWeights());
+  }
+  function onPlanChange(ideaId: string, plan: BackcastPlan) {
+    setPlans((prev) => ({ ...prev, [ideaId]: plan }));
   }
   function resetAll() {
-    if (!confirm('清空「方向探测器」的所有进度并回到初始状态？')) return;
+    if (!confirm('清空「方向探测器」的所有进度并回到初始状态？（不影响已保存的探索）')) return;
     clearState();
     setConfig(DEFAULT_CONFIG);
-    setProfile(EMPTY_PROFILE);
-    resetWeights();
+    setProfile({ ...EMPTY_PROFILE });
+    setWeights(defaultWeights());
     setOpportunities([]);
-    setPlan(null);
+    setPlans({});
+    setCurrentSessionId(null);
   }
 
   const candidates = useMemo(() => {
@@ -138,6 +218,12 @@ export function ExploreApp() {
         <button className={`xpl-tab ${view === 'method' ? 'on' : ''}`} onClick={() => setView('method')}>
           方法论
         </button>
+        <button className="xpl-tab" onClick={() => (user ? setSessionsOpen(true) : setLoginOpen(true))}>
+          📁 我的探索
+        </button>
+        <button className={`xpl-tab ${user ? 'on' : ''}`} onClick={() => setLoginOpen(true)}>
+          {user ? (user.email || user.phone || '已登录') : '🔒 登录'}
+        </button>
         <button className="xpl-tab" onClick={() => setConfigOpen(true)}>
           ⚙️ AI 设置
         </button>
@@ -159,6 +245,7 @@ export function ExploreApp() {
               config={config}
               profile={profile}
               opportunities={opportunities}
+              plans={plans}
               onAppend={appendOpps}
               onPatch={patchOpp}
               onDelete={deleteOpps}
@@ -171,6 +258,7 @@ export function ExploreApp() {
               profile={profile}
               opportunities={opportunities}
               weights={weights}
+              plans={plans}
               onSetWeight={setWeight}
               onPatch={patchOpp}
               onResetWeights={resetWeights}
@@ -178,11 +266,22 @@ export function ExploreApp() {
             />
           )}
           {step === 3 && (
-            <StepPlan config={config} profile={profile} candidates={candidates} onPlanChange={setPlan} />
+            <StepPlan config={config} profile={profile} candidates={candidates} plans={plans} onPlanChange={onPlanChange} />
           )}
         </>
       )}
 
+      <LoginModal open={loginOpen} user={user} onClose={() => setLoginOpen(false)} />
+      <SessionsModal
+        open={sessionsOpen}
+        sessions={sessions}
+        currentSessionId={currentSessionId}
+        onClose={() => setSessionsOpen(false)}
+        onSave={saveSession}
+        onLoad={loadSession}
+        onDelete={deleteSession}
+        onNew={newExploration}
+      />
       <ConfigModal open={configOpen} config={config} onChange={setConfig} onClose={() => setConfigOpen(false)} />
     </div>
   );

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import type { AIConfig, DeepDive, Opportunity, ThemeProfile } from '../lib/types';
+import type { AIConfig, DeepDive, Opportunity, PlansMap, ThemeProfile } from '../lib/types';
 import { CRITERIA } from '../lib/criteria';
 import { ai } from '../lib/ai';
 import { effScore, grade, rankOpportunities } from '../lib/scoring';
@@ -10,6 +10,7 @@ export function StepScreen({
   profile,
   opportunities,
   weights,
+  plans,
   onSetWeight,
   onPatch,
   onResetWeights,
@@ -19,6 +20,7 @@ export function StepScreen({
   profile: ThemeProfile;
   opportunities: Opportunity[];
   weights: Record<string, number>;
+  plans: PlansMap;
   onSetWeight: (id: string, n: number) => void;
   onPatch: (id: string, patch: Partial<Opportunity>) => void;
   onResetWeights: () => void;
@@ -148,6 +150,7 @@ export function StepScreen({
                         <Pill tone={o.capitalNeed === '低' ? 'good' : o.capitalNeed === '中' ? 'warn' : 'bad'}>资金{o.capitalNeed}</Pill>
                         <Pill tone={o.competition === '低' ? 'good' : o.competition === '中' ? 'warn' : 'bad'}>竞争{o.competition}</Pill>
                         {o.status === 'shortlist' && <Pill tone="blue">已入短名单</Pill>}
+                        {plans[o.id] && <Pill tone="accent">📋 已规划</Pill>}
                       </div>
                     </div>
                     <span className="xpl-chev">{isOpen ? '▴' : '▾'}</span>

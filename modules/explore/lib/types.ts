@@ -101,3 +101,18 @@ export interface BackcastPlan {
   milestones: PlanMilestone[]; // 从远到近（倒序）
   firstStep: string;     // 本周第一步
 }
+
+/** 每个机会 id 对应一份逆向规划 */
+export type PlansMap = Record<string, BackcastPlan>;
+
+/** 一次保存下来的「方向探索」会话（多次探索） */
+export interface ExploreSession {
+  id: string;
+  title: string;
+  profile: ThemeProfile;
+  weights: Record<string, number>;
+  opportunities: Opportunity[];
+  plans: PlansMap;
+  created_at: string;
+  updated_at: string;
+}

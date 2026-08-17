@@ -6,7 +6,7 @@ import { ExploreApp } from '@/modules/explore/ExploreApp';
 export const metadata: Metadata = {
   title: '方向探测器 · AI OPC',
   description:
-    '用孙正义 19 岁的方法，把「想做」变成「该做 + 本周第一步」：海量生成 → 系统筛选 → 逆向规划。',
+    '用孙正义的创业研究方法，把「想做」变成「该做 + 本周第一步」：海量生成 → 系统筛选 → 逆向规划。',
 };
 
 export default function ExplorePage() {
@@ -21,7 +21,7 @@ export default function ExplorePage() {
           <div>
             <h1 className="x-pagehead-title">方向探测器</h1>
             <p className="x-pagehead-meta">
-              用孙正义 19 岁的方法：海量生成 → 系统筛选 → 逆向规划，把「想做」变成「该做 + 本周做什么」
+              用孙正义的创业研究方法：海量生成 → 系统筛选 → 逆向规划，把「想做」变成「该做 + 本周做什么」
             </p>
           </div>
         </header>
