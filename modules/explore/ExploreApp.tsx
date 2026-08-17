@@ -82,6 +82,11 @@ export function ExploreApp() {
     return onAuthChange((s) => setUser(s?.user ?? null));
   }, []);
 
+  // 登录成功后自动关闭登录弹窗
+  useEffect(() => {
+    if (user) setLoginOpen(false);
+  }, [user]);
+
   // 登录后拉取会话列表
   useEffect(() => {
     if (user) {
