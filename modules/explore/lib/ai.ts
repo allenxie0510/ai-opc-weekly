@@ -9,7 +9,7 @@ import { CRITERIA } from './criteria';
 import { newId } from './scoring';
 
 export const DEFAULT_CONFIG: AIConfig = {
-  provider: 'mock',
+  provider: 'server',
   endpoint: 'https://api.deepseek.com/v1',
   apiKey: '',
   model: 'deepseek-v4-flash',
@@ -65,6 +65,29 @@ async function callLLM(
   user: string,
   opts: { json?: boolean; temperature?: number } = {}
 ): Promise<string> {
+  // 服务端代理：访客无需自带 Key，密钥由站长在 Vercel 环境变量中配置
+  if (cfg.provider === 'server') {
+    const res = await fetch('/api/explore/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: cfg.model,
+        temperature: opts.temperature ?? 0.85,
+        response_format: opts.json ? { type: 'json_object' } : undefined,
+        messages: [
+          { role: 'system', content: system },
+          { role: 'user', content: user },
+        ],
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.error) {
+      throw new Error(data.error || `服务端 AI 调用失败 (${res.status})`);
+    }
+    if (typeof data.content !== 'string' || !data.content) throw new Error('AI 返回为空');
+    return data.content;
+  }
+
   const res = await fetch(`${cfg.endpoint.replace(/\/$/, '')}/chat/completions`, {
     method: 'POST',
     headers: {
@@ -597,7 +620,7 @@ async function openaiPlan(
 /* ------------------------------------------------------------------ */
 
 export function isMock(cfg: AIConfig): boolean {
-  return cfg.provider === 'mock' || !cfg.apiKey;
+  return cfg.provider === 'mock';
 }
 
 export const ai: AiApi = {

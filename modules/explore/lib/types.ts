@@ -1,5 +1,5 @@
 export interface AIConfig {
-  provider: 'mock' | 'openai';
+  provider: 'server' | 'mock' | 'openai';
   endpoint: string;
   apiKey: string;
   model: string;

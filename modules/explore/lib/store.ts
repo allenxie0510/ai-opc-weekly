@@ -1,4 +1,4 @@
-import type { AIConfig, Opportunity, ThemeProfile } from './types';
+import type { AIConfig, BackcastPlan, Opportunity, ThemeProfile } from './types';
 import { EMPTY_PROFILE } from './types';
 import { DEFAULT_CONFIG, isMockName } from './ai';
 import { CRITERIA } from './criteria';
@@ -57,5 +57,55 @@ export function clearState(): void {
     localStorage.removeItem(KEY);
   } catch {
     /* ignore */
+  }
+}
+
+/* ── 匿名用户标识 + 云端存储（无账号系统）────────────────────── */
+
+const UID_KEY = 'ai_opc_uid';
+
+export function getUid(): string {
+  try {
+    let uid = localStorage.getItem(UID_KEY);
+    if (!uid) {
+      uid =
+        (typeof crypto !== 'undefined' && crypto.randomUUID?.()) ||
+        'uid-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+      localStorage.setItem(UID_KEY, uid);
+    }
+    return uid;
+  } catch {
+    return 'anon-' + Date.now().toString(36);
+  }
+}
+
+/** 云端持久化的用户状态（与 localStorage 的 PersistState 基本一致，另含最终规划） */
+export interface CloudState {
+  profile: ThemeProfile;
+  weights: Record<string, number>;
+  opportunities: Opportunity[];
+  plan?: BackcastPlan | null;
+}
+
+export async function fetchCloudState(uid: string): Promise<CloudState | null> {
+  try {
+    const res = await fetch(`/api/explore/storage?user_id=${encodeURIComponent(uid)}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    return (data && data.state) || null;
+  } catch {
+    return null;
+  }
+}
+
+export async function saveCloudState(uid: string, state: CloudState): Promise<void> {
+  try {
+    await fetch('/api/explore/storage', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user_id: uid, state }),
+    });
+  } catch {
+    /* 网络失败静默忽略，本地 localStorage 仍是兜底 */
   }
 }
