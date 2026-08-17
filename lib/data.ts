@@ -103,7 +103,7 @@ export async function getOpportunities(): Promise<Opportunity[]> {
     .from('opportunities')
     .select('*')
     .eq('status', 'published')
-    .order('score_total', { ascending: false });
+    .order('published_at', { ascending: false, nullsFirst: false });
 
   if (error) { console.error('getOpportunities:', error.message); return []; }
   const opps = data || [];
