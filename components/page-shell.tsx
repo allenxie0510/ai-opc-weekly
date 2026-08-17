@@ -35,6 +35,7 @@ export function Header() {
           <Link href="/" className="brand">AI OPC</Link>
           <span className="nav-sep">|</span>
           <Link href="/opportunities" className="x-link">机会</Link>
+          <Link href="/explore" className="x-link">方向</Link>
           <Link href="/radar" className="x-link">雷达</Link>
           <Link href="/x" className="x-link">X</Link>
         </div>
