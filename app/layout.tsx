@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import '../modules/explore/explore.css';
 
 export const metadata: Metadata = {
   title: 'AI OPC · 一人公司创业机会情报',
