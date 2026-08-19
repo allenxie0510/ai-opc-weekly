@@ -108,7 +108,7 @@ async function main() {
   const urls = [...new Set(accounts.map(a => a.rss_url))];
   console.log(`📡 ${accounts.length} 个账号，${urls.length} 个 RSS feed\n`);
 
-  let synced = 0, errors = 0;
+  let synced = 0, errors = 0, okFeeds = 0, payment402 = 0;
 
   for (const url of urls) {
     try {
@@ -117,7 +117,12 @@ async function main() {
         signal: AbortSignal.timeout(20000),
       });
       if (!res.ok) {
-        console.error(`  ⚠️ ${url.substring(0,50)}... → HTTP ${res.status}`);
+        if (res.status === 402) {
+          payment402++;
+          console.error(`  ⚠️ ${url.substring(0,50)}... → HTTP 402 = RSS.app 订阅到期，需要续费`);
+        } else {
+          console.error(`  ⚠️ ${url.substring(0,50)}... → HTTP ${res.status}`);
+        }
         errors++;
         continue;
       }
@@ -129,6 +134,7 @@ async function main() {
         continue;
       }
 
+      okFeeds++;
       const tweets = parseRSSFeed(xml);
 
       for (const t of tweets) {
@@ -158,7 +164,10 @@ async function main() {
     }
   }
 
-  console.log(`\n📊 同步完成: ${synced} 条写入, ${errors} 个 feed 失败`);
+  console.log(`\n📊 同步完成: ${synced} 条写入, ${okFeeds}/${urls.length} 个 feed 成功, ${errors} 个失败${payment402 ? `（其中 ${payment402} 个 HTTP 402 续费问题）` : ''}`);
+  if (okFeeds > 0 && errors > 0) {
+    console.warn(`⚠️ 部分 feed 失败（${errors}/${urls.length}），暂不阻塞，但请检查上面的警告`);
+  }
 
   // 清理孤儿推文：删除不属于任何追踪账号的推文
   try {
@@ -214,6 +223,13 @@ async function main() {
     }
   } catch (e) {
     console.warn('⚠️ 14天清理异常:', e.message);
+  }
+
+  // 全灭报警：0 个 feed 成功说明是系统性故障（订阅到期/网络全断），
+  // exit 1 让 Actions 标红——只 log 警告会让 402 这类故障被掩盖（曾静默失败两天）
+  if (okFeeds === 0 && urls.length > 0) {
+    console.error(`\n❌ 全部 feed 失败（0/${urls.length}），检查 RSS.app 订阅状态${payment402 ? `：本轮 ${payment402} 个 HTTP 402，订阅大概率已到期需要续费` : ''}`);
+    process.exit(1);
   }
 
   console.log('✅ 推文拉取完成');
