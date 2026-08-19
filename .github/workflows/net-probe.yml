@@ -1,0 +1,31 @@
+# 临时网络探测：测试 X RSS 候选源在 GitHub Actions 环境的可用性
+# 用完即删
+name: Net Probe
+on:
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe candidates
+        run: |
+          UA="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
+          probe() {
+            local name="$1" url="$2"
+            local code size
+            code=$(curl -s -o /tmp/probe_body -w "%{http_code}" -A "$UA" --max-time 30 -L "$url" || echo "000")
+            size=$(wc -c < /tmp/probe_body 2>/dev/null || echo 0)
+            echo "--- $name"
+            echo "URL: $url"
+            echo "HTTP: $code | bytes: $size"
+            head -c 300 /tmp/probe_body 2>/dev/null | tr '\n' ' '
+            echo; echo
+          }
+          probe "xcancel RSS"        "https://xcancel.com/tbpn/rss"
+          probe "xcancel RSS #2"     "https://xcancel.com/marckohlbrugge/rss"
+          probe "RSSHub public"      "https://rsshub.app/twitter/user/tbpn"
+          probe "RSSHub mirror rssforever" "https://rsshub.rssforever.com/twitter/user/tbpn"
+          probe "bird.makeup"        "https://bird.makeup/users/tbpn/rss"
+          probe "nitter.net"         "https://nitter.net/tbpn/rss"
+          probe "nitter.poast.org"   "https://nitter.poast.org/tbpn/rss"
