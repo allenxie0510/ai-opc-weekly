@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { CATEGORY_MAP, RECOMMENDATION_MAP } from '@/lib/types';
 import type { Category, Opportunity } from '@/lib/types';
 import { CoverImg } from './opportunity-cover-img';
+import { ScoreBadge } from './score-badge';
 
 /**
  * 机会卡片 v2 · MicroConf 式封面卡
@@ -95,11 +96,7 @@ export function FeaturedOpportunity({ opportunity: o }: { opportunity: Opportuni
         {o.editor_take && <blockquote className="home-hero-take">🖊 {o.editor_take}</blockquote>}
         <div className="home-hero-badges">
           <span className={`opp-rec ${rec.cssClass}`}>{rec.label}</span>
-          <span className="home-hero-score">
-            <em>OPC</em>{o.score_total}
-            {o.score_trend === 'up' && <span className="opcard-trend up" title="评分轨迹上行">↗</span>}
-            {o.score_trend === 'down' && <span className="opcard-trend down" title="评分轨迹下行">↘</span>}
-          </span>
+          <ScoreBadge score={o.score_total} variant="inline" trend={o.score_trend} />
         </div>
       </div>
       <div className="home-hero-cover">
@@ -123,11 +120,7 @@ export function OpportunityCard({ opportunity: o }: { opportunity: Opportunity }
           ? <CoverImg src={o.cover_url} alt={o.title}><CoverFallback category={o.category} seed={o.slug || o.id} /></CoverImg>
           : <CoverFallback category={o.category} seed={o.slug || o.id} />}
         <span className="opcard-rec">{rec.label}</span>
-        <span className="opcard-score">
-          <em>OPC</em>{o.score_total}
-          {o.score_trend === 'up' && <span className="opcard-trend up" title="评分轨迹上行">↗</span>}
-          {o.score_trend === 'down' && <span className="opcard-trend down" title="评分轨迹下行">↘</span>}
-        </span>
+        <ScoreBadge score={o.score_total} variant="cover" trend={o.score_trend} />
       </div>
       <div className="opcard-body">
         <h3 className="opcard-title">{o.title}</h3>
