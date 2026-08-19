@@ -128,3 +128,12 @@ where h.opportunity_id = o.id and h.source = 'initial';
 - 公共实例随时可能失效或被 X 封锁 → 保留"全部账号失败 exit 1 标红"报警，全灭时 Actions 会红，届时再换源（候选：自建 Nitter、RSSHub 自建、其他新实例）。
 - 单实例失效有降级链兜底，部分失败仅 warn 不阻塞。
 - `rss_url` 列保留，作可选高级兜底（管理后台已改文案）。
+
+### 补记（2026-08-19 上线当日实测修正）
+
+首次上线后全灭，三轮 Actions 内探测修正事实：
+- **xcancel.com 已转为 RSS 阅读器白名单制**：返回 200 但内容是 "RSS reader not yet whitelisted" 占位 item（需邮件 rss@xcancel.com 申请，附响应中的 ID），随后转为 302。保留在降级链末位，白名单恢复后自动启用。
+- **nitter.net 按 TLS 指纹拦截 node fetch**：node fetch 拿到 200 空 body，curl 同 URL 4/4 全通。抓取改用 `execFile('curl', ...)` 发请求。
+- **nitter.privacyredirect.com 可用但限流敏感**：单发 200，连续请求 503/502，降为第二兜底。
+- 最终源序：`nitter.net → nitter.privacyredirect.com → xcancel.com → rss_url 兜底`，账号间延时 2.5s。上线验证 15/15 账号成功、271 条写入、/x 页面恢复更新。
+- 脚本保留 `FETCH_DEBUG=1`（repo variable 控制）诊断输出，实例再次变异时可快速定位。
