@@ -183,3 +183,22 @@ where h.opportunity_id = o.id and h.source = 'initial';
 
 - **replace_all 误伤**：对 hex 做全局替换时把 @theme 里 token 定义自身也替换成了 `var(--color-up)` 自引用循环，导致色阶整体失效（部署后截图发现 81/88 分未着色）。教训：token 定义行必须先于批量替换落地并复查，`--color-x: var(--color-x)` 模式应入检查清单。（修复 commit df3dfe1）
 - **headless Chrome 移动端截图假象**：macOS headless Chrome `--window-size=390` 低于最小窗口宽，实际按 ~500px 布局再裁切到 390，截图呈现"全页面右侧裁切"的假溢出。实测（同源代理 + iframe 注入测量）线上页面 390px 下 `scrollWidth=390` 无任何溢出元素。**移动端验证用 `--window-size=500` 截图或注入测量，不要用 390 直截**。
+
+### 补记 4（2026-08-19）：Vercel 手动刷新全灭根因——实例对机房 IP 硬拦截 + 兜底源连击限流
+
+**现象**：/x/accounts 点「手动更新」返回「写入 0 条，18 个 feed 失败」，同时段 Actions 定时抓取正常。
+
+**证据链**：
+- Actions 最近三轮 schedule 全成功，最新一轮（08:25 UTC）16/18 账号经 nitter.net（curl）写入 289 条；仅 2 个账号级 404（@soren_iverson/@yihui_indie 改名或保护，与本问题无关）。→ 实例侧健康，问题为 Vercel 环境特有。
+- 用户拿到的是完整 JSON 响应（"0 条/18 失败"），不是 FUNCTION_INVOCATION_TIMEOUT。→ 排除 maxDuration=60 截断（最坏 18/4 并发 × 3 源 × 8s ≈ 108s 才会超时，超时不会有正常响应）。失败是**快速**的。
+- 新增 `/api/ping?diag=nitter`（白名单三实例、curl 只回状态码/字节数/耗时，非开放代理）从 Vercel 实测：
+  - `nitter.net`：**HTTP 000 / curl exit 92（HTTP/2 stream reset）/ 387ms** —— 对 AWS 出口 IP 硬拦截（对该站 TLS 指纹拦截的第三种形态：node fetch=200 空 body、Actions curl=放行、Vercel curl=流重置）。
+  - `nitter.privacyredirect.com`：单发 HTTP 200 / 27.9KB / 1189ms —— 可达，但已知连击限流（连续请求 503/502）。
+  - `xcancel.com`：302（RSS 阅读器白名单制，未变）。
+- **根因结论**：① nitter.net 硬拦 Vercel/AWS IP（首选源全灭，~0.4s 快速失败）；② 18 账号以 4 并发瞬时涌向第二兜底 privacyredirect → 触发其限流 503；③ xcancel 白名单 302。三源全死 → 18/18 全灭。**不是用户操作频率问题**（单发与并发对 nitter.net 的拦截无影响）。
+
+**决策**：
+- `/api/admin/refresh` 直连全灭时自动 `workflow_dispatch` fetch-tweets.yml（复用 trigger 路由的 GITHUB_PAT 模式），由 Actions 环境完成抓取（异步 2-3 分钟），响应带 `fallback` 字段。这是补记 2 记录的 dispatch 备选方案的正式启用场景——Vercel 直连仍先尝试（拦截解除即自愈），全灭才兜底。
+- 刷新接口错误透明化：每账号 `error`（含各源 HTTP 码）前端可展开查看，不再只有失败计数。
+- 部分失败不触发兜底（成功账号正常写入，失败账号等下一轮 Actions 覆盖）。
+- 遗留：xcancel 白名单申请（邮件 rss@xcancel.com 附 ID）仍建议发，多一个健康源；privacyredirect 的限流敏感意味着它不适合做 Vercel 侧的主源。
