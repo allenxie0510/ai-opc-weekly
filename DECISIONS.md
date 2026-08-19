@@ -145,3 +145,12 @@ where h.opportunity_id = o.id and h.source = 'initial';
 - **route 适配 serverless**：并发 4 路、单源 8s 超时、`maxDuration = 60`；鉴权（X-Admin-Token）与响应格式不变，results 增加 `source` 字段便于观察实例命中。
 - **未走 workflow_dispatch 方案**：curl 实测可用，直接抓取最简单可靠；dispatch 方案（响应慢、按钮体验差）仅作备选记录。
 - 回归：重构后 Actions 抓取 14/15 成功（@shadcn 三实例同瞬 404，瞬时抖动，部分失败语义正确兜底）。
+
+### 补记 3（2026-08-19）：图片 502 根因——/pic/ 代理 URL 还原 pbs 直连
+
+- **现象**：迁移 Nitter 后推文有图但前端图片全挂。
+- **排查**：真实 feed 探测确认解析器提取无问题（img src 就是绝对路径 `https://nitter.net/pic/...`，与样例一致）；根因在 img-proxy——它用 node fetch 拉上游，nitter.net 按 TLS 指纹拦截 node fetch → 502。同图的 pbs.twimg.com 直链代理 200 正常。
+- **修复**：`lib/nitter-fetch.mjs` 新增 `resolveImageUrl()`——nitter 的 /pic/ 路径即 pbs.twimg.com 路径的（多层）URL-encode，解码还原为 pbs 直连。双写：① 解析器写库前还原（新数据直接存 pbs URL）；② img-proxy 拉上游前还原（兼容库里 Nitter 时代旧行，upsert ignoreDuplicates 不会更新旧行）。
+- **附带**：unescapeXml 补 `&apos;`（karpathy 标题实测含此实体）。
+- **验证**：/x 页面 46 个真实 `<img>` 代理 URL 全部 200 image/*（含旧 nitter 链接与新 pbs 链接）。
+- **观察**：nitter.net 对单账号存在瞬时 404 抖动（shadcn/OpenAI/steipete 各出现过一轮，下一轮自愈），降级链 + 部分失败 warn 语义按设计兜住，无需处理。
