@@ -6,9 +6,10 @@
  *
  * 机制（2026-08 从 RSS.app 迁移，RSS.app 订阅到期全线 402）：
  *   遍历 twitter_accounts 表所有账号，每个账号按序尝试：
- *     1. https://xcancel.com/<username>/rss   （实测 5/5 可用）
- *     2. https://nitter.net/<username>/rss    （部分账号可用，兜底）
- *     3. 该账号 rss_url（非空且不含 rss.app 时，可选高级兜底）
+ *     1. https://nitter.privacyredirect.com/<username>/rss （2026-08-19 实测双账号全通）
+ *     2. https://nitter.net/<username>/rss               （部分账号 404，兜底）
+ *     3. https://xcancel.com/<username>/rss              （已转白名单制，恢复后自动启用）
+ *     4. 该账号 rss_url（非空且不含 rss.app 时，可选高级兜底）
  *   第一个返回 200 且解析出 ≥1 条 item 的源胜出。
  *
  * 关键：xcancel / nitter 必须带 RSS 阅读器 UA，浏览器 UA 会被 400 拒绝。
@@ -160,7 +161,7 @@ async function main() {
     process.exit(0);
   }
 
-  console.log(`📡 ${accounts.length} 个账号，候选源: xcancel.com → nitter.net → rss_url 兜底\n`);
+  console.log(`📡 ${accounts.length} 个账号，候选源: nitter.privacyredirect.com → nitter.net → xcancel.com → rss_url 兜底\n`);
 
   let synced = 0, okAccounts = 0;
   const failed = [];
@@ -168,10 +169,12 @@ async function main() {
   for (let i = 0; i < accounts.length; i++) {
     const acc = accounts[i];
 
-    // 候选源按优先级排列
+    // 候选源按优先级排列（2026-08-19 实测：privacyredirect 双账号全通；
+    // nitter.net 部分账号 404；xcancel 转为白名单制 302，保留作末位实例兜底）
     const candidates = [
-      { name: 'xcancel.com', url: `https://xcancel.com/${acc.username}/rss` },
+      { name: 'nitter.privacyredirect.com', url: `https://nitter.privacyredirect.com/${acc.username}/rss` },
       { name: 'nitter.net', url: `https://nitter.net/${acc.username}/rss` },
+      { name: 'xcancel.com', url: `https://xcancel.com/${acc.username}/rss` },
     ];
     if (acc.rss_url && !acc.rss_url.includes('rss.app')) {
       candidates.push({ name: 'rss_url 兜底', url: acc.rss_url });
