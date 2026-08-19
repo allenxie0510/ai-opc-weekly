@@ -30,16 +30,16 @@ jobs:
             size=$(wc -c < /tmp/probe_body 2>/dev/null || echo 0)
             echo "--- $name"
             echo "HTTP: $code | bytes: $size"
-            head -c 250 /tmp/probe_body 2>/dev/null | tr '\n' ' '
-            echo; echo
+            if [ "$code" = "200" ]; then grep -oE "<pubDate>[^<]+</pubDate>" /tmp/probe_body | head -2; fi
+            echo
           }
-          probe_ua "xcancel + RSS UA"   "https://xcancel.com/tbpn/rss" "$RSSUA"
-          probe_ua "nitter shadcn"      "https://nitter.net/shadcn/rss" "$UA"
-          probe_ua "nitter marckohlbrugge" "https://nitter.net/marckohlbrugge/rss" "$UA"
-          probe_ua "nitter AliAbdaal"   "https://nitter.net/AliAbdaal/rss" "$UA"
-
-          echo "=== nitter.net tbpn feed 结构（首个 item + 最新日期）==="
-          curl -s -A "$UA" --max-time 30 "https://nitter.net/tbpn/rss" -o /tmp/nt.xml
-          grep -oE "<pubDate>[^<]+</pubDate>" /tmp/nt.xml | head -3
-          echo "--- 首个 item 完整结构 ---"
-          awk '/<item>/{f=1} f{print} /<\/item>/{exit}' /tmp/nt.xml | head -40
+          for acct in tbpn shadcn marckohlbrugge AliAbdaal robertsirc; do
+            probe_ua "xcancel/$acct"  "https://xcancel.com/$acct/rss" "$RSSUA"
+          done
+          echo "=== 其他 nitter 实例（RSS UA）==="
+          for inst in nitter.privacyredirect.com nitter.poast.org nitter.spaceheat.de; do
+            probe_ua "$inst/tbpn" "https://$inst/tbpn/rss" "$RSSUA"
+          done
+          echo "=== xcancel feed 结构（link/guid/media 格式）==="
+          curl -s -A "$RSSUA" --max-time 30 "https://xcancel.com/tbpn/rss" -o /tmp/xc.xml
+          awk '/<item>/{f=1} f{print} /<\/item>/{exit}' /tmp/xc.xml | head -25
