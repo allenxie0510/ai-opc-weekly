@@ -301,7 +301,7 @@ export default function XAccountsPage() {
             type="text"
             value={newRssUrl}
             onChange={e => setNewRssUrl(e.target.value)}
-            placeholder="RSS.app Feed URL（选填，不填则不会被定时抓取）"
+            placeholder="自定义 RSS Feed URL（可选 · 高级兜底，一般留空）"
             style={{
               width: '100%', padding: '10px 16px', borderRadius: 12,
               border: '1px solid var(--color-hairline)', fontSize: 13,
@@ -309,7 +309,7 @@ export default function XAccountsPage() {
             }}
           />
           <p style={{ fontSize: 12, color: 'var(--color-stone)', marginTop: 6 }}>
-            去 <a href="https://rss.app" target="_blank" rel="noopener" style={{ color: 'var(--color-blue)' }}>rss.app</a> 创建该账号的 RSS feed 后，把 URL 粘贴到这里
+            只需填用户名即可——系统会自动从公共 Nitter 实例（xcancel.com → nitter.net）抓取该账号推文。下方 RSS URL 仅作可选的高级兜底源，一般留空。
           </p>
         </div>
 
@@ -370,9 +370,9 @@ export default function XAccountsPage() {
                       </a>
                     </div>
                     {a.rss_url ? (
-                      <span style={{ fontSize: 12, color: 'var(--color-success-text)' }}>✓ RSS 已配置 — 定时抓取中</span>
+                      <span style={{ fontSize: 12, color: 'var(--color-success-text)' }}>✓ 定时抓取中（含自定义兜底源）</span>
                     ) : (
-                      <span style={{ fontSize: 12, color: 'var(--color-coral)' }}>⚠ 未配置 RSS — 不会被抓取</span>
+                      <span style={{ fontSize: 12, color: 'var(--color-success-text)' }}>✓ 定时抓取中（公共实例）</span>
                     )}
                   </div>
                 </article>

@@ -112,3 +112,19 @@ where h.opportunity_id = o.id and h.source = 'initial';
 - **SQL 变更**：写 `migrations/migration-XXX.sql`（幂等），由站主在 Supabase SQL Editor 手动执行；脚本侧必须做"列不存在自动降级"容错，保证 migration 未跑时不崩站。
 - **Workflow 手动触发**：`gh workflow run <file> --ref main [-f key=value]`；复评相关入口也在 admin 审核台。
 - **宁缺毋滥原则**贯穿全站：生成失败留空走兜底、无数据不渲染占位、无新信号不落轨迹点、弃选内容前台不展示。
+
+## 五、X 抓取源：RSS.app → Nitter 公共实例多实例降级（2026-08-19）
+
+**背景**：RSS.app 付费订阅到期，全部 feed 返回 HTTP 402，/x 页面两天未更新（已有全灭 exit 1 报警兜住，未静默失败）。决定切换到免费的 Nitter 残存公共实例。
+
+**实测数据**（GitHub Actions 美国环境三轮探测）：
+- `xcancel.com/<username>/rss`：5/5 测试账号（tbpn, shadcn, marckohlbrugge, AliAbdaal, robertsirc）全部 200 且内容新鲜。**必须用 RSS 阅读器 UA**（`FreshRSS/1.24.0`），浏览器 UA 返回 400。
+- `nitter.net/<username>/rss`：部分账号 200、部分 404，作兜底。
+- nitter.poast.org（403 POW）、nitter.privacyredirect.com（404）、RSSHub 公共/镜像：全部不可用，已排除。
+
+**机制**：`scripts/fetch-tweets.mjs` 不再依赖 `twitter_accounts.rss_url`，遍历所有账号，每账号按序尝试 `xcancel.com → nitter.net → rss_url（非 rss.app 的可选兜底）`，第一个 200 且解析 ≥1 条的源胜出；账号间 sleep 1.5s。解析器适配 Nitter 格式（title 纯文本需 unescape、guid 提取 tweet_id、description `<img src>` 只收 `/pic/` 媒体图、url 统一重写为 x.com 链接）。
+
+**风险与对策**：
+- 公共实例随时可能失效或被 X 封锁 → 保留"全部账号失败 exit 1 标红"报警，全灭时 Actions 会红，届时再换源（候选：自建 Nitter、RSSHub 自建、其他新实例）。
+- 单实例失效有降级链兜底，部分失败仅 warn 不阻塞。
+- `rss_url` 列保留，作可选高级兜底（管理后台已改文案）。

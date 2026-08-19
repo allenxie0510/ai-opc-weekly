@@ -1,4 +1,4 @@
-name: Fetch X Tweets (RSS.app → Supabase)
+name: Fetch X Tweets (Nitter → Supabase)
 
 on:
   schedule:
