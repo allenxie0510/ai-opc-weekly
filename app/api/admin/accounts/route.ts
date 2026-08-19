@@ -65,28 +65,28 @@ export async function POST(request: Request) {
 }
 
 // DELETE — 硬删除账号及其所有推文
-  export async function DELETE(request: Request) {
-    if (!isAdmin(request)) {
-      return Response.json({ error: '未授权' }, { status: 401 });
-    }
-
-    const { searchParams } = new URL(request.url);
-    const username = searchParams.get('username');
-    if (!username) return Response.json({ error: '缺少 username' }, { status: 400 });
-
-    // 先删除该账号的所有推文
-    const { error: tweetErr } = await supabase
-      .from('tweets')
-      .delete()
-      .eq('author_username', username);
-    if (tweetErr) return Response.json({ error: tweetErr.message }, { status: 500 });
-
-    // 再删除账号
-    const { error } = await supabase
-      .from('twitter_accounts')
-      .delete()
-      .eq('username', username);
-
-    if (error) return Response.json({ error: error.message }, { status: 500 });
-    return Response.json({ status: 'ok', username });
+export async function DELETE(request: Request) {
+  if (!isAdmin(request)) {
+    return Response.json({ error: '未授权' }, { status: 401 });
   }
+
+  const { searchParams } = new URL(request.url);
+  const username = searchParams.get('username');
+  if (!username) return Response.json({ error: '缺少 username' }, { status: 400 });
+
+  // 先删除该账号的所有推文
+  const { error: tweetErr } = await supabase
+    .from('tweets')
+    .delete()
+    .eq('author_username', username);
+  if (tweetErr) return Response.json({ error: tweetErr.message }, { status: 500 });
+
+  // 再删除账号
+  const { error } = await supabase
+    .from('twitter_accounts')
+    .delete()
+    .eq('username', username);
+
+  if (error) return Response.json({ error: error.message }, { status: 500 });
+  return Response.json({ status: 'ok', username });
+}

@@ -37,6 +37,8 @@ export default function XAccountsPage() {
   const [refreshMsg, setRefreshMsg] = useState<string | null>(null);
   const [swipedId, setSwipedId] = useState<string | null>(null);
   const [touchStartX, setTouchStartX] = useState(0);
+  const [deletingUser, setDeletingUser] = useState<string | null>(null);
+  const [deleteMsg, setDeleteMsg] = useState<string | null>(null);
 
   const fetchAccounts = useCallback(async () => {
     try {
@@ -134,20 +136,33 @@ export default function XAccountsPage() {
   };
 
   const handleDelete = async (username: string) => {
-    if (!confirm(`确定删除 @${username} 及其所有推文？此操作不可撤销。`)) return;
-    const res = await fetch(`/api/admin/accounts?username=${username}`, {
-      method: 'DELETE',
-      headers: { 'x-admin-token': getToken() },
-    });
-    if (res.ok) {
-      setAccounts(prev => prev.filter(a => a.username !== username));
-    } else if (res.status === 401) {
-      setToken('');
-      setAuthed(false);
-    } else {
-      alert('删除失败');
+    if (deletingUser) return;
+    // 防误触：明确说明级联删除推文 + 不可恢复
+    if (!confirm(`确定删除 @${username}？\n\n将同时删除该账号的全部推文，删除后不可恢复。`)) return;
+    setDeletingUser(username);
+    setDeleteMsg(null);
+    try {
+      const res = await fetch(`/api/admin/accounts?username=${encodeURIComponent(username)}`, {
+        method: 'DELETE',
+        headers: { 'x-admin-token': getToken() },
+      });
+      if (res.ok) {
+        // 本地移除，列表即时更新
+        setAccounts(prev => prev.filter(a => a.username !== username));
+        setDeleteMsg(`✅ 已删除 @${username} 及其全部推文`);
+      } else if (res.status === 401) {
+        setToken('');
+        setAuthed(false);
+      } else {
+        const err = await res.json().catch(() => ({ error: '删除失败' }));
+        setDeleteMsg('❌ ' + (err.error || '删除失败'));
+      }
+    } catch {
+      setDeleteMsg('❌ 网络错误');
+    } finally {
+      setDeletingUser(null);
+      setSwipedId(null);
     }
-    setSwipedId(null);
   };
 
   const handleRefresh = async () => {
@@ -268,6 +283,15 @@ export default function XAccountsPage() {
           }}>{refreshMsg}</div>
         )}
 
+        {deleteMsg && (
+          <div style={{
+            marginBottom: 16, padding: '8px 16px', borderRadius: 10,
+            background: deleteMsg.startsWith('✅') ? 'var(--color-success-bg)' : 'var(--color-surface)',
+            color: deleteMsg.startsWith('✅') ? 'var(--color-up)' : 'var(--color-danger)',
+            fontSize: 13, fontWeight: 500,
+          }}>{deleteMsg}</div>
+        )}
+
         {/* 添加账号 */}
         <div style={{ marginBottom: 32 }}>
           <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
@@ -319,12 +343,26 @@ export default function XAccountsPage() {
             const isSwiped = swipedId === a.id;
 
             return (
-              <div key={a.id} style={{ position: 'relative', overflow: 'hidden' }}>
+              <div key={a.id} className="x-acct-row" style={{ position: 'relative', overflow: 'hidden' }}>
+                {/* 桌面端删除入口（悬停卡片显示，移动端用左滑手势露出下方红色按钮） */}
+                <button
+                  className="x-acct-delete"
+                  title={`删除 @${a.username}（连同其全部推文）`}
+                  aria-label={`删除 @${a.username}`}
+                  disabled={deletingUser === a.username}
+                  onClick={(e) => { e.stopPropagation(); handleDelete(a.username); }}
+                >
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
+                    <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                    <line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/>
+                  </svg>
+                </button>
                 <button
                   onClick={() => handleDelete(a.username)}
                   style={{
                     position: 'absolute', right: 0, top: 0, bottom: 0,
-                    width: 80, background: 'var(--color-coral)', color: '#fff',
+                    width: 80, background: 'var(--color-danger)', color: '#fff',
                     border: 'none', fontSize: 14, fontWeight: 600, cursor: 'pointer',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     fontFamily: 'inherit',
