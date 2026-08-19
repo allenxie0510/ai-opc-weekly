@@ -7,17 +7,54 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Probe instances
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Probe node fetch vs curl + rate limit
         run: |
+          cat > /tmp/probe.mjs << 'EOF'
+          const UA = 'FreshRSS/1.24.0 (Linux; https://freshrss.org)';
+          async function nodeFetch(url) {
+            try {
+              const res = await fetch(url, { headers: { 'User-Agent': UA }, signal: AbortSignal.timeout(15000) });
+              const body = await res.text();
+              const items = (body.match(/<item>/g) || []).length;
+              const head = body.slice(0, 150).replace(/\n/g, ' ');
+              return `HTTP ${res.status}, items=${items}, head=[${head}]`;
+            } catch (e) { return `ERR ${e.message}`; }
+          }
+          const targets = process.argv.slice(2);
+          for (const t of targets) {
+            console.log(`== node-fetch ${t}`);
+            console.log('   ' + await nodeFetch(t));
+          }
+          EOF
+          echo "=== A. node fetch 指纹测试 ==="
+          node /tmp/probe.mjs \
+            https://nitter.net/tbpn/rss \
+            https://nitter.privacyredirect.com/tbpn/rss
+          echo ""
+          echo "=== B. curl 指纹对照（nitter.net 200-no-item 页面内容） ==="
           UA='FreshRSS/1.24.0 (Linux; https://freshrss.org)'
-          for inst in xcancel.com nitter.net nitter.poast.org nitter.privacyredirect.com lightbrd.com nitter.space nitter.tiekoetter.com nuku.trabun.org nitter.catsarch.com nitter.kareem.one; do
-            for user in tbpn shadcn; do
-              url="https://$inst/$user/rss"
-              out=$(curl -s -m 15 -H "User-Agent: $UA" -w '\n__HTTP:%{http_code}' "$url" 2>&1)
-              code=$(echo "$out" | grep -o '__HTTP:[0-9]*' | cut -d: -f2)
-              body=$(echo "$out" | sed 's/__HTTP:[0-9]*$//')
-              items=$(echo "$body" | grep -c '<item>' || true)
-              title=$(echo "$body" | grep -o '<title>[^<]*</title>' | head -2 | tail -1 | sed 's/<[^>]*>//g' | cut -c1-80)
-              echo "== $inst / $user → HTTP $code, items=$items, title=[$title]"
-            done
+          body=$(curl -s -m 15 -H "User-Agent: $UA" https://nitter.net/karpathy/rss)
+          echo "curl karpathy items: $(echo "$body" | grep -c '<item>')"
+          echo "curl karpathy head: $(echo "$body" | head -c 200 | tr '\n' ' ')"
+          echo ""
+          echo "=== C. privacyredirect 限流测试（连续 8 次，间隔 3s） ==="
+          for u in tbpn shadcn karpathy OpenAI rauchg levelsio steipete bchesky; do
+            out=$(curl -s -m 15 -H "User-Agent: $UA" -w '__HTTP:%{http_code}' "https://nitter.privacyredirect.com/$u/rss")
+            code=$(echo "$out" | grep -o '__HTTP:[0-9]*' | cut -d: -f2)
+            items=$(echo "$out" | sed 's/__HTTP:[0-9]*$//' | grep -c '<item>' || true)
+            echo "  @$u → HTTP $code, items=$items"
+            sleep 3
+          done
+          echo ""
+          echo "=== D. nitter.net 连续测试（间隔 3s） ==="
+          for u in tbpn karpathy OpenAI rauchg; do
+            out=$(curl -s -m 15 -H "User-Agent: $UA" -w '__HTTP:%{http_code}' "https://nitter.net/$u/rss")
+            code=$(echo "$out" | grep -o '__HTTP:[0-9]*' | cut -d: -f2)
+            items=$(echo "$out" | sed 's/__HTTP:[0-9]*$//' | grep -c '<item>' || true)
+            echo "  @$u → HTTP $code, items=$items"
+            sleep 3
           done
