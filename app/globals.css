@@ -26,10 +26,10 @@
      绿 = 上升/正向（--color-up）；红 = 下降/负向（--color-down）；灰 = 中性 */
   --color-brand: #ff5530;
   --color-down: #dc2626;
-  --color-up: var(--color-up);
-  --color-warn: var(--color-warn);
-  --color-danger: var(--color-danger);
-  --color-rec-niche: var(--color-rec-niche);
+  --color-up: #0a7d4f;
+  --color-warn: #b45309;
+  --color-danger: #b91c1c;
+  --color-rec-niche: #7c3aed;
   --color-success-bg: #e8ffea;
   --color-success-text: #1ba673;
   --color-footer-bg: #0a0a0a;
