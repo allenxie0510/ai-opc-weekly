@@ -22,10 +22,24 @@ jobs:
             head -c 300 /tmp/probe_body 2>/dev/null | tr '\n' ' '
             echo; echo
           }
-          probe "xcancel RSS"        "https://xcancel.com/tbpn/rss"
-          probe "xcancel RSS #2"     "https://xcancel.com/marckohlbrugge/rss"
-          probe "RSSHub public"      "https://rsshub.app/twitter/user/tbpn"
-          probe "RSSHub mirror rssforever" "https://rsshub.rssforever.com/twitter/user/tbpn"
-          probe "bird.makeup"        "https://bird.makeup/users/tbpn/rss"
-          probe "nitter.net"         "https://nitter.net/tbpn/rss"
-          probe "nitter.poast.org"   "https://nitter.poast.org/tbpn/rss"
+          RSSUA="FreshRSS/1.24.0 (Linux; https://freshrss.org)"
+          probe_ua() {
+            local name="$1" url="$2" ua="$3"
+            local code size
+            code=$(curl -s -o /tmp/probe_body -w "%{http_code}" -A "$ua" --max-time 30 -L "$url" || echo "000")
+            size=$(wc -c < /tmp/probe_body 2>/dev/null || echo 0)
+            echo "--- $name"
+            echo "HTTP: $code | bytes: $size"
+            head -c 250 /tmp/probe_body 2>/dev/null | tr '\n' ' '
+            echo; echo
+          }
+          probe_ua "xcancel + RSS UA"   "https://xcancel.com/tbpn/rss" "$RSSUA"
+          probe_ua "nitter shadcn"      "https://nitter.net/shadcn/rss" "$UA"
+          probe_ua "nitter marckohlbrugge" "https://nitter.net/marckohlbrugge/rss" "$UA"
+          probe_ua "nitter AliAbdaal"   "https://nitter.net/AliAbdaal/rss" "$UA"
+
+          echo "=== nitter.net tbpn feed 结构（首个 item + 最新日期）==="
+          curl -s -A "$UA" --max-time 30 "https://nitter.net/tbpn/rss" -o /tmp/nt.xml
+          grep -oE "<pubDate>[^<]+</pubDate>" /tmp/nt.xml | head -3
+          echo "--- 首个 item 完整结构 ---"
+          awk '/<item>/{f=1} f{print} /<\/item>/{exit}' /tmp/nt.xml | head -40
