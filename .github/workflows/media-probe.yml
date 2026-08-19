@@ -7,32 +7,6 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - name: Dump real item descriptions with images
-        run: |
-          UA='FreshRSS/1.24.0 (Linux; https://freshrss.org)'
-          for user in levelsio steipete karpathy; do
-            echo "================ @$user ================"
-            body=$(curl -s -m 20 -H "User-Agent: $UA" "https://nitter.net/$user/rss")
-            echo "$body" | python3 -c "
-import sys, re
-xml = sys.stdin.read()
-items = re.findall(r'<item>([\s\S]*?)</item>', xml)
-print(f'total items: {len(items)}')
-shown = 0
-for it in items:
-    desc = re.search(r'<description>([\s\S]*?)</description>', it)
-    d = desc.group(1) if desc else ''
-    if '<img' in d or 'pic' in d:
-        title = re.search(r'<title>([\s\S]*?)</title>', it)
-        print('--- title:', (title.group(1)[:60] if title else '?'))
-        print('DESC:', d[:900])
-        shown += 1
-        if shown >= 3: break
-if shown == 0:
-    print('NO items with <img> or pic in description!')
-    if items:
-        desc = re.search(r'<description>([\s\S]*?)</description>', items[0])
-        print('first item desc sample:', (desc.group(1)[:400] if desc else 'none'))
-"
-            sleep 2
-          done
+        run: python3 scripts/media-dump.py
