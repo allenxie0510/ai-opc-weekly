@@ -11,13 +11,17 @@ jobs:
     steps:
       - name: Probe xcancel placeholder RSS
         run: |
-          echo '=== GET /tbpn/rss ==='
-          curl -s -A 'FreshRSS/1.24.0 (Linux; https://freshrss.org)' -w '\n__HTTP:%{http_code}\n' --max-time 20 https://xcancel.com/tbpn/rss
-
-      - name: Probe xcancel homepage / about
-        run: |
-          echo '=== GET / ==='
-          curl -s -A 'FreshRSS/1.24.0 (Linux; https://freshrss.org)' -w '\n__HTTP:%{http_code}\n' --max-time 20 https://xcancel.com/ | head -c 5000
+          echo '=== GET /tbpn/rss (headers) ==='
+          curl -s -i -A 'FreshRSS/1.24.0 (Linux; https://freshrss.org)' --max-time 20 https://xcancel.com/tbpn/rss | head -40
           echo
-          echo '=== GET /about ==='
-          curl -s -A 'FreshRSS/1.24.0 (Linux; https://freshrss.org)' -w '\n__HTTP:%{http_code}\n' --max-time 20 https://xcancel.com/about | head -c 5000
+          echo '=== GET /tbpn/rss (follow redirects) ==='
+          curl -sL -A 'FreshRSS/1.24.0 (Linux; https://freshrss.org)' -w '\n__HTTP:%{http_code} FINAL:%{url_effective}\n' --max-time 20 https://xcancel.com/tbpn/rss | head -c 4000
+
+      - name: Probe xcancel about page body
+        run: |
+          echo '=== GET /about (text extracted) ==='
+          curl -s -A 'FreshRSS/1.24.0 (Linux; https://freshrss.org)' --max-time 20 https://xcancel.com/about \
+            | sed -e 's/<[^>]*>/ /g' | tr -s ' \n' ' \n' | grep -iE 'rss|whitelist|reader|mail|contact|api' -C 2 | head -60
+          echo '=== GET /about (full text, first 3000 chars) ==='
+          curl -s -A 'FreshRSS/1.24.0 (Linux; https://freshrss.org)' --max-time 20 https://xcancel.com/about \
+            | sed -e 's/<[^>]*>/ /g' | tr -s ' \n' ' \n' | head -c 3000
