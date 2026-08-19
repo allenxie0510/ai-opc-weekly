@@ -22,9 +22,13 @@ export default async function Home() {
     ? items.filter(it => dayKey(it.published_at) === latestDay).slice(0, 4)
     : [];
 
-  // 机会：最高分 1 个做头条，其余最多 2 个做副条（按 score_total 降序，data 层已排序）
-  const featured = opps[0] || null;
-  const secondary = opps.slice(1, 3);
+  // 机会推荐位轮换：取最新发布批次的 3 条（published_at 倒序，data 层已排序），
+  // 其中分数最高者进 hero 位，其余 2 条做副卡——每发布一批新机会 hero 自动换血，不能长期霸榜
+  const latestBatch = opps.slice(0, 3);
+  const featured = latestBatch.length
+    ? latestBatch.reduce((a, b) => (b.score_total > a.score_total ? b : a))
+    : null;
+  const secondary = latestBatch.filter(o => o !== featured);
 
   return (
     <>
