@@ -3,15 +3,22 @@
  * Vercel 服务器端代理图片：解决 OG 封面图防盗链 / 国内访问不稳定问题
  * 安全措施：仅允许 http(s) 且响应 Content-Type 必须为 image/*，体积上限 8MB
  * 带 7 天缓存
+ *
+ * 2026-08-19：nitter 实例的 /pic/ 代理 URL 先还原为 pbs.twimg.com 直连——
+ * nitter.net 按 TLS 指纹拦截 node fetch（本路由拉上游会 502），
+ * pbs.twimg.com 无此限制。同时兼容数据库里已存在的 Nitter 时代旧行。
  */
+import { resolveImageUrl } from '@/lib/nitter-fetch.mjs';
+
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const MAX_BYTES = 8 * 1024 * 1024;
 
 export async function GET(req: Request) {
-  const url = new URL(req.url).searchParams.get('url');
-  if (!url) return new Response('missing url', { status: 400 });
+  const rawUrl = new URL(req.url).searchParams.get('url');
+  if (!rawUrl) return new Response('missing url', { status: 400 });
+  const url = resolveImageUrl(rawUrl);
 
   let parsed: URL;
   try {
