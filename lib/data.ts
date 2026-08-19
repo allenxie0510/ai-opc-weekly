@@ -105,7 +105,7 @@ export async function getOpportunities(): Promise<Opportunity[]> {
     .eq('status', 'published')
     // 发布时间倒序：新发布的批次在前（首页推荐位按"最新批次"轮换，列表页同理；
     // 质量由分数徽章体现，不再用 score_total 全局排序——否则最高分永远霸榜）
-    .order('published_at', { ascending: false });
+    .order('published_at', { ascending: false, nullsFirst: false });
 
   if (error) { console.error('getOpportunities:', error.message); return []; }
   const opps = data || [];

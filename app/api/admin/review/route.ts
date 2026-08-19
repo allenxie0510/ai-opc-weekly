@@ -97,6 +97,15 @@ export async function GET(request: Request) {
     .order('created_at', { ascending: false });
   if (oErr) return Response.json({ error: oErr.message }, { status: 500 });
 
+  // 已发布机会（供在线编辑/下架/推荐位管理）
+  const { data: opportunityPublished, error: opErr } = await supabase
+    .from('opportunities')
+    .select('id, slug, title, thesis, category, score_total, evidence_grade, recommendation, editor_conviction, editor_take, evidence, featured, published_at')
+    .eq('status', 'published')
+    .order('published_at', { ascending: false })
+    .limit(50);
+  if (opErr) return Response.json({ error: opErr.message }, { status: 500 });
+
   return Response.json({
     radarDrafts: radarDrafts || [],
     weeklyDrafts: weekly,
@@ -104,5 +113,6 @@ export async function GET(request: Request) {
     radarPublished: radarPublished || [],
     weeklyPublished: weeklyPublishedRows || [],
     opportunityDrafts: opportunityDrafts || [],
+    opportunityPublished: opportunityPublished || [],
   });
 }

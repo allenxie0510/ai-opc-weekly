@@ -35,8 +35,8 @@ export async function POST(request: Request) {
 
   try {
     const { action, type, ids } = await request.json();
-    if (!['publish', 'discard', 'unpublish'].includes(action)) {
-      return Response.json({ error: 'action 必须是 publish / discard / unpublish' }, { status: 400 });
+    if (!['publish', 'discard', 'unpublish', 'feature', 'unfeature'].includes(action)) {
+      return Response.json({ error: 'action 必须是 publish / discard / unpublish / feature / unfeature' }, { status: 400 });
     }
     if (!['radar', 'weekly', 'opportunity'].includes(type)) {
       return Response.json({ error: 'type 必须是 radar / weekly / opportunity' }, { status: 400 });
@@ -76,7 +76,26 @@ export async function POST(request: Request) {
         affected = count || 0;
       }
     } else if (type === 'opportunity') {
-      if (action === 'publish') {
+      if (action === 'feature') {
+        // 先清除其它推荐，再设本条为唯一推荐（部分唯一索引保证至多一条 featured）
+        await supabase.from('opportunities').update({ featured: false }).eq('featured', true);
+        const { data, error } = await supabase
+          .from('opportunities')
+          .update({ featured: true })
+          .in('id', ids)
+          .eq('status', 'published')
+          .select('id');
+        if (error) return Response.json({ error: error.message }, { status: 500 });
+        affected = data?.length || 0;
+      } else if (action === 'unfeature') {
+        const { data, error } = await supabase
+          .from('opportunities')
+          .update({ featured: false })
+          .in('id', ids)
+          .select('id');
+        if (error) return Response.json({ error: error.message }, { status: 500 });
+        affected = data?.length || 0;
+      } else if (action === 'publish') {
         const { data, error } = await supabase
           .from('opportunities')
           .update({ status: 'published', published_at: new Date().toISOString() })
@@ -88,18 +107,18 @@ export async function POST(request: Request) {
       } else if (action === 'unpublish') {
         const { data, error } = await supabase
           .from('opportunities')
-          .update({ status: 'draft' })
+          .update({ status: 'draft', featured: false })  // 下架同时取消推荐位
           .in('id', ids)
           .eq('status', 'published')
           .select('id');
         if (error) return Response.json({ error: error.message }, { status: 500 });
         affected = data?.length || 0;
       } else {
+        // 删除：draft 或 published 均可（管理员已二次确认）
         const { error, count } = await supabase
           .from('opportunities')
           .delete({ count: 'exact' })
-          .in('id', ids)
-          .eq('status', 'draft');  // 已发布机会受保护，先下架再删
+          .in('id', ids);
         if (error) return Response.json({ error: error.message }, { status: 500 });
         affected = count || 0;
       }

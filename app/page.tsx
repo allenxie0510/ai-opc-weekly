@@ -22,13 +22,18 @@ export default async function Home() {
     ? items.filter(it => dayKey(it.published_at) === latestDay).slice(0, 4)
     : [];
 
-  // 机会推荐位轮换：取最新发布批次的 3 条（published_at 倒序，data 层已排序），
-  // 其中分数最高者进 hero 位，其余 2 条做副卡——每发布一批新机会 hero 自动换血，不能长期霸榜
+  // 机会推荐位：手动推荐位（featured=true，admin 设置）优先，副条取最新 2 条；
+  // 未设置时按「最新批次轮换」——最新 3 条 published 中分数最高者进 hero，批次内另外 2 条做副卡。
+  // 轮换效果：admin 每发布一批新机会，hero 自动换成该批最高分，旧批次自然退下，不会按分数长期霸榜
+  const pinned = opps.find((o) => o.featured) ?? null;
   const latestBatch = opps.slice(0, 3);
-  const featured = latestBatch.length
+  const batchBest = latestBatch.length
     ? latestBatch.reduce((a, b) => (b.score_total > a.score_total ? b : a))
     : null;
-  const secondary = latestBatch.filter(o => o !== featured);
+  const featured = pinned ?? batchBest;
+  const secondary = pinned
+    ? opps.filter((o) => o.id !== pinned.id).slice(0, 2)
+    : latestBatch.filter((o) => o.id !== featured?.id);
 
   return (
     <>

@@ -185,6 +185,8 @@ export interface Opportunity {
   created_at: string;
   /** 评分趋势标（P3 飞轮）：history ≥2 条且最新分-首条分 ≥0.5 → up，≤-0.5 → down；查询填充，非表字段 */
   score_trend?: 'up' | 'down';
+  /** 首页推荐位（手动设置，全站至多一条 true） */
+  featured?: boolean;
 }
 
 export interface OpportunityCase {
