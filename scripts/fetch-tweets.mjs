@@ -188,6 +188,12 @@ async function main() {
           break;
         }
         attempts.push(`${c.name} 200 但解析 0 条`);
+        // 诊断：打出响应头部和首个 item 片段，便于判断实例是否返回了非预期结构
+        if (process.env.FETCH_DEBUG === '1') {
+          const firstItem = r.xml.match(/<item>([\s\S]*?)<\/item>/);
+          console.log(`  🔍 [debug] @${acc.username} ${c.name} 响应头 300 字: ${JSON.stringify(r.xml.slice(0, 300))}`);
+          if (firstItem) console.log(`  🔍 [debug] 首个 item 前 800 字: ${JSON.stringify(firstItem[0].slice(0, 800))}`);
+        }
       } else {
         attempts.push(`${c.name} HTTP ${r.status}${r.reason ? ` (${r.reason})` : ''}`);
       }
