@@ -7,6 +7,7 @@ import { PageViewCounter } from '@/components/page-view-counter';
 import { CATEGORY_MAP, RECOMMENDATION_MAP, SCORE_DIMENSIONS, CONVICTION_MAP } from '@/lib/types';
 import type { Opportunity, OpportunityScoreHistory } from '@/lib/types';
 import { OpportunityCoverVisual } from '@/components/OpportunityCard';
+import { scoreBand, toDisplayScore } from '@/components/score-badge';
 
 export const revalidate = 300;
 
@@ -37,13 +38,14 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 function ScoreBar({ label, weight, value }: { label: string; weight: number; value: number }) {
+  const band = scoreBand(value); // P1：每维评分条按同一色阶着色
   return (
     <div className="opp-scorebar">
       <span className="opp-scorebar-label">{label} <em>{weight}%</em></span>
       <span className="opp-scorebar-track">
-        <span className="opp-scorebar-fill" style={{ width: `${Math.max(0, Math.min(100, value))}%` }} />
+        <span className={`opp-scorebar-fill sb-${band}`} style={{ width: `${Math.max(0, Math.min(100, value))}%` }} />
       </span>
-      <span className="opp-scorebar-value">{value}</span>
+      <span className={`opp-scorebar-value sb-${band}`}>{value}</span>
     </div>
   );
 }
@@ -69,8 +71,8 @@ const VERDICT_MAP: Record<string, { label: string; cssClass: string }> = {
 };
 
 /**
- * 评分轨迹 sparkline：手写 SVG 折线（0–10 制），不引入图表依赖。
- * 只有 1 个点时退化为圆点标记，不画线。
+ * 评分轨迹 sparkline：手写 SVG 折线（内部 0–10 制，展示标签一律 ×10 换算为 0–100，P1 分数统一），
+ * 不引入图表依赖。只有 1 个点时退化为圆点标记，不画线。
  */
 function ScoreSparkline({ history }: { history: OpportunityScoreHistory[] }) {
   const W = 320, H = 64, PX = 10, PY = 12;
@@ -82,26 +84,29 @@ function ScoreSparkline({ history }: { history: OpportunityScoreHistory[] }) {
   });
   const first = pts[0];
   const last = pts[pts.length - 1];
-  const delta = last.score - first.score;
-  const trendColor = delta >= 0.5 ? '#0a7d4f' : delta <= -0.5 ? 'var(--color-down)' : '#8e8e93';
+  // 展示量纲 0–100：内部差值 ±0.5 ↔ 展示 ±5
+  const firstDisp = toDisplayScore(first.score);
+  const lastDisp = toDisplayScore(last.score);
+  const deltaDisp = lastDisp - firstDisp;
+  const trendColor = deltaDisp >= 5 ? 'var(--color-up)' : deltaDisp <= -5 ? 'var(--color-down)' : 'var(--color-stone)';
   return (
     <div className="opp-sparkline">
-      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`评分轨迹：${first.score} → ${last.score}`}>
+      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`评分轨迹：${firstDisp} → ${lastDisp}`}>
         {/* 0–10 参考中线（5 分） */}
-        <line x1={PX} y1={PY + (H - 2 * PY) / 2} x2={W - PX} y2={PY + (H - 2 * PY) / 2} stroke="#e4e4e7" strokeDasharray="3 4" strokeWidth="1" />
+        <line x1={PX} y1={PY + (H - 2 * PY) / 2} x2={W - PX} y2={PY + (H - 2 * PY) / 2} stroke="var(--color-hairline)" strokeDasharray="3 4" strokeWidth="1" />
         {pts.length > 1 && (
           <polyline
             points={pts.map(p => `${p.x},${p.y}`).join(' ')}
-            fill="none" stroke="#1456f0" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round"
+            fill="none" stroke="var(--color-blue)" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round"
           />
         )}
         {pts.map((p, i) => (
           <circle key={i} cx={p.x} cy={p.y} r={i === pts.length - 1 ? 4 : 3}
-            fill={i === pts.length - 1 ? '#1456f0' : '#fff'} stroke="#1456f0" strokeWidth="2" />
+            fill={i === pts.length - 1 ? 'var(--color-blue)' : '#fff'} stroke="var(--color-blue)" strokeWidth="2" />
         ))}
       </svg>
       <span className="opp-sparkline-delta" style={{ color: trendColor }}>
-        {first.score.toFixed(1)} → {last.score.toFixed(1)}{pts.length > 1 ? `（${delta >= 0 ? '+' : ''}${delta.toFixed(1)}）` : ''}
+        {firstDisp} → {lastDisp}{pts.length > 1 ? `（${deltaDisp >= 0 ? '+' : ''}${deltaDisp}）` : ''}
       </span>
     </div>
   );
@@ -126,7 +131,7 @@ export default async function OpportunityPage({ params }: { params: Promise<{ sl
   return (
     <>
       <Header />
-      <div className="container opp-detail" style={{ paddingTop: 48, paddingBottom: 80, display: 'flex', flexDirection: 'column', minHeight: '100svh' }}>
+      <div className="container opp-detail page-wrap">
 
         <nav className="opp-breadcrumb"><Link href="/opportunities">← 机会情报</Link></nav>
 
@@ -151,7 +156,7 @@ export default async function OpportunityPage({ params }: { params: Promise<{ sl
 
         {/* ═══ OPC Score 七维 ═══ */}
         <section className="opp-section">
-          <h2 className="opp-section-title">OPC 评分 <span className="opp-total">{opp.score_total}</span></h2>
+          <h2 className="opp-section-title">OPC 评分 <span className={`opp-total sb-${scoreBand(opp.score_total)}`}>{opp.score_total}</span></h2>
           <div className="opp-scorebars">
             {SCORE_DIMENSIONS.map(d => (
               <ScoreBar key={d.key} label={d.label} weight={d.weight} value={Number(opp[d.key]) || 0} />
@@ -159,18 +164,19 @@ export default async function OpportunityPage({ params }: { params: Promise<{ sl
           </div>
         </section>
 
-        {/* ═══ 评分轨迹（P3 飞轮：评分的时间维度证据链，0–10 制） ═══ */}
+        {/* ═══ 评分轨迹（P3 飞轮：评分的时间维度证据链；内部 0–10 制，展示统一换算 0–100） ═══ */}
         {scoreHistory.length > 0 && (
           <section className="opp-section">
-            <h2 className="opp-section-title">评分轨迹 <span className="opp-section-sub">{scoreHistory.length} 次评分 · 0–10 制 · 复评依据为上周评分后的新雷达信号</span></h2>
+            <h2 className="opp-section-title">评分轨迹 <span className="opp-section-sub">{scoreHistory.length} 次评分 · 0–100 制 · 复评依据为上周评分后的新雷达信号</span></h2>
             <ScoreSparkline history={scoreHistory} />
             <ul className="opp-scorehist">
               {[...scoreHistory].reverse().map(h => {
                 const vd = h.source !== 'initial' && h.verdict ? VERDICT_MAP[h.verdict] : null;
+                const dispScore = toDisplayScore(Number(h.score) || 0);
                 return (
                 <li key={h.id} className="opp-scorehist-item">
                   <div className="opp-scorehist-head">
-                    <span className="opp-scorehist-score">{Number(h.score).toFixed(1)}</span>
+                    <span className={`opp-scorehist-score sb-${scoreBand(dispScore)}`}>{dispScore}</span>
                     <span className="opp-scorehist-source">{SCORE_SOURCE_MAP[h.source] || h.source}</span>
                     {vd && <span className={`opp-verdict ${vd.cssClass}`}>{vd.label}</span>}
                     <span className="opp-scorehist-date">{h.created_at.slice(0, 10)}</span>

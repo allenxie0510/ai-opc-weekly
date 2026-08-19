@@ -17,7 +17,7 @@ export default async function OpportunitiesPage() {
   return (
     <>
       <Header />
-      <div className="container" style={{ paddingTop: 48, paddingBottom: 80, display: 'flex', flexDirection: 'column', minHeight: '100svh' }}>
+      <div className="container page-wrap">
         <header className="x-pagehead">
           <div>
             <h1 className="x-pagehead-title">机会情报</h1>

@@ -24,7 +24,7 @@ export default async function ArchivePage() {
       <div style={{
         display: 'flex', flexDirection: 'column', minHeight: 'calc(100vh - var(--header-height, 56px))',
       }}>
-        <div className="container" style={{ flex: 1, paddingTop: 48, paddingBottom: 64, display: 'flex', flexDirection: 'column' }}>
+        <div className="container page-wrap" style={{ flex: 1 }}>
         <header style={{ marginBottom: 48 }}>
           <h1 style={{ fontFamily: 'var(--font-brand)', fontSize: '2.2rem', fontWeight: 700, letterSpacing: '-0.03em', marginBottom: 8 }}>全部周报</h1>
           <p style={{ color: 'var(--color-steel)', fontSize: '0.95rem' }}>AI OPC · 周报归档</p>

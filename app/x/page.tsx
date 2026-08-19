@@ -39,7 +39,7 @@ export default async function XTimelinePage() {
   return (
     <>
       <Header />
-      <div className="container" style={{ paddingTop: 48, paddingBottom: 80 }}>
+      <div className="container page-wrap">
         <header className="x-pagehead">
           <div>
             <h1 className="x-pagehead-title">X 时间轴</h1>

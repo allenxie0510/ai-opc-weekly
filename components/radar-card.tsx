@@ -2,6 +2,7 @@ import { CATEGORY_MAP } from '@/lib/types';
 import type { RadarItem } from '@/lib/types';
 import { AdminEditButton } from '@/components/admin-edit';
 import { RadarCover } from '@/components/radar-cover';
+import { ScoreBadge } from '@/components/score-badge';
 
 export function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -62,7 +63,7 @@ export function RadarCard({ item }: { item: RadarItem }) {
           <a href={item.source_url} target="_blank" rel="noopener noreferrer" className="radar-title">
             {item.title}
           </a>
-          {hasScore && <span className="radar-title-score">{item.score}分</span>}
+          {hasScore && <ScoreBadge score={item.score} variant="text" />}
         </div>
 
         {item.summary && <p className="radar-summary">{item.summary}</p>}

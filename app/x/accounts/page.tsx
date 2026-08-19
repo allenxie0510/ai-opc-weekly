@@ -190,7 +190,7 @@ export default function XAccountsPage() {
     return (
       <>
         <Header />
-        <div className="container" style={{ paddingTop: 48, paddingBottom: 80 }}>
+        <div className="container page-wrap">
           <header className="x-pagehead">
             <div>
               <h1 className="x-pagehead-title">X 账号管理</h1>
@@ -236,7 +236,7 @@ export default function XAccountsPage() {
   return (
     <>
       <Header />
-      <div className="container" style={{ paddingTop: 48, paddingBottom: 80 }}>
+      <div className="container page-wrap">
         <header className="x-pagehead">
           <div>
             <h1 className="x-pagehead-title">X 账号管理</h1>
@@ -262,8 +262,8 @@ export default function XAccountsPage() {
         {refreshMsg && (
           <div style={{
             marginBottom: 16, padding: '8px 16px', borderRadius: 10,
-            background: refreshMsg.startsWith('✅') ? '#ecfdf5' : '#fef2f2',
-            color: refreshMsg.startsWith('✅') ? '#065f46' : '#991b1b',
+            background: refreshMsg.startsWith('✅') ? 'var(--color-success-bg)' : 'var(--color-surface)',
+            color: refreshMsg.startsWith('✅') ? 'var(--color-up)' : 'var(--color-danger)',
             fontSize: 13, fontWeight: 500,
           }}>{refreshMsg}</div>
         )}
