@@ -137,3 +137,11 @@ where h.opportunity_id = o.id and h.source = 'initial';
 - **nitter.privacyredirect.com 可用但限流敏感**：单发 200，连续请求 503/502，降为第二兜底。
 - 最终源序：`nitter.net → nitter.privacyredirect.com → xcancel.com → rss_url 兜底`，账号间延时 2.5s。上线验证 15/15 账号成功、271 条写入、/x 页面恢复更新。
 - 脚本保留 `FETCH_DEBUG=1`（repo variable 控制）诊断输出，实例再次变异时可快速定位。
+
+### 补记 2（2026-08-19）：抓取核心共享化 + admin 手动刷新迁移
+
+- **共享模块**：Nitter 抓取核心（多实例降级 / curl 抓取 / 解析器）抽为 `lib/nitter-fetch.mjs`（纯 ESM JS，无 TS 语法），`scripts/fetch-tweets.mjs` 与 `app/api/admin/refresh/route.ts` 共用，杜绝两份逻辑 drifting。route 侧经 `@/lib/nitter-fetch.mjs` import（tsconfig `allowJs: true`）。
+- **Vercel curl 可用性（实测）**：生产 serverless 为 Node v24.18.0 / Amazon Linux，自带 `curl 8.17.0`（经 `/api/ping?diag=1` 验证）。共享模块仍以 `hasCurl()` 探测，缺失自动退化 node fetch + 空 body 判败走降级链。
+- **route 适配 serverless**：并发 4 路、单源 8s 超时、`maxDuration = 60`；鉴权（X-Admin-Token）与响应格式不变，results 增加 `source` 字段便于观察实例命中。
+- **未走 workflow_dispatch 方案**：curl 实测可用，直接抓取最简单可靠；dispatch 方案（响应慢、按钮体验差）仅作备选记录。
+- 回归：重构后 Actions 抓取 14/15 成功（@shadcn 三实例同瞬 404，瞬时抖动，部分失败语义正确兜底）。
