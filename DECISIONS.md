@@ -154,3 +154,32 @@ where h.opportunity_id = o.id and h.source = 'initial';
 - **附带**：unescapeXml 补 `&apos;`（karpathy 标题实测含此实体）。
 - **验证**：/x 页面 46 个真实 `<img>` 代理 URL 全部 200 image/*（含旧 nitter 链接与新 pbs 链接）。
 - **观察**：nitter.net 对单账号存在瞬时 404 抖动（shadcn/OpenAI/steipete 各出现过一轮，下一轮自愈），降级链 + 部分失败 warn 语义按设计兜住，无需处理。
+
+## 六、设计系统（P1 收口，2026-08-19）
+
+三项收口：分数统一 / 板块节奏 / 颜色收口。只动视觉层，不改信息架构与文案。admin 后台未纳入（优先级低）。
+
+### 分数：ScoreBadge 单组件 + 0–100 量纲
+
+- **唯一组件** `components/score-badge.tsx`：三变体 `cover`（卡片封面右上浮层）/ `inline`（文本流徽章，首页 hero）/ `text`（雷达卡标题行尾纯文字）。删除旧的三套重复规则（`.opcard-score` / `.home-hero-score` / `.radar-title-score`）。
+- **色阶**（`--color-score-*`，同一映射全站复用，含详情页总分、七维条、轨迹历史分）：≥80 优秀绿（=--color-up）/ 60–79 良好蓝 #1456f0 / 40–59 一般琥珀（=--color-warn）/ <40 弱灰 #75757b。色阶只染数字 `.sb-num`，"OPC" 前缀恒 stone 灰。
+- **量纲统一 0–100**：评分轨迹内部存储仍是 0–10，展示层一律 `toDisplayScore()` ×10（轨迹首末分、历史条目、±变化阈值 ±0.5→±5）；详情页轨迹副标题标注「0–100 制」。所有分数 `title` 带统一图例 `SCORE_SCALE_TEXT`。
+- **例外**：explore 模块的 1–10 分是 wizard 工具内部口径，不纳入全站分数系统。
+
+### 板块节奏：间距 token + .page-wrap
+
+- **间距 token 三档 + 页距两档**：`--space-section: 56px`（大板块）/ `--space-subsection: 40px`（详情页子板块）/ `--space-block: 24px`（标题与内容）/ `--space-page-top: 48px` / `--space-page-bottom: 80px`。消灭 48/56/64/80 混用。
+- **`.page-wrap` 类**统一页面容器页距，替换 home/radar/opportunities/详情/explore/x/x-accounts/archive/favorites 各页的 inline `paddingTop/paddingBottom`（archive/favorites 原 64px 底距统一为 80）。
+- home 与 weekly 的 section-title 原为两份相同定义，已合并（weekly 保留自身 margin-bottom:20px）。
+
+### 颜色：语义 token 收口
+
+- **语义映射**：橙 #ff5530 = 品牌强调唯一高饱和色；绿 --color-up #0a7d4f = 正向/上升；红 --color-down #dc2626 = 负向/下降；琥珀 --color-warn #b45309 = 警示；红 --color-danger #b91c1c = 危险操作；灰 = 中性；领域/分类标签中性灰；状态标签固定语义色。
+- **token 化**：globals.css 中硬编码 #0a7d4f/#b45309/#b25e09/#b91c1c/#c0392b/#7c3aed/#fafafa/#fff 底全部替换为 var()；x/accounts 与 market-pulse 的内联 hex 同步 token 化；补定义了 admin 样式引用但从未定义的 `--color-mist`（latent bug，边框此前退化为 currentColor）。
+- **对比度**：--color-stone 由 #8e8e93 加深至 #75757b（白底对比度 3.0→4.6:1，达 AA）；x-card-handle 等次级文字同步用 stone。
+- **例外**：OpportunityCard `FALLBACK_THEMES` 封面插图配色是装饰性程序生成色（非语义标签），保留硬编码 hex；explore 模块 PDF 模板样式独立，不纳入。
+
+### 教训与工具备注
+
+- **replace_all 误伤**：对 hex 做全局替换时把 @theme 里 token 定义自身也替换成了 `var(--color-up)` 自引用循环，导致色阶整体失效（部署后截图发现 81/88 分未着色）。教训：token 定义行必须先于批量替换落地并复查，`--color-x: var(--color-x)` 模式应入检查清单。（修复 commit df3dfe1）
+- **headless Chrome 移动端截图假象**：macOS headless Chrome `--window-size=390` 低于最小窗口宽，实际按 ~500px 布局再裁切到 390，截图呈现"全页面右侧裁切"的假溢出。实测（同源代理 + iframe 注入测量）线上页面 390px 下 `scrollWidth=390` 无任何溢出元素。**移动端验证用 `--window-size=500` 截图或注入测量，不要用 390 直截**。
