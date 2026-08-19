@@ -83,9 +83,41 @@ export async function POST(req: NextRequest) {
 
   await Promise.all(Array.from({ length: CONCURRENCY }, () => worker()));
 
+  // 全灭兜底（2026-08-19 排查：nitter 实例对 Vercel/AWS 出口 IP 硬拦截，
+  // 而 GitHub Actions 正常）——直连全部失败时自动改为 dispatch fetch-tweets.yml，
+  // 由 Actions 环境完成抓取（异步，约 2-3 分钟生效）。需要 Vercel 环境变量 GITHUB_PAT。
+  const allFailed = results.length > 0 && results.every((r) => r.status !== 200);
+  let fallback: string | undefined;
+  if (allFailed) {
+    const pat = process.env.GITHUB_PAT;
+    if (!pat) {
+      fallback = 'no_github_pat';
+    } else {
+      try {
+        const dres = await fetch(
+          'https://api.github.com/repos/allenxie0510/ai-opc-weekly/actions/workflows/fetch-tweets.yml/dispatches',
+          {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${pat}`,
+              Accept: 'application/vnd.github+json',
+              'Content-Type': 'application/json',
+              'User-Agent': 'aiopc-admin',
+            },
+            body: JSON.stringify({ ref: 'main' }),
+          },
+        );
+        fallback = dres.status === 204 ? 'dispatched' : `dispatch_failed_${dres.status}`;
+      } catch {
+        fallback = 'dispatch_error';
+      }
+    }
+  }
+
   return Response.json({
     status: 'ok',
     total,
+    fallback,
     transport: (await hasCurl()) ? 'curl' : 'node-fetch',
     results: results.map(r => ({
       username: r.username,

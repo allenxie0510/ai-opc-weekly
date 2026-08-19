@@ -35,6 +35,7 @@ export default function XAccountsPage() {
   const [adding, setAdding] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [refreshMsg, setRefreshMsg] = useState<string | null>(null);
+  const [refreshFails, setRefreshFails] = useState<string[]>([]);
   const [swipedId, setSwipedId] = useState<string | null>(null);
   const [touchStartX, setTouchStartX] = useState(0);
   const [deletingUser, setDeletingUser] = useState<string | null>(null);
@@ -168,6 +169,7 @@ export default function XAccountsPage() {
   const handleRefresh = async () => {
     setRefreshing(true);
     setRefreshMsg(null);
+    setRefreshFails([]);
     try {
       const res = await fetch('/api/admin/refresh', {
         method: 'POST',
@@ -178,8 +180,16 @@ export default function XAccountsPage() {
       if (data.error) {
         setRefreshMsg('❌ ' + data.error);
       } else {
-        const fails = data.results?.filter((r: any) => r.status !== 200);
-        setRefreshMsg(`✅ 写入 ${data.total} 条推文` + (fails?.length ? `，${fails.length} 个 feed 失败` : ''));
+        const fails: any[] = data.results?.filter((r: any) => r.status !== 200) || [];
+        // 透传每账号失败原因（HTTP 码/超时/实例名），后台直接可见根因
+        setRefreshFails(fails.map((f) => `@${f.username}：${f.error || `HTTP ${f.status}`}`));
+        if (data.fallback === 'dispatched') {
+          setRefreshMsg('⚠️ Vercel 直连抓取全灭（实例拦截机房 IP），已自动改为触发 GitHub Actions 抓取——约 2–3 分钟后生效，请稍后刷新 /x 查看');
+        } else if (data.fallback) {
+          setRefreshMsg(`❌ Vercel 直连全灭且 Actions 兜底失败（${data.fallback}），请检查 GITHUB_PAT 配置`);
+        } else {
+          setRefreshMsg(`✅ 写入 ${data.total} 条推文` + (fails.length ? `，${fails.length} 个 feed 失败` : ''));
+        }
         await fetchAccounts();
       }
     } catch {
@@ -278,9 +288,19 @@ export default function XAccountsPage() {
           <div style={{
             marginBottom: 16, padding: '8px 16px', borderRadius: 10,
             background: refreshMsg.startsWith('✅') ? 'var(--color-success-bg)' : 'var(--color-surface)',
-            color: refreshMsg.startsWith('✅') ? 'var(--color-up)' : 'var(--color-danger)',
+            color: refreshMsg.startsWith('✅') ? 'var(--color-up)' : refreshMsg.startsWith('⚠️') ? 'var(--color-warn)' : 'var(--color-danger)',
             fontSize: 13, fontWeight: 500,
-          }}>{refreshMsg}</div>
+          }}>
+            {refreshMsg}
+            {refreshFails.length > 0 && (
+              <details style={{ marginTop: 6, fontWeight: 400 }}>
+                <summary style={{ cursor: 'pointer' }}>查看 {refreshFails.length} 个失败账号的原因</summary>
+                <ul style={{ margin: '6px 0 0', paddingLeft: 18, color: 'var(--color-steel)' }}>
+                  {refreshFails.map((f, i) => <li key={i}>{f}</li>)}
+                </ul>
+              </details>
+            )}
+          </div>
         )}
 
         {deleteMsg && (
