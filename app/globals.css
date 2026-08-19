@@ -472,6 +472,20 @@ footer p + p { margin-top: 4px; }
   .x-card-media { max-width: 100%; border-radius: 12px; }
 }
 
+/* ═══ X 账号管理：桌面端悬停删除按钮（移动端走左滑手势）═══ */
+.x-acct-delete {
+  position: absolute; right: 12px; top: 50%; transform: translateY(-50%); z-index: 2;
+  width: 32px; height: 32px; border-radius: 8px; border: none; padding: 0;
+  background: none; color: var(--color-stone); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; transition: opacity 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+.x-acct-row:hover .x-acct-delete { opacity: 1; }
+.x-acct-delete:hover { color: var(--color-danger); background: rgba(185,28,28,0.08); }
+.x-acct-delete:disabled { opacity: 0.4; cursor: default; }
+/* 触屏设备无悬停，隐藏该按钮（用左滑露出的红色删除按钮） */
+@media (hover: none) { .x-acct-delete { display: none; } }
+
 /* ═══ MODAL ═══ */
 .modal-overlay {
   position: fixed; inset: 0; background: rgba(0,0,0,0.4);
