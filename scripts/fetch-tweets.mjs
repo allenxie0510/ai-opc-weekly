@@ -6,15 +6,17 @@
  *
  * 机制（2026-08 从 RSS.app 迁移，RSS.app 订阅到期全线 402）：
  *   遍历 twitter_accounts 表所有账号，每个账号按序尝试：
- *     1. https://nitter.privacyredirect.com/<username>/rss （2026-08-19 实测双账号全通）
- *     2. https://nitter.net/<username>/rss               （部分账号 404，兜底）
+ *     1. https://nitter.net/<username>/rss               （curl 指纹 4/4 全通）
+ *     2. https://nitter.privacyredirect.com/<username>/rss（可用但限流敏感，二兜）
  *     3. https://xcancel.com/<username>/rss              （已转白名单制，恢复后自动启用）
  *     4. 该账号 rss_url（非空且不含 rss.app 时，可选高级兜底）
  *   第一个返回 200 且解析出 ≥1 条 item 的源胜出。
  *
- * 关键：xcancel / nitter 必须带 RSS 阅读器 UA，浏览器 UA 会被 400 拒绝。
+ * 关键：① 必须带 RSS 阅读器 UA（浏览器 UA 被 400）；
+ *       ② 必须用 curl 发请求——nitter.net 按 TLS 指纹拦截 node fetch（200 空 body）。
  */
 import { createClient } from '@supabase/supabase-js';
+import { execFile } from 'node:child_process';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -28,8 +30,8 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // xcancel/nitter 只接受 RSS 客户端 UA，浏览器 UA 返回 400
 const RSS_UA = 'FreshRSS/1.24.0 (Linux; https://freshrss.org)';
-// 账号间礼貌延时（约 15 个账号，全程 ~25s）
-const SLEEP_MS = 1500;
+// 账号间礼貌延时（约 15 个账号；实例对连击限流敏感，2.5s 实测安全）
+const SLEEP_MS = 2500;
 
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
@@ -128,20 +130,28 @@ function parseRSSFeed(xml, account) {
   return tweets;
 }
 
-/** 抓取单个 feed，返回 { ok, xml?, status, reason? } */
-async function fetchFeed(url) {
-  try {
-    const res = await fetch(url, {
-      headers: { 'User-Agent': RSS_UA },
-      signal: AbortSignal.timeout(20000),
+/**
+ * 抓取单个 feed，返回 { ok, xml?, status, reason? }
+ * 关键（2026-08-19 实测）：必须用 curl 而不是 node fetch——
+ * nitter.net 按 TLS 指纹拦截 node fetch（返回 200 空 body），curl 4/4 全通。
+ */
+function fetchFeed(url) {
+  return new Promise((resolve) => {
+    execFile('curl', [
+      '-s', '-m', '20',
+      '-H', `User-Agent: ${RSS_UA}`,
+      '-w', '\n__HTTP:%{http_code}',
+      url,
+    ], { maxBuffer: 10 * 1024 * 1024 }, (err, stdout) => {
+      if (err && !stdout) return resolve({ ok: false, status: -1, reason: err.message });
+      const m = stdout.match(/\n__HTTP:(\d{3})\s*$/);
+      const status = m ? parseInt(m[1], 10) : -1;
+      const xml = m ? stdout.slice(0, m.index) : stdout;
+      if (status !== 200) return resolve({ ok: false, status });
+      if (!xml.includes('<item>')) return resolve({ ok: false, status, reason: '无 item 节点' });
+      resolve({ ok: true, status, xml });
     });
-    if (!res.ok) return { ok: false, status: res.status };
-    const xml = await res.text();
-    if (!xml.includes('<item>')) return { ok: false, status: res.status, reason: '无 item 节点' };
-    return { ok: true, status: res.status, xml };
-  } catch (e) {
-    return { ok: false, status: -1, reason: e.message };
-  }
+  });
 }
 
 async function main() {
@@ -161,7 +171,7 @@ async function main() {
     process.exit(0);
   }
 
-  console.log(`📡 ${accounts.length} 个账号，候选源: nitter.privacyredirect.com → nitter.net → xcancel.com → rss_url 兜底\n`);
+  console.log(`📡 ${accounts.length} 个账号，候选源: nitter.net → nitter.privacyredirect.com → xcancel.com → rss_url 兜底\n`);
 
   let synced = 0, okAccounts = 0;
   const failed = [];
@@ -169,11 +179,11 @@ async function main() {
   for (let i = 0; i < accounts.length; i++) {
     const acc = accounts[i];
 
-    // 候选源按优先级排列（2026-08-19 实测：privacyredirect 双账号全通；
-    // nitter.net 部分账号 404；xcancel 转为白名单制 302，保留作末位实例兜底）
+    // 候选源按优先级排列（2026-08-19 实测：nitter.net + curl 指纹 4/4 全通；
+    // privacyredirect 限流敏感（连击 503）作二兜；xcancel 转白名单制 302，恢复后自动启用）
     const candidates = [
-      { name: 'nitter.privacyredirect.com', url: `https://nitter.privacyredirect.com/${acc.username}/rss` },
       { name: 'nitter.net', url: `https://nitter.net/${acc.username}/rss` },
+      { name: 'nitter.privacyredirect.com', url: `https://nitter.privacyredirect.com/${acc.username}/rss` },
       { name: 'xcancel.com', url: `https://xcancel.com/${acc.username}/rss` },
     ];
     if (acc.rss_url && !acc.rss_url.includes('rss.app')) {
