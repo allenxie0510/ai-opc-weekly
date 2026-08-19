@@ -1,11 +1,17 @@
 /**
- * 推文抓取 — 从 RSS.app feeds 拉取 X 推文写入 Supabase
+ * 推文抓取 — 从 Nitter 公共实例拉取 X 推文写入 Supabase
  * 用法：node scripts/fetch-tweets.mjs
  *
  * 由 GitHub Actions 每 2 小时自动执行
  *
- * 前置条件：twitter_accounts 表的 rss_url 列须填入 RSS.app 生成的 feed URL
- * 免费版 RSS.app 每个 feed 对应单个 X 账号
+ * 机制（2026-08 从 RSS.app 迁移，RSS.app 订阅到期全线 402）：
+ *   遍历 twitter_accounts 表所有账号，每个账号按序尝试：
+ *     1. https://xcancel.com/<username>/rss   （实测 5/5 可用）
+ *     2. https://nitter.net/<username>/rss    （部分账号可用，兜底）
+ *     3. 该账号 rss_url（非空且不含 rss.app 时，可选高级兜底）
+ *   第一个返回 200 且解析出 ≥1 条 item 的源胜出。
+ *
+ * 关键：xcancel / nitter 必须带 RSS 阅读器 UA，浏览器 UA 会被 400 拒绝。
  */
 import { createClient } from '@supabase/supabase-js';
 
@@ -19,16 +25,39 @@ if (!SUPABASE_URL || !SUPABASE_KEY) {
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
+// xcancel/nitter 只接受 RSS 客户端 UA，浏览器 UA 返回 400
+const RSS_UA = 'FreshRSS/1.24.0 (Linux; https://freshrss.org)';
+// 账号间礼貌延时（约 15 个账号，全程 ~25s）
+const SLEEP_MS = 1500;
+
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+/** 基本 XML 实体反转义（Nitter 的 title 是纯文本含实体） */
+function unescapeXml(s) {
+  return s
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
+}
+
 /**
  * 解析 RSS XML，提取推文列表
- * RSS.app 格式：
- *   <dc:creator> → @username
- *   <link> → x.com 推文 URL
- *   <title><![CDATA[...]]> → 推文正文
- *   <pubDate> → 发布时间
- *   <media:content url="..."> → 图片
+ * 兼容两种格式：
+ *   Nitter 系（xcancel/nitter.net）：
+ *     <title>纯文本（含 XML 实体）</title>
+ *     <dc:creator>@username</dc:creator>（无 CDATA）
+ *     <guid isPermaLink="false">纯数字 tweet_id</guid>
+ *     <link>https://<实例域名>/<user>/status/<id>#m</link>
+ *     <description><![CDATA[HTML，<img src=".../pic/..."> 为媒体图]]></description>
+ *   RSS.app（兜底自定义 rss_url 可能是同类格式）：
+ *     <title><![CDATA[正文]]></title>
+ *     <link>https://x.com/<user>/status/<id></link>
+ *     <media:content url="...">
+ * 统一输出：url 重写为 https://x.com/<username>/status/<tweet_id>
  */
-function parseRSSFeed(xml) {
+function parseRSSFeed(xml, account) {
   const tweets = [];
   const itemRegex = /<item>([\s\S]*?)<\/item>/g;
   let match;
@@ -36,36 +65,52 @@ function parseRSSFeed(xml) {
   while ((match = itemRegex.exec(xml)) !== null) {
     const block = match[1];
 
-    // dc:creator → @username
+    // 作者：feed 是按账号抓的，直接用账号 username（dc:creator 作参考，RT 条目可能不同）
     const cm = block.match(/<dc:creator><!\[CDATA\[\s*@?(\w+)/i)
             || block.match(/<dc:creator>\s*@?(\w+)/i);
-    const author = cm?.[1] || '';
+    const author = account.username || cm?.[1] || '';
     if (!author) continue;
 
-    // link → x.com 推文 URL
-    const lm = block.match(/<link>\s*(https?:\/\/x\.com\/\w+\/status\/\d+)[^<]*\s*<\/link>/);
-    if (!lm) continue;
-
-    // title CDATA → 推文正文
-    const tm = block.match(/<title><!\[CDATA\[([\s\S]*?)\]\]><\/title>/);
-    let content = (tm?.[1] || '').trim();
-    // 去掉 "RT by @user: " 前缀
-    content = content.replace(/^RT by @\w+:\s*/g, '').replace(/^RT by @\w+\s+/g, '').trim();
+    // title → 推文正文（Nitter 是纯文本含实体，RSS.app 是 CDATA）
+    const tm = block.match(/<title><!\[CDATA\[([\s\S]*?)\]\]><\/title>/)
+            || block.match(/<title>([\s\S]*?)<\/title>/);
+    let content = unescapeXml((tm?.[1] || '').trim());
+    // 去掉 RT 前缀（RSS.app: "RT by @user:"；Nitter: "RT @user:"）
+    content = content
+      .replace(/^RT by @\w+:\s*/g, '')
+      .replace(/^RT by @\w+\s+/g, '')
+      .replace(/^RT @\w+:\s*/g, '')
+      .trim();
     if (!content) continue;
+
+    // tweet_id：优先 guid（Nitter 是纯数字），否则从 link 的 /status/ 提取
+    const gm = block.match(/<guid[^>]*>\s*(\d+)\s*<\/guid>/);
+    const lm = block.match(/<link>\s*(https?:\/\/[^<\s]+)\s*<\/link>/);
+    const tweetId = gm?.[1] || lm?.[1]?.match(/\/status\/(\d+)/)?.[1] || '';
+    if (!tweetId) continue;
 
     // pubDate
     const pm = block.match(/<pubDate>([^<]+)<\/pubDate>/);
     const publishedAt = pm?.[1] ? new Date(pm[1]).toISOString() : new Date().toISOString();
 
-    // tweet ID 从 URL 提取
-    const tweetId = lm[1].split('/status/').pop()?.replace(/[?#].*$/, '') || '';
-    if (!tweetId) continue;
+    // url 统一重写成 x.com（Nitter 的 link 是实例域名，保持下游卡片跳转一致）
+    const url = `https://x.com/${author}/status/${tweetId}`;
 
-    // media:content → 图片（走 Vercel 代理，国内可访问）
+    // 图片：Nitter 在 description HTML 的 <img src>（只收 /pic/ 媒体图，跳过 emoji/头像）；
+    // RSS.app 在 <media:content url>。统一走 /api/img-proxy 包装。
     const imgs = [];
-    const irx = /<media:content[^>]+url="([^"]+)"[^>]*\/>/g;
+    const dm = block.match(/<description><!\[CDATA\[([\s\S]*?)\]\]><\/description>/)
+            || block.match(/<description>([\s\S]*?)<\/description>/);
+    const desc = dm?.[1] || '';
+    const irx = /<img[^>]+src="([^"]+)"/g;
     let im;
-    while ((im = irx.exec(block)) !== null) {
+    while ((im = irx.exec(desc)) !== null) {
+      const src = unescapeXml(im[1]);
+      if (!src.includes('/pic/')) continue;
+      imgs.push('/api/img-proxy?url=' + encodeURIComponent(src));
+    }
+    const mrx = /<media:content[^>]+url="([^"]+)"[^>]*\/>/g;
+    while ((im = mrx.exec(block)) !== null) {
       imgs.push('/api/img-proxy?url=' + encodeURIComponent(im[1]));
     }
 
@@ -74,73 +119,87 @@ function parseRSSFeed(xml) {
       author_username: author,
       content: content.slice(0, 2000),
       published_at: publishedAt,
-      url: lm[1],
-      media_urls: imgs.slice(0, 4),
+      url,
+      media_urls: [...new Set(imgs)].slice(0, 4),
     });
   }
 
   return tweets;
 }
 
-async function main() {
-  console.log('🔄 开始从 RSS.app 拉取推文...\n');
+/** 抓取单个 feed，返回 { ok, xml?, status, reason? } */
+async function fetchFeed(url) {
+  try {
+    const res = await fetch(url, {
+      headers: { 'User-Agent': RSS_UA },
+      signal: AbortSignal.timeout(20000),
+    });
+    if (!res.ok) return { ok: false, status: res.status };
+    const xml = await res.text();
+    if (!xml.includes('<item>')) return { ok: false, status: res.status, reason: '无 item 节点' };
+    return { ok: true, status: res.status, xml };
+  } catch (e) {
+    return { ok: false, status: -1, reason: e.message };
+  }
+}
 
-  // 读取所有有 rss_url 的账号（不再过滤 enabled，以管理后台为准）
+async function main() {
+  console.log('🔄 开始从 Nitter 公共实例拉取推文...\n');
+
+  // 读取所有账号（不再依赖 rss_url，xcancel/nitter 只需 username）
   const { data: accounts, error: acctErr } = await supabase
     .from('twitter_accounts')
-    .select('*')
-    .not('rss_url', 'is', null);
+    .select('*');
 
   if (acctErr) {
     console.error('❌ 读取账号列表失败:', acctErr.message);
     process.exit(1);
   }
   if (!accounts?.length) {
-    console.log('⚠️ 没有启用的账号或缺少 rss_url');
+    console.log('⚠️ 没有追踪账号');
     process.exit(0);
   }
 
-  // username → account 映射
-  const accByUser = {};
-  for (const a of accounts) accByUser[a.username] = a;
+  console.log(`📡 ${accounts.length} 个账号，候选源: xcancel.com → nitter.net → rss_url 兜底\n`);
 
-  // 去重 RSS URL
-  const urls = [...new Set(accounts.map(a => a.rss_url))];
-  console.log(`📡 ${accounts.length} 个账号，${urls.length} 个 RSS feed\n`);
+  let synced = 0, okAccounts = 0;
+  const failed = [];
 
-  let synced = 0, errors = 0, okFeeds = 0, payment402 = 0;
+  for (let i = 0; i < accounts.length; i++) {
+    const acc = accounts[i];
 
-  for (const url of urls) {
-    try {
-      const res = await fetch(url, {
-        headers: { 'User-Agent': 'ai-opc-weekly/1.0' },
-        signal: AbortSignal.timeout(20000),
-      });
-      if (!res.ok) {
-        if (res.status === 402) {
-          payment402++;
-          console.error(`  ⚠️ ${url.substring(0,50)}... → HTTP 402 = RSS.app 订阅到期，需要续费`);
-        } else {
-          console.error(`  ⚠️ ${url.substring(0,50)}... → HTTP ${res.status}`);
+    // 候选源按优先级排列
+    const candidates = [
+      { name: 'xcancel.com', url: `https://xcancel.com/${acc.username}/rss` },
+      { name: 'nitter.net', url: `https://nitter.net/${acc.username}/rss` },
+    ];
+    if (acc.rss_url && !acc.rss_url.includes('rss.app')) {
+      candidates.push({ name: 'rss_url 兜底', url: acc.rss_url });
+    }
+
+    let hit = null; // { name, tweets }
+    const attempts = [];
+    for (const c of candidates) {
+      const r = await fetchFeed(c.url);
+      if (r.ok) {
+        const tweets = parseRSSFeed(r.xml, acc);
+        if (tweets.length > 0) {
+          hit = { name: c.name, tweets };
+          break;
         }
-        errors++;
-        continue;
+        attempts.push(`${c.name} 200 但解析 0 条`);
+      } else {
+        attempts.push(`${c.name} HTTP ${r.status}${r.reason ? ` (${r.reason})` : ''}`);
       }
+    }
 
-      const xml = await res.text();
-      if (!xml.includes('<item>')) {
-        console.error(`  ⚠️ ${url.substring(0,50)}... → 无 item 节点`);
-        errors++;
-        continue;
-      }
-
-      okFeeds++;
-      const tweets = parseRSSFeed(xml);
-
-      for (const t of tweets) {
-        const acc = accByUser[t.author_username];
-        if (!acc) continue; // 不是我们追踪的账号
-
+    if (!hit) {
+      failed.push(acc.username);
+      console.warn(`  ⚠️ @${acc.username} 全部源失败: ${attempts.join(' | ')}`);
+    } else {
+      okAccounts++;
+      let wrote = 0;
+      for (const t of hit.tweets) {
         const { error } = await supabase.from('tweets').upsert({
           tweet_id: t.tweet_id,
           author_username: t.author_username,
@@ -155,18 +214,20 @@ async function main() {
         if (error) {
           console.warn(`  ⚠️ @${t.author_username} 写入失败: ${error.message}`);
         } else {
-          synced++;
+          wrote++;
         }
       }
-    } catch (e) {
-      console.error(`  ⚠️ ${url.substring(0,50)}... → ${e.message}`);
-      errors++;
+      synced += wrote;
+      console.log(`  ✅ @${acc.username} → ${hit.name}，解析 ${hit.tweets.length} 条，写入 ${wrote} 条`);
     }
+
+    // 账号间礼貌延时（最后一个不用等）
+    if (i < accounts.length - 1) await sleep(SLEEP_MS);
   }
 
-  console.log(`\n📊 同步完成: ${synced} 条写入, ${okFeeds}/${urls.length} 个 feed 成功, ${errors} 个失败${payment402 ? `（其中 ${payment402} 个 HTTP 402 续费问题）` : ''}`);
-  if (okFeeds > 0 && errors > 0) {
-    console.warn(`⚠️ 部分 feed 失败（${errors}/${urls.length}），暂不阻塞，但请检查上面的警告`);
+  console.log(`\n📊 同步完成: ${synced} 条写入, ${okAccounts}/${accounts.length} 个账号成功, ${failed.length} 个失败`);
+  if (okAccounts > 0 && failed.length > 0) {
+    console.warn(`⚠️ 部分账号失败（${failed.length}/${accounts.length}）: ${failed.map(u => '@' + u).join(', ')}，暂不阻塞，但请检查上面的警告`);
   }
 
   // 清理孤儿推文：删除不属于任何追踪账号的推文
@@ -225,10 +286,10 @@ async function main() {
     console.warn('⚠️ 14天清理异常:', e.message);
   }
 
-  // 全灭报警：0 个 feed 成功说明是系统性故障（订阅到期/网络全断），
-  // exit 1 让 Actions 标红——只 log 警告会让 402 这类故障被掩盖（曾静默失败两天）
-  if (okFeeds === 0 && urls.length > 0) {
-    console.error(`\n❌ 全部 feed 失败（0/${urls.length}），检查 RSS.app 订阅状态${payment402 ? `：本轮 ${payment402} 个 HTTP 402，订阅大概率已到期需要续费` : ''}`);
+  // 全灭报警：0 个账号成功说明是系统性故障（公共实例全挂/网络全断），
+  // exit 1 让 Actions 标红——只 log 警告会让故障被掩盖（RSS.app 402 曾静默失败两天）
+  if (okAccounts === 0 && accounts.length > 0) {
+    console.error(`\n❌ 全部账号失败（0/${accounts.length}），Nitter 公共实例可能整体不可用，考虑更换抓取源`);
     process.exit(1);
   }
 
