@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  let body: { workflow?: string; rescore_only?: boolean; force_rescore?: boolean };
+  let body: { workflow?: string; rescore_only?: boolean; force_rescore?: boolean; clear?: string };
   try {
     body = await req.json();
   } catch {
@@ -37,6 +37,7 @@ export async function POST(req: NextRequest) {
     body.workflow === 'weekly-newsletter' ? 'weekly-newsletter.yml'
     : body.workflow === 'weekly-opportunities' ? 'weekly-opportunities.yml'
     : body.workflow === 'reports-monitor' ? 'reports-monitor.yml'
+    : body.workflow === 'backfill-covers' ? 'backfill-covers.yml'
     : 'daily-radar.yml';
 
   // weekly-opportunities 支持两个输入：rescore_only（跳过生成只复评）/
@@ -47,6 +48,15 @@ export async function POST(req: NextRequest) {
     if (body.rescore_only) inputs.rescore_only = 'true';
     if (body.force_rescore) inputs.force_rescore = 'true';
     if (Object.keys(inputs).length > 0) dispatchBody.inputs = inputs;
+  }
+  // backfill-covers 支持 clear 输入：先把指定 slug 的 cover_url 置 NULL 再回填
+  // （admin 机会行「重生成封面」按钮用，slug 校验见下）
+  if (body.workflow === 'backfill-covers' && body.clear) {
+    const clear = String(body.clear).trim();
+    if (!/^[a-z0-9,-]+$/i.test(clear)) {
+      return NextResponse.json({ error: 'clear 参数格式非法（只允许 slug 字母数字连字符逗号）' }, { status: 400 });
+    }
+    dispatchBody.inputs = { clear };
   }
 
   const res = await fetch(

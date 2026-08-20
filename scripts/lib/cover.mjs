@@ -31,7 +31,10 @@ const ZHIPU_CHAT_API = 'https://open.bigmodel.cn/api/paas/v4/chat/completions';
 // 火山引擎 ARK（Seedream 4.5）：指令跟随/写实摄影国内第一梯队，"无文字"约束稳定生效
 const ARK_API = 'https://ark.cn-beijing.volces.com/api/v3/images/generations';
 const SEEDREAM_MODEL = (process.env.SEEDREAM_MODEL || 'doubao-seedream-4-5-251128').trim();
-const GLM_MODEL = 'glm-4.7-flash';
+// 与 generate-opportunities.mjs 主线同一模型链：glm-4.7-flash 拥挤（429 1305）时
+// 切 glm-4.5-flash 兜底（2026-08-20 根因修复：此前场景提炼无兜底，GLM 持续拥挤
+// 时段封面必丢，回填也同样失败）
+const GLM_MODELS = ['glm-4.7-flash', 'glm-4.5-flash'];
 const BUCKET = 'covers';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -77,12 +80,12 @@ async function deriveScene(zk, { title, thesis, category }) {
   ].join('\n');
 
   // 调 GLM 一次；空内容时 log 原始响应关键字段便于诊断
-  async function callOnce(prompt, label) {
+  async function callOnce(prompt, label, model) {
     const res = await fetch(ZHIPU_CHAT_API, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${zk}` },
       body: JSON.stringify({
-        model: GLM_MODEL,
+        model,
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.7,
         max_tokens: 800,
@@ -92,7 +95,7 @@ async function deriveScene(zk, { title, thesis, category }) {
     });
     const txt = await res.text();
     if (!res.ok) {
-      const err = new Error(`GLM ${res.status}: ${txt.slice(0, 100)}`);
+      const err = new Error(`GLM ${res.status}(${model}): ${txt.slice(0, 100)}`);
       err.congested = res.status === 429;
       throw err;
     }
@@ -101,49 +104,66 @@ async function deriveScene(zk, { title, thesis, category }) {
     const content = (choice.message?.content || '')
       .replace(/^["'\s]+|["'\s]+$/g, '').replace(/\s+/g, ' ').slice(0, 400);
     if (!content) {
-      console.log(`   ⚠️ GLM ${label} 返回空内容（finish=${choice.finish_reason}，usage=${JSON.stringify(data.usage || {})}，reasoning=${String(choice.message?.reasoning_content || '').slice(0, 60)}）`);
+      console.log(`   ⚠️ GLM ${label}(${model}) 返回空内容（finish=${choice.finish_reason}，usage=${JSON.stringify(data.usage || {})}，reasoning=${String(choice.message?.reasoning_content || '').slice(0, 60)}）`);
     }
     return content;
   }
 
-  // 主流程：带格式要求的调用（429 重试 2 次）→ 解析路线前缀
-  for (let attempt = 0; attempt < 3; attempt++) {
-    try {
-      const out = await callOnce(rules, '场景提炼');
-      if (out) {
-        const m = out.match(/^(PHOTO|ILLUSTRATION)\s*[:：]\s*(.+)$/i);
-        if (m && m[2].length >= 10) {
-          return { route: m[1].toUpperCase(), scene: m[2].trim() };
+  // 模型链：主模型 429 三连 → 切兜底模型重试完整流程（主流程 + 裸重试）
+  for (let mi = 0; mi < GLM_MODELS.length; mi++) {
+    const model = GLM_MODELS[mi];
+    let congestedOut = false;
+
+    // 主流程：带格式要求的调用（429 重试 2 次）→ 解析路线前缀
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const out = await callOnce(rules, '场景提炼', model);
+        if (out) {
+          const m = out.match(/^(PHOTO|ILLUSTRATION)\s*[:：]\s*(.+)$/i);
+          if (m && m[2].length >= 10) {
+            if (mi > 0) console.log(`   ℹ️ 兜底模型 ${model} 场景提炼成功`);
+            return { route: m[1].toUpperCase(), scene: m[2].trim() };
+          }
+          console.log(`   ⚠️ 场景提炼输出无路线标注，裸重试: ${out.slice(0, 60)}`);
+          break; // 有内容但格式不符 → 走裸重试
         }
-        console.log(`   ⚠️ 场景提炼输出无路线标注，裸重试: ${out.slice(0, 60)}`);
-        break; // 有内容但格式不符 → 走裸重试
+        // 空内容：不重试同 prompt（大概率同样空），直接裸重试
+        break;
+      } catch (e) {
+        if (e.congested && attempt < 2) {
+          console.log(`   ⚠️ 场景提炼 429（${model}），${(attempt + 1) * 20}s 后重试...`);
+          await sleep((attempt + 1) * 20000);
+          continue;
+        }
+        if (attempt === 2) {
+          console.log(`   ⚠️ 场景提炼请求失败: ${e.message.slice(0, 70)}`);
+          congestedOut = e.congested === true;
+          break; // 换下一个模型（若有）
+        }
+        await sleep(10000);
       }
-      // 空内容：不重试同 prompt（大概率同样空），直接裸重试
-      break;
+    }
+    if (congestedOut) {
+      if (mi < GLM_MODELS.length - 1) console.log(`   ⏭️ ${model} 连续 429，切换兜底模型...`);
+      continue;
+    }
+
+    // 裸重试：无格式要求，拿到内容后按关键词推断路线（默认 PHOTO）
+    try {
+      const out = await callOnce(bare, '场景提炼(裸重试)', model);
+      if (out && out.length >= 10) {
+        const route = /illustration|geometric|flat|diagram|grid/i.test(out) ? 'ILLUSTRATION' : 'PHOTO';
+        console.log(`   ℹ️ 裸重试成功（${model}，推断路线 ${route}）`);
+        return { route, scene: out.replace(/^(PHOTO|ILLUSTRATION)\s*[:：]\s*/i, '') };
+      }
     } catch (e) {
-      if (e.congested && attempt < 2) {
-        console.log(`   ⚠️ 场景提炼 429，${(attempt + 1) * 20}s 后重试...`);
-        await sleep((attempt + 1) * 20000);
+      console.log(`   ⚠️ 裸重试失败: ${e.message.slice(0, 70)}`);
+      if (e.congested && mi < GLM_MODELS.length - 1) {
+        console.log(`   ⏭️ ${model} 裸重试也 429，切换兜底模型...`);
         continue;
       }
-      if (attempt === 2) {
-        console.log(`   ⚠️ 场景提炼请求失败: ${e.message.slice(0, 60)}`);
-        return null;
-      }
-      await sleep(10000);
+      if (mi < GLM_MODELS.length - 1) continue;
     }
-  }
-
-  // 裸重试：无格式要求，拿到内容后按关键词推断路线（默认 PHOTO）
-  try {
-    const out = await callOnce(bare, '场景提炼(裸重试)');
-    if (out && out.length >= 10) {
-      const route = /illustration|geometric|flat|diagram|grid/i.test(out) ? 'ILLUSTRATION' : 'PHOTO';
-      console.log(`   ℹ️ 裸重试成功（推断路线 ${route}）`);
-      return { route, scene: out.replace(/^(PHOTO|ILLUSTRATION)\s*[:：]\s*/i, '') };
-    }
-  } catch (e) {
-    console.log(`   ⚠️ 裸重试失败: ${e.message.slice(0, 60)}`);
   }
   return null;
 }

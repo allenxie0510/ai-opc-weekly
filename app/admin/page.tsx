@@ -51,6 +51,7 @@ type OpportunityDraft = {
   created_at: string;
   featured?: boolean;
   published_at?: string;
+  cover_url?: string | null;
 };
 
 export default function AdminPage() {
@@ -193,6 +194,31 @@ export default function AdminPage() {
                 ? '已触发评分复评 🔁 约 1–2 分钟完成，结果见机会详情页「评分轨迹」'
                 : '已触发机会生产线 ⚡ 约 3–5 分钟后点「刷新」查看机会草稿',
         );
+      }
+    } catch {
+      setMessage('网络错误');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // 为单个机会重新生成/补生成封面：dispatch backfill-covers.yml（clear=slug 先置 NULL 再回填），
+  // 覆盖 GLM 429 等瞬时失败留下的无封面记录（2026-08-20 本地AI开发工具事件的自助补救入口）
+  async function recoverCover(slug: string) {
+    if (busy) return;
+    setBusy(true);
+    setMessage('');
+    try {
+      const res = await fetch('/api/admin/trigger', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-token': token },
+        body: JSON.stringify({ workflow: 'backfill-covers', clear: slug }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setMessage(data.error || '触发失败');
+      } else {
+        setMessage(`已触发封面生成 🎨（${slug}）约 1–2 分钟后点「刷新」查看`);
       }
     } catch {
       setMessage('网络错误');
@@ -760,6 +786,14 @@ export default function AdminPage() {
                             <button
                               className="admin-btn sm"
                               disabled={busy}
+                              title={o.cover_url ? '清空现有封面并重新生成' : '封面缺失，点击生成'}
+                              onClick={() => void recoverCover(o.slug)}
+                            >
+                              {o.cover_url ? '🎨 重生成封面' : '🎨 补封面'}
+                            </button>
+                            <button
+                              className="admin-btn sm"
+                              disabled={busy}
                               onClick={() =>
                                 startEdit('opportunity', o.id, {
                                   title: o.title,
@@ -897,6 +931,14 @@ export default function AdminPage() {
                             </div>
                           </div>
                           <div className="admin-item-btns">
+                            <button
+                              className="admin-btn sm"
+                              disabled={busy}
+                              title={o.cover_url ? '清空现有封面并重新生成' : '封面缺失，点击生成'}
+                              onClick={() => void recoverCover(o.slug)}
+                            >
+                              {o.cover_url ? '🎨 重生成封面' : '🎨 补封面'}
+                            </button>
                             <button
                               className="admin-btn sm"
                               disabled={busy}
