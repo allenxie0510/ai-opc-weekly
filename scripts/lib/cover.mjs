@@ -46,6 +46,8 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
  * 的 DNA：颗粒纹理/有限配色/尺度对比/留白隐喻），**PHOTO 摄影路线已下线**，
  * 场景层不再做 PHOTO/ILLUSTRATION 二选一，统一由插画风格模板包裹。
  * 核心原则不变：LLM 从内容主题自己提炼隐喻，规则精简，给大模型泛化空间。
+ * 2026-08-20 二次修订：不再硬性引导尺度对比/小人物叙事（此前执行太死，
+ * 张张都有小人）——人物/静物/抽象构图自由发挥，尺度对比仅在真正契合时使用。
  *
  * 返回场景描述 string；彻底失败返回 null
  * （调用方按宁缺毋滥原则 cover_url 留空，没有任何兜底图）。
@@ -65,7 +67,7 @@ async function deriveScene(zk, { title, thesis, category }) {
     `你是AI相关创业资讯网站视觉主编。根据下面的创业机会情报内容，构思一个封面视觉隐喻(生图prompt)。`,
     `规则：`,
     `从这个机会的核心主题/张力出发，构想一个封面视觉画面描述，要让人看到图能联想到这条机会的具体论点；`,
-    `当内容涉及 AI 与个人/小团队的关系时，优先考虑尺度对比叙事（小人物 vs 巨大之物）；`,
+    `隐喻优先从内容的具体张力出发自由发挥：可以是人物场景，也可以是静物、抽象构图、空间关系——不要默认植入人物；仅当"个体 vs 巨大之力"的尺度对比真正契合这条机会的论点时，才使用小人物与巨大之物的对比；`,
     ``,
     `画面将以扁平编辑插画风格呈现，隐喻要让人联想到商业的高效与品质感，视觉主体表面必须完全空白无标记（blank, unmarked）——不要蚀刻、印刷、标签、品牌字样、刻度，任何文字或类文字纹理都不能出现在画面里；`,
     `只输出场景描述本身：1-2 句英文场景描述。不要任何解释、前缀、引号或换行。`,
@@ -163,12 +165,15 @@ async function deriveScene(zk, { title, thesis, category }) {
 
 /**
  * 生成 prompt 组装：场景（deriveScene）嵌入统一风格模板。
- * 2026-08-20 风格改版（用户审定，一字不改）：编辑插画 · 概念隐喻风——
- * 颗粒点纹质感、印刷哑光、有限配色（navy-blue 主色 + 唯一暖强调色）、
- * 大留白、单一视觉焦点、全图禁文字。PHOTO 摄影路线已下线，全站统一此模板。
+ * 2026-08-20 风格改版：编辑插画 · 概念隐喻风；2026-08-20 二次修订（用户批准）：
+ * ① 开头 "Editorial magazine illustration" → "Editorial-style conceptual illustration"
+ *   （magazine 字样被 Seedream 字面渲染成假刊头/乱码，实测崩坏率 ~50%）；
+ * ② 配色放开：2-4 柔和色（米白/桃粉/浅蓝/浅绿底 + 中蓝主形 + 每图可变暖强调色），
+ *   允许双色渐变；③ GLM 场景层不再硬性植入小人物（见 deriveScene）。
+ * 不变项：颗粒点纹质感、印刷哑光、大留白、单一视觉焦点、全图禁文字。
  */
 export function buildCoverPrompt(scene) {
-  return `Editorial magazine illustration, conceptual metaphor. ${scene}. Flat shapes with visible grainy stipple texture, printed-paper matte feel. Limited palette: light off-white or soft pastel background, navy-blue dominant shapes, exactly one warm accent (burnt orange or golden yellow). Generous negative space, single clear focal point. No text, no letters, no numbers, no logos, no watermarks anywhere in the image.`;
+  return `Editorial-style conceptual illustration. ${scene}. Flat shapes with visible grainy stipple texture, printed-paper matte feel. Limited palette of 2-4 soft colors: light background (off-white, soft peach, pale blue or pale green), medium-blue dominant shapes (not dark navy), one warm accent that varies per image (burnt orange, golden yellow, coral or warm pink); subtle two-color gradients allowed for depth. Generous negative space, single clear focal point. No text, no letters, no numbers, no logos, no watermarks anywhere in the image.`;
 }
 
 /**
