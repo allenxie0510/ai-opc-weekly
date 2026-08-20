@@ -48,6 +48,9 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
  * 核心原则不变：LLM 从内容主题自己提炼隐喻，规则精简，给大模型泛化空间。
  * 2026-08-20 二次修订：不再硬性引导尺度对比/小人物叙事（此前执行太死，
  * 张张都有小人）——人物/静物/抽象构图自由发挥，尺度对比仅在真正契合时使用。
+ * 2026-08-20 三次修订（用户亲定）：文字政策放松——不再要求主体完全 blank
+ * unmarked，允许主题相关英文单词入画（须拼写正确、构图有机），绝不出现中文；
+ * 含待渲染单词时要求明确措辞（with the word "AI" on...），避免描述误渲染。
  *
  * 返回场景描述 string；彻底失败返回 null
  * （调用方按宁缺毋滥原则 cover_url 留空，没有任何兜底图）。
@@ -69,13 +72,14 @@ async function deriveScene(zk, { title, thesis, category }) {
     `从这个机会的核心主题/张力出发，构想一个封面视觉画面描述，要让人看到图能联想到这条机会的具体论点；`,
     `隐喻优先从内容的具体张力出发自由发挥：可以是人物场景，也可以是静物、抽象构图、空间关系——不要默认植入人物；仅当"个体 vs 巨大之力"的尺度对比真正契合这条机会的论点时，才使用小人物与巨大之物的对比；`,
     ``,
-    `画面将以扁平编辑插画风格呈现，隐喻要让人联想到商业的高效与品质感，视觉主体表面必须完全空白无标记（blank, unmarked）——不要蚀刻、印刷、标签、品牌字样、刻度，任何文字或类文字纹理都不能出现在画面里；`,
+    `画面将以扁平编辑插画风格呈现，隐喻要让人联想到商业的高效与品质感。视觉主体表面保持干净（无蚀刻、印刷、标签、刻度等装饰性假文字）；如果有助于传递概念，画面可以出现少量与主题直接相关的英文单词（如 AI、Agent），但必须拼写正确、是构图的有机部分；绝不出现中文；`,
+    `如果场景描述里包含要渲染进画面的英文单词，用明确措辞表达（如 with the word "AI" on...），避免描述性文字被误当作要渲染的内容；`,
     `只输出场景描述本身：1-2 句英文场景描述。不要任何解释、前缀、引号或换行。`,
     ``,
     brief,
   ].join('\n');
   const bare = [
-    `根据下面的创业机会情报，用 1-2 句英文描述一个能隐喻其核心理念的封面画面（扁平编辑插画、极简几何构图），视觉主体表面完全空白无标记（blank, unmarked）。只输出英文场景描述本身，不要解释。`,
+    `根据下面的创业机会情报，用 1-2 句英文描述一个能隐喻其核心理念的封面画面（扁平编辑插画、极简几何构图）。视觉主体表面保持干净，不出现装饰性假文字；如有助于传递概念可出现少量拼写正确的主题相关英文单词（如 AI、Agent），绝不出现中文。只输出英文场景描述本身，不要解释。`,
     ``,
     brief,
   ].join('\n');
@@ -165,15 +169,15 @@ async function deriveScene(zk, { title, thesis, category }) {
 
 /**
  * 生成 prompt 组装：场景（deriveScene）嵌入统一风格模板。
- * 2026-08-20 风格改版：编辑插画 · 概念隐喻风；2026-08-20 二次修订（用户批准）：
- * ① 开头 "Editorial magazine illustration" → "Editorial-style conceptual illustration"
- *   （magazine 字样被 Seedream 字面渲染成假刊头/乱码，实测崩坏率 ~50%）；
- * ② 配色放开：2-4 柔和色（米白/桃粉/浅蓝/浅绿底 + 中蓝主形 + 每图可变暖强调色），
- *   允许双色渐变；③ GLM 场景层不再硬性植入小人物（见 deriveScene）。
- * 不变项：颗粒点纹质感、印刷哑光、大留白、单一视觉焦点、全图禁文字。
+ * 2026-08-20 三次修订（用户亲自改定，逐字实施）：
+ * ① 配色决策权上移：主色按场景气质选择、每张不同，背景从 4 个浅色里随机 1-2 个；
+ * ② 文字政策放松：从「禁一切文字」改为「只禁中文/标志/水印」——允许封面出现
+ *   与主题直接相关、拼写正确的英文单词（如 AI、Agent），须是构图的有机部分；
+ * ③ GLM 场景层同步对齐（见 deriveScene）。
+ * 不变项：颗粒点纹质感、印刷哑光、大留白、单一视觉焦点、允许双色渐变。
  */
 export function buildCoverPrompt(scene) {
-  return `Editorial-style conceptual illustration. ${scene}. Flat shapes with visible grainy stipple texture, printed-paper matte feel. Limited palette of 2-4 soft colors: light background (off-white, soft peach, pale blue or pale green), medium-blue dominant shapes (not dark navy), one warm accent that varies per image (burnt orange, golden yellow, coral or warm pink); subtle two-color gradients allowed for depth. Generous negative space, single clear focal point. No text, no letters, no numbers, no logos, no watermarks anywhere in the image.`;
+  return `Editorial-style conceptual illustration. ${scene}. Flat shapes with visible grainy stipple texture, printed-paper matte feel. a dominant color chosen to fit the scene's mood, varying across images; randomly select 1-2 soft colors: light background (off-white, soft peach, pale blue or pale green), subtle two-color gradients allowed for depth. Generous negative space, single clear focal point. No chinese text, no logos, no watermarks anywhere in the image.`;
 }
 
 /**
