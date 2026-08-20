@@ -266,3 +266,29 @@ Editorial-style conceptual illustration. ${scene}. Flat shapes with visible grai
 - GLM 场景提炼本轮 429 频发（4 条里 3 条走 glm-4.5-flash 兜底模型），双模型链按设计工作。
 
 **验证**：4 张逐张目检干净（1 张局部放大复核）；线上列表页 + 首页截图确认 4 张新封面全部正确显示（列表页曾命中 ISR 缓存兜底态，~5 分钟自愈后重截确认）。
+
+
+---
+
+### 补记 8（2026-08-20，属封面管线 / 四）：风格模板三次修订（用户亲定）——配色决策权上移 + 文字政策放松
+
+**起因**：二次修订实测稳定后，用户亲自改定模板，两个方向性变化：①配色决策权进一步上移（主色按场景气质、每张不同；背景从 4 个浅色里随机 1-2 个）；②**文字政策从「禁一切文字」放松为「只禁中文/标志/水印」**——用户明确允许封面出现与主题相关的英文单词（如 AI、Agent），认为有助于传递概念。
+
+**新模板全文（用户亲定，逐字实施）**：
+
+```
+Editorial-style conceptual illustration. ${scene}. Flat shapes with visible grainy stipple texture, printed-paper matte feel. a dominant color chosen to fit the scene's mood, varying across images; randomly select 1-2 soft colors: light background (off-white, soft peach, pale blue or pale green), subtle two-color gradients allowed for depth. Generous negative space, single clear focal point. No chinese text, no logos, no watermarks anywhere in the image.
+```
+
+**GLM 场景层（deriveScene）同步对齐**：
+- 原「视觉主体必须完全空白无标记（blank, unmarked），任何文字或类文字纹理都不能出现」改为「视觉主体表面保持干净（无蚀刻、印刷、标签、刻度等装饰性假文字）；如有助于传递概念可出现少量主题相关英文单词（如 AI、Agent），必须拼写正确、是构图的有机部分；绝不出现中文」。
+- 新增明确措辞规则：场景描述里包含要渲染进画面的英文单词时，用 `with the word "AI" on...` 这类措辞，避免 Seedream 把描述性文字误渲染（补记 7 发现的场景层击穿文字禁令问题的正式解法）。
+- 裸重试 prompt 同样放松对齐。
+
+**实测效果（4 张全部重生成，一轮 4/4 零崩坏，无重掷）**：
+- **文字使用**：3 张自然融入正确拼写的英文单词（AI / INDIE / LOCAL），1 张纯静物；无中文乱码、无假刊头、无装饰性假文字。
+- **配色分布**： pastel 渐变底（桃粉→浅绿）+ 浅蓝底 + 蓝粉渐变底各不同，主色按场景气质分化（暖桃/亮蓝/深青黑），不再统一蓝。
+- **风格统一性保持**：颗粒质感、扁平造型、大留白、单一焦点全部在位。
+- 崩坏率：本轮 4 次生成 0 崩坏（样本小，但对比一版 ~50%、二版 1/5 已是显著改善）；GLM 429 兜底链仍按设计工作（1 条走 glm-4.5-flash）。
+
+**改动**：`scripts/lib/cover.mjs`（buildCoverPrompt 模板逐字替换 + deriveScene rules/bare 对齐）。构建通过；beta `a202365` / main `d27340d`。**验证**：4 张逐张目检 + 线上列表页/首页截图确认（本次 ISR 窗口未命中兜底态，一次截图即确认）。
