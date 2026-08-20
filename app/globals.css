@@ -526,8 +526,29 @@ footer p + p { margin-top: 4px; }
 }
 @media (max-width: 768px) {
   .container { padding: 0 20px; }
-  .nav-inner { padding: 0 16px; }
-  .nav .brand { font-size: 18px; letter-spacing: 0.03em; }
+  /* 导航：单行不挤压、超出可左右横滑（方案 A，2026-08-20）——
+     真 390px 实测 logo 挤成两行、双字标签竖排；nowrap + flex-shrink:0
+     保住形状，overflow-x:auto 兜底窄屏，右端渐隐提示可滑 */
+  .nav-inner {
+    padding: 0 16px;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    gap: 14px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+  }
+  .nav-inner::-webkit-scrollbar { display: none; }
+  .nav-left { gap: 10px; flex-shrink: 0; }
+  .nav .brand { font-size: 18px; letter-spacing: 0.03em; flex-shrink: 0; white-space: nowrap; }
+  .nav .nav-sep { flex-shrink: 0; }
+  .nav .x-link { font-size: 15px; padding: 10px 6px; flex-shrink: 0; white-space: nowrap; }
+  .nav-links { margin-left: auto; flex-shrink: 0; gap: 2px; }
+  .nav-links a, .nav .fav-link { font-size: 13px; padding: 10px 10px; flex-shrink: 0; white-space: nowrap; }
+  .nav .fav-link { padding: 10px 4px; }
   .week-picker-btn { font-size: 13px; padding: 4px 10px; }
   .week-picker-menu { min-width: 140px; left: auto; right: 0; transform: none; }
   @keyframes pickerIn { from { opacity:0; transform:translateY(-4px); } to { opacity:1; transform:translateY(0); } }
