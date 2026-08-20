@@ -169,15 +169,14 @@ async function deriveScene(zk, { title, thesis, category }) {
 
 /**
  * 生成 prompt 组装：场景（deriveScene）嵌入统一风格模板。
- * 2026-08-20 三次修订（用户亲自改定，逐字实施）：
- * ① 配色决策权上移：主色按场景气质选择、每张不同，背景从 4 个浅色里随机 1-2 个；
- * ② 文字政策放松：从「禁一切文字」改为「只禁中文/标志/水印」——允许封面出现
- *   与主题直接相关、拼写正确的英文单词（如 AI、Agent），须是构图的有机部分；
- * ③ GLM 场景层同步对齐（见 deriveScene）。
- * 不变项：颗粒点纹质感、印刷哑光、大留白、单一视觉焦点、允许双色渐变。
+ * 2026-08-20 四次修订（用户亲定，逐字实施；渐变落点限定为与用户确认的微调）：
+ * ① 背景固定单色（Monochrome background）——上轮渐变漏到背景上，本轮收口；
+ * ② 配色池只管强调色（medium-blue / off-white / soft peach / pale blue / pale green
+ *   随机 1-2 个）；③ 双色渐变限定在主体元素内（within the subject elements）。
+ * 不变项：颗粒点纹质感、印刷哑光、大留白、单一视觉焦点、文字政策（只禁中文/标志/水印）。
  */
 export function buildCoverPrompt(scene) {
-  return `Editorial-style conceptual illustration. ${scene}. Flat shapes with visible grainy stipple texture, printed-paper matte feel. a dominant color chosen to fit the scene's mood, varying across images; randomly select 1-2 soft colors: light background (off-white, soft peach, pale blue or pale green), subtle two-color gradients allowed for depth. Generous negative space, single clear focal point. No chinese text, no logos, no watermarks anywhere in the image.`;
+  return `Editorial-style conceptual illustration. ${scene}. Flat shapes with visible grainy stipple texture, printed-paper matte feel. a dominant color chosen to fit the scene's mood, varying across images; Monochrome background; randomly select 1-2 Accent colors(medium-blue , off-white, soft peach, pale blue or pale green), subtle two-color gradients allowed within the subject elements for depth. Generous negative space, single clear focal point. No chinese text, no logos, no watermarks anywhere in the image.`;
 }
 
 /**
