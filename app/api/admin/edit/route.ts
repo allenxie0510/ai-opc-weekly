@@ -27,7 +27,7 @@ const RADAR_FIELDS = ['title', 'summary', 'editor_note', 'pick_reason', 'categor
 const WEEKLY_FIELDS = ['title', 'summary'] as const;
 const NEWS_ITEM_FIELDS = ['title', 'description', 'insight', 'mrr_range', 'pricing', 'mvp_time'] as const;
 const OPP_FIELDS = ['title', 'thesis', 'editor_take', 'recommendation', 'editor_conviction', 'category'] as const;
-const CATEGORIES = ['micro-saas', 'design-assets', 'automation', 'content-monetize', 'indie-tool', 'digital-product'];
+const CATEGORIES = ['micro-saas', 'design-assets', 'automation', 'content-monetize', 'indie-tool', 'digital-product', 'other'];
 const RECOMMENDATIONS = ['BUILD', 'WATCH', 'NICHE_ONLY', 'SKIP'];
 const CONVICTIONS = ['high', 'medium', 'low'];
 

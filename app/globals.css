@@ -238,7 +238,8 @@ a { color: inherit; text-decoration: none; }
 .art-cat-pill.cat-automation,
 .art-cat-pill.cat-content,
 .art-cat-pill.cat-tool,
-.art-cat-pill.cat-digital { color: var(--color-slate); background: var(--color-surface-soft); }
+.art-cat-pill.cat-digital,
+.art-cat-pill.cat-other { color: var(--color-slate); background: var(--color-surface-soft); }
 .article .art-idx { font-size: 13px; font-weight: 600; color: var(--color-muted); margin-left: auto; }
 
 /* Bookmark button */
