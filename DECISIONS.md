@@ -367,3 +367,24 @@ Editorial-style conceptual illustration. ${scene}. Flat shapes with visible grai
 **联动调整**：昨日（补记 11）给移动端 nav-inner 加的右端 28px 渐隐 mask 会淡化右边缘的头像/关注按钮，本次移除——滚动提示靠边缘胶囊自然裁切。
 
 **验证**：本地 dev 真 390px（iframe 法）+ 桌面端截图确认；构建通过。已知限制：本地无 Supabase env，登录后头像态无法在本地截图验证，靠线上真实账号确认。
+
+---
+
+### 补记 13（2026-08-21，属信息架构）：归档/关注从 header 一级导航收进登录态头像菜单
+
+**起因**：补记 12 把登录态上移全站 header 后，header 一级导航仍有 8 项（logo + | + 机会/方向/雷达/X + 归档/关注 + 登录），其中「归档」「关注」是个人内容入口而非全站内容导航，与登录态同属"我的"语义，收进头像菜单更合理，同时进一步给移动端 header 减负。
+
+**决策**：
+- header 一级导航只剩全站内容项：logo + 机会/方向/雷达/X + 登录（匿名）或头像（登录态）。匿名访客不再看到归档/关注入口。
+- AuthSlot 下拉菜单最终结构（图标统一放 18px 固定宽度槽位 `.nav-auth-ico` 保证文字列对齐，分隔线分组）：
+  - 邮箱全文（顶部队列，自带下边框）
+  - 内容入口组：📁 我的探索 / 📥 归档 / ⭐ 关注（保留原 header 的 localStorage 计数徽章，重构为独立 `FavBadge` 组件，flex 行内 margin-left:auto 靠右）
+  - `─` 分隔线（`.nav-auth-divider`）
+  - 账号操作组：退出登录（danger 色，空图标槽位保持文字对齐）
+- **路由保留公开可直达**：`/archive` 为公开 SSG 页无需登录；`/favorites` 基于 localStorage，匿名访问有空态提示 + 返回首页链接——两页现有降级逻辑已合理，未改动。
+- **横滑兜底评估**：8 项减为 6 项后真 390px 实测内容约 385px 已不溢出；`overflow-x:auto` 机制保留作 ≤375px 窄屏/系统大字体的零成本兜底，右端渐隐 mask 维持移除状态（补记 12）。
+- 清理死样式：`.nav .fav-link` 系列（含移动端 media query 内的引用）随 FavLinkWithBadge 一并移除。
+
+**改动文件**：`components/page-shell.tsx`（Header 减项、AuthSlot 菜单加 📥归档/⭐关注 + 分组分隔线、FavLinkWithBadge → FavBadge）、`app/globals.css`（nav-auth-item 改 flex 行、新增 nav-auth-ico/nav-auth-divider、fav-badge 解绑 fav-link、清理死样式）。
+
+**验证**：本地 dev 真 390px（iframe 法）+ 1440px 首页 header 匿名态截图确认单行无溢出；构建通过（/archive、/favorites 保持静态路由）。已知限制：本地无 Supabase env，头像菜单展开态（含新两项 + 徽章 + 分组排版）只能线上真实账号验证。
