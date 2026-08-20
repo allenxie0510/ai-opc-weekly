@@ -92,7 +92,7 @@ export async function GET(request: Request) {
   // 机会草稿（重构 P1：opportunities 表，AI 产出草稿，人工拍板 Recommendation 后发布）
   const { data: opportunityDrafts, error: oErr } = await supabase
     .from('opportunities')
-    .select('id, slug, title, thesis, category, score_total, evidence_grade, recommendation, editor_conviction, editor_take, evidence, created_at')
+    .select('id, slug, title, thesis, category, score_total, evidence_grade, recommendation, editor_conviction, editor_take, evidence, cover_url, created_at')
     .eq('status', 'draft')
     .order('created_at', { ascending: false });
   if (oErr) return Response.json({ error: oErr.message }, { status: 500 });
@@ -100,7 +100,7 @@ export async function GET(request: Request) {
   // 已发布机会（供在线编辑/下架/推荐位管理）
   const { data: opportunityPublished, error: opErr } = await supabase
     .from('opportunities')
-    .select('id, slug, title, thesis, category, score_total, evidence_grade, recommendation, editor_conviction, editor_take, evidence, featured, published_at')
+    .select('id, slug, title, thesis, category, score_total, evidence_grade, recommendation, editor_conviction, editor_take, evidence, featured, cover_url, published_at')
     .eq('status', 'published')
     .order('published_at', { ascending: false })
     .limit(50);
