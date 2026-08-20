@@ -215,3 +215,28 @@ where h.opportunity_id = o.id and h.source = 'initial';
 - 日志充分性：封面链路原有日志已能定位到步骤级（og 未命中/GLM 429/留空），本次只补了模型名维度，未新增日志点。
 
 **验证**：回填运行 32327537004 成功，封面 `covers/opp-local-ai-development-tools.png`（PHOTO 路线：悬浮发光立方体工作站），线上详情页/列表已显示。
+
+
+---
+
+### 补记 6（2026-05-11，属封面管线 / 二）：封面风格统一为「编辑插画 · 概念隐喻风」，PHOTO 路线下线
+
+**起因**：用户挑选 8 张理想封面参考图，风格共性非常鲜明——颗粒/点画纹理、哑光印刷纸感、有限配色（浅底 + 藏蓝主形 + 单一暖橙/金色点缀）、大量留白、单一视觉焦点、以尺度对比（小人物 vs 巨大之物）叙事 AI 与个体的关系。用户裁定新风格方向：**「编辑插画 · 概念隐喻风」**，旧封面里 Seedream 生成的 4 张全部重生成（9 张文章 og 原图不动）。
+
+**风格模板（生成 prompt 固定前缀，一字未改的定稿版）**：
+
+```
+Editorial magazine illustration, conceptual metaphor. ${scene}. Flat shapes with visible grainy stipple texture, printed-paper matte feel. Limited palette: light off-white or soft pastel background, navy-blue dominant shapes, exactly one warm accent (burnt orange or golden yellow). Generous negative space, single clear focal point. No text, no letters, no numbers, no logos, no watermarks anywhere in the image.
+```
+
+**双层 prompt 分工（沿用补记 4 的架构）**：
+- **场景层（GLM）**：续期时从标题/主题/SKILLS 提炼一个概念隐喻场景。本次改动：去掉「PHOTO / ILLUSTRATION 二选一」的路线决策（`deriveScene` 不再返回 route），只生成场景句；新增明确引导「当内容涉及 AI 与个人/小团队的关系时，优先考虑尺度对比叙事（小人物 vs 巨大之物）」；保留 blank/unmarked surface 无文字约束与中文不进 prompt 的既有规则。
+- **风格层（模板）**：上面的固定英文前缀包住场景句。
+
+**改动**：`scripts/lib/cover.mjs`（`buildCoverPrompt(scene)` 换签名换模板、`deriveScene` 去路线、GLM rules 更新；`size`/`quality` 入参成为历史遗留静默忽略）。调用方只有 generateOpportunityCover，无需同步改。构建零错误通过；代码推送 beta `64712c5` / main `220c7f5`。
+
+**批量重生成**：backfill-covers `clear=<4 个 slug>` 触发，同名 upsert 覆盖，无孤儿文件。**过程中发现模板措辞坑（重要教训）**：模板开头的 "Editorial magazine illustration" 会被 Seedream 字面理解为「杂志版面」，实测约 40-50% 概率在画面里渲染假刊头/乱码段落文字（6 次生成 3 次崩坏，模板尾部的 "No text" 约束不足以压制）。4 张封面历经三轮重掷才全部干净（autonomous 崩 2 次、workflow 崩 1 次）。**对策现状**：靠重掷（admin 后台「重生成封面」按钮可自助）；**待用户定夺的优化**：把模板开头改为 "Editorial-style conceptual illustration" 之类不带 "magazine" 字样的措辞预计可显著降低崩坏率，但模板是用户冻结的「一字不改」，故本次未动。
+
+**ISR 注意**：backfill 的 clear→置 NULL→再生成约 2 分钟窗口内，若恰逢列表页 ISR 渲染，会缓存程序化兜底态封面；属自愈现象（≤5 分钟自动恢复），验证线上封面时遇兜底态应先等 ISR 过期重截再下结论。
+
+**验证**：4 张新封面逐张目检干净（无文字崩坏），线上列表页 + 首页 headless Chrome 截图确认全部正确显示，9 张 og 原图不受影响。
