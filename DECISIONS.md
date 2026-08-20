@@ -292,3 +292,24 @@ Editorial-style conceptual illustration. ${scene}. Flat shapes with visible grai
 - 崩坏率：本轮 4 次生成 0 崩坏（样本小，但对比一版 ~50%、二版 1/5 已是显著改善）；GLM 429 兜底链仍按设计工作（1 条走 glm-4.5-flash）。
 
 **改动**：`scripts/lib/cover.mjs`（buildCoverPrompt 模板逐字替换 + deriveScene rules/bare 对齐）。构建通过；beta `a202365` / main `d27340d`。**验证**：4 张逐张目检 + 线上列表页/首页截图确认（本次 ISR 窗口未命中兜底态，一次截图即确认）。
+
+
+---
+
+### 补记 9（2026-08-20，属封面管线 / 五）：风格模板四次修订（用户亲定）——背景固定单色、渐变限定主体元素
+
+**起因**：三次修订实测发现渐变条款漏到背景上（多张封面背景呈双色渐变），用户亲定四次修订收口：①背景固定单色（Monochrome background）；②配色池只管强调色（medium-blue / off-white / soft peach / pale blue / pale green 随机 1-2 个）；③双色渐变限定在主体元素内（"within the subject elements" 为用户确认过的微调落点限定）。
+
+**新模板全文（用户亲定，逐字实施）**：
+
+```
+Editorial-style conceptual illustration. ${scene}. Flat shapes with visible grainy stipple texture, printed-paper matte feel. a dominant color chosen to fit the scene's mood, varying across images; Monochrome background; randomly select 1-2 Accent colors(medium-blue , off-white, soft peach, pale blue or pale green), subtle two-color gradients allowed within the subject elements for depth. Generous negative space, single clear focal point. No chinese text, no logos, no watermarks anywhere in the image.
+```
+
+**实测效果（4 张重生成，5 次生成 1 次崩坏）**：
+- **背景单色验收**：4 张最终版全部通过（纯黑 / 米白 / 桃粉 / 深蓝各一）。首轮 development-tools 背景仍为蓝→桃渐变、且显示器渲染出清晰 Apple logo（违反 no logos），重掷 1 次后干净（桃粉单色底 + 渐变限定在 AI 球体内）。**教训：渐变漏背景的概率显著下降但仍存在；logo 是新观察到的崩坏类型（真实品牌 logo 渲染），重掷可解。**
+- **文字政策**：英文单词自然融入且无拼写错误（AI Agent / Local AI / Privacy + Local + AUTOMATION / AI），无中文乱码、无假刊头。
+- **配色分布**：4 张主色/背景组合全不同（黑底+蓝绿渐变主体 / 米白底+蓝脑+彩纸 / 桃粉底+蓝绿窗格 / 深蓝底+金文件夹），多样性保持。
+- 崩坏率本轮 1/5（20%），介于二版与三版之间；GLM 429 兜底链正常工作（2 条走 glm-4.5-flash）。
+
+**改动**：`scripts/lib/cover.mjs`（仅 buildCoverPrompt 模板逐字替换，GLM 场景层不变）。构建通过；beta `8fb910c` / main `eb068ff`。**验证**：4 张逐张目检（1 张重掷）+ 线上列表页/首页截图确认。
