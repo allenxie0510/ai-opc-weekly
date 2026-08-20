@@ -3,8 +3,9 @@
  *
  * Track 1 原图优先：evidence[].source_url 网页的 og:image → 下载转存 covers 桶
  *   （真实感最强、零 AI 感；文件名 opp-<slug>-og.<ext>）
- * Track 2 生成兜底：GLM 从内容主题自行提炼视觉隐喻（英文，标注 PHOTO/ILLUSTRATION 路线）
- *   → 套对应风格模板 → Seedream 4.5 出图 → 下载字节 → 上传 covers 桶 → 公共 URL
+ * Track 2 生成兜底：GLM 从内容主题自行提炼视觉隐喻（英文场景）
+ *   → 嵌入统一插画风格模板（2026-08-20 定稿，PHOTO 路线已下线）→ Seedream 4.5 出图
+ *   → 下载字节 → 上传 covers 桶 → 公共 URL
  *   prompt 不提供任何具体元素参考，规则删减到最少、保留核心，给大模型泛化空间；
  *   GLM 彻底失败 → cover_url 留 null（宁缺毋滥，没有任何兜底图）
  *
@@ -40,18 +41,19 @@ const BUCKET = 'covers';
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 /**
- * Stage 4a: 用 GLM 从机会内容提炼视觉隐喻场景（英文输出 + 路线标注）。
- * 核心原则：LLM 从内容主题自己提炼隐喻，规则精简（用户最终定稿版：
- * 无任何内容禁令，AI 行业元素如界面/芯片/全息均允许；唯一质检项 =
- * 不出现崩坏文字，靠 blank, unmarked 约束保障），给大模型泛化空间。
- * 输出格式：首词 `PHOTO:` 或 `ILLUSTRATION:` + 1-2 句英文场景。
+ * Stage 4a: 用 GLM 从机会内容提炼视觉隐喻场景（英文输出）。
+ * 2026-08-20 风格改版：全站封面统一为「编辑插画 · 概念隐喻风」（8 张参考图提炼
+ * 的 DNA：颗粒纹理/有限配色/尺度对比/留白隐喻），**PHOTO 摄影路线已下线**，
+ * 场景层不再做 PHOTO/ILLUSTRATION 二选一，统一由插画风格模板包裹。
+ * 核心原则不变：LLM 从内容主题自己提炼隐喻，规则精简，给大模型泛化空间。
  *
- * 返回 { route: 'PHOTO'|'ILLUSTRATION', scene: string }；彻底失败返回 null
+ * 返回场景描述 string；彻底失败返回 null
  * （调用方按宁缺毋滥原则 cover_url 留空，没有任何兜底图）。
  *
  * 根因修复记录：glm-4.7-flash 默认开启 thinking，max_tokens=120 会被 reasoning
  * 烧光导致 content 为空（finish_reason=length）。修法：thinking 显式 disabled +
  * max_tokens 提到 800 + 空内容时 log 原始响应 + 解析失败做一次裸重试。
+ * 2026-08-20：GLM 调用改模型链 glm-4.7-flash → glm-4.5-flash（429 拥挤兜底）。
  */
 async function deriveScene(zk, { title, thesis, category }) {
   const brief = [
@@ -63,18 +65,15 @@ async function deriveScene(zk, { title, thesis, category }) {
     `你是AI相关创业资讯网站视觉主编。根据下面的创业机会情报内容，构思一个封面视觉隐喻(生图prompt)。`,
     `规则：`,
     `从这个机会的核心主题/张力出发，构想一个封面视觉画面描述，要让人看到图能联想到这条机会的具体论点；`,
+    `当内容涉及 AI 与个人/小团队的关系时，优先考虑尺度对比叙事（小人物 vs 巨大之物）；`,
     ``,
-    `两种视觉路线二选一，选更贴合内容的：`,
-    `a. PHOTO = 偏写实摄影`,
-    `b. ILLUSTRATION = 扁平商业插画：体现主题的设计元素、网格/节点/趋势线/雷达弧/仪表盘式构图、哑光配色；`,
-    `隐喻要让人联想到商业的高效与品质感，视觉主体表面必须完全空白无标记（blank, unmarked）——不要蚀刻、印刷、标签、品牌字样、刻度，任何文字或类文字纹理都不能出现在画面里；`,
-    // 工程性补充（已向用户声明）：代码解析路线的必要依据
-    `只输出场景描述本身：首词写 PHOTO: 或 ILLUSTRATION: 标注路线，然后 1-2 句英文场景描述。不要任何解释、前缀、引号或换行。`,
+    `画面将以扁平编辑插画风格呈现，隐喻要让人联想到商业的高效与品质感，视觉主体表面必须完全空白无标记（blank, unmarked）——不要蚀刻、印刷、标签、品牌字样、刻度，任何文字或类文字纹理都不能出现在画面里；`,
+    `只输出场景描述本身：1-2 句英文场景描述。不要任何解释、前缀、引号或换行。`,
     ``,
     brief,
   ].join('\n');
   const bare = [
-    `根据下面的创业机会情报，用 1-2 句英文描述一个能隐喻其核心理念的封面画面（写实摄影或极简几何构图均可），视觉主体表面完全空白无标记（blank, unmarked）。只输出英文场景描述本身，不要解释。`,
+    `根据下面的创业机会情报，用 1-2 句英文描述一个能隐喻其核心理念的封面画面（扁平编辑插画、极简几何构图），视觉主体表面完全空白无标记（blank, unmarked）。只输出英文场景描述本身，不要解释。`,
     ``,
     brief,
   ].join('\n');
@@ -114,20 +113,15 @@ async function deriveScene(zk, { title, thesis, category }) {
     const model = GLM_MODELS[mi];
     let congestedOut = false;
 
-    // 主流程：带格式要求的调用（429 重试 2 次）→ 解析路线前缀
+    // 主流程：带规则的调用（429 重试 2 次）
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
         const out = await callOnce(rules, '场景提炼', model);
-        if (out) {
-          const m = out.match(/^(PHOTO|ILLUSTRATION)\s*[:：]\s*(.+)$/i);
-          if (m && m[2].length >= 10) {
-            if (mi > 0) console.log(`   ℹ️ 兜底模型 ${model} 场景提炼成功`);
-            return { route: m[1].toUpperCase(), scene: m[2].trim() };
-          }
-          console.log(`   ⚠️ 场景提炼输出无路线标注，裸重试: ${out.slice(0, 60)}`);
-          break; // 有内容但格式不符 → 走裸重试
+        if (out && out.length >= 10) {
+          if (mi > 0) console.log(`   ℹ️ 兜底模型 ${model} 场景提炼成功`);
+          return out;
         }
-        // 空内容：不重试同 prompt（大概率同样空），直接裸重试
+        // 空内容/过短：不重试同 prompt（大概率同样空），直接裸重试
         break;
       } catch (e) {
         if (e.congested && attempt < 2) {
@@ -148,13 +142,12 @@ async function deriveScene(zk, { title, thesis, category }) {
       continue;
     }
 
-    // 裸重试：无格式要求，拿到内容后按关键词推断路线（默认 PHOTO）
+    // 裸重试：更简洁的 prompt 再试一次
     try {
       const out = await callOnce(bare, '场景提炼(裸重试)', model);
       if (out && out.length >= 10) {
-        const route = /illustration|geometric|flat|diagram|grid/i.test(out) ? 'ILLUSTRATION' : 'PHOTO';
-        console.log(`   ℹ️ 裸重试成功（${model}，推断路线 ${route}）`);
-        return { route, scene: out.replace(/^(PHOTO|ILLUSTRATION)\s*[:：]\s*/i, '') };
+        console.log(`   ℹ️ 裸重试成功（${model}）`);
+        return out;
       }
     } catch (e) {
       console.log(`   ⚠️ 裸重试失败: ${e.message.slice(0, 70)}`);
@@ -169,15 +162,13 @@ async function deriveScene(zk, { title, thesis, category }) {
 }
 
 /**
- * 生成 prompt 组装：纯正向定义（风格框架 + deriveScene 场景），不用负向约束。
- * 共同基调：modern, minimal, premium business aesthetic——简洁、现代、高效、品质感
- * （商业编辑质感 + 数据信号感 + AI 未来感，Linear/Stripe/Every 配图气质）。
- * 中文原文绝不进生图 prompt。
+ * 生成 prompt 组装：场景（deriveScene）嵌入统一风格模板。
+ * 2026-08-20 风格改版（用户审定，一字不改）：编辑插画 · 概念隐喻风——
+ * 颗粒点纹质感、印刷哑光、有限配色（navy-blue 主色 + 唯一暖强调色）、
+ * 大留白、单一视觉焦点、全图禁文字。PHOTO 摄影路线已下线，全站统一此模板。
  */
-export function buildCoverPrompt({ route, scene }) {
-  return route === 'ILLUSTRATION'
-    ? `modern business illustration. ${scene}. Flat geometric shapes, clean grid, generous negative space, premium fintech-editorial quality. All surfaces are blank and unmarked.`
-    : `Modern editorial photograph, premium commercial editorial quality. ${scene}. Clean seamless light-grey or off-white studio background, contemporary design objects with sleek matte or brushed finishes, subtle film grain. Color palette: warm white, light grey, deep ink, one burnt-orange accent. All surfaces are blank and unmarked.`;
+export function buildCoverPrompt(scene) {
+  return `Editorial magazine illustration, conceptual metaphor. ${scene}. Flat shapes with visible grainy stipple texture, printed-paper matte feel. Limited palette: light off-white or soft pastel background, navy-blue dominant shapes, exactly one warm accent (burnt orange or golden yellow). Generous negative space, single clear focal point. No text, no letters, no numbers, no logos, no watermarks anywhere in the image.`;
 }
 
 /**
@@ -355,13 +346,13 @@ export async function generateOpportunityCover(opp, opts = {}) {
       console.log('   ⚠️ 缺少 ZHIPU_API_KEY，无法提炼场景（cover_url 留空）');
       return '';
     }
-    const derived = await deriveScene(zk, opp);
-    if (!derived) {
+    const scene = await deriveScene(zk, opp);
+    if (!scene) {
       console.log('   ⬜ GLM 场景提炼彻底失败——宁缺毋滥，cover_url 留空（前端渐变兜底）');
       return '';
     }
-    console.log(`   💡 场景隐喻（${derived.route}）: ${derived.scene.slice(0, 80)}`);
-    const prompt = buildCoverPrompt(derived);
+    console.log(`   💡 场景隐喻（插画）: ${scene.slice(0, 80)}`);
+    const prompt = buildCoverPrompt(scene);
     const tmpUrl = await seedreamGenerate(arkKey, prompt);
     const { bytes } = await downloadImage(tmpUrl);
     const filename = `opp-${name}.png`;
