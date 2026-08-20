@@ -337,3 +337,17 @@ Editorial-style conceptual illustration. ${scene}. Flat shapes with visible grai
 **不回填旧数据**：旧条目重分类需逐条过 GLM，成本不低且历史分布不影响新条目质量，故不动；新分布从下一次雷达生成（每日 07:00）开始生效。
 
 **验证**：构建通过（Record<string,...> 映射不受新增枚举影响）。
+
+---
+
+### 补记 11（2026-08-20，属设计系统）：移动端导航挤压换行——方案 A（单行可横滑）
+
+**现象**：用户在手机端反馈头部导航换行。真 390px 实测（见下）确认：nav-inner 为 flex 不定宽不 nowrap，8 个导航元素（logo + | + 机会/方向/雷达/X + 归档/关注）总宽 ~470px 超出 390px，被 flex-shrink 挤压——logo 断成两行、双字标签竖排、点击区塌小。
+
+**诊断方法（重要，纠正补记 3 的结论）**：macOS headless Chrome 最小窗口宽 500px 的限制在 `--headless=new` 下依然存在，`--force-device-scale-factor=2` 也无效（innerWidth 实测仍 500）。**可靠做法：本地 wrapper 页套 390px 宽 iframe 指向目标页，再截 wrapper**——iframe 内是真实 390px 布局，无裁切假象。
+
+**方案选择**：A（单行横向滚动）优于 B（汉堡收起次要项）——全部项仅 8 个短词、紧凑化后 390px 恰好放下，横滑只作为更窄屏/系统大字体用户的兜底；不引入 JS 交互复杂度。归档/关注不收起，保持全可达。
+
+**实施**（globals.css `@media (max-width: 768px)`）：nav-inner `flex-wrap:nowrap + overflow-x:auto + 隐藏滚动条 + -webkit-overflow-scrolling:touch + 右端 28px 渐隐 mask`；所有链接 `white-space:nowrap + flex-shrink:0`；紧凑化（x-link 15px/padding 10px 6px，次要项 13px/10px 10px，纵向 padding 加大兼顾点击区）；`.nav-links { margin-left:auto }` 保持放得下时右对齐。
+
+**附带检查**：首页/机会列表/机会详情/雷达/X 五页 390px 正文均无横向溢出、无贴边，未发现其他需修的移动端问题。附带发现：中文路径下 `next dev`（Turbopack）因非 ASCII 路径 char-boundary bug 起不来，本地开发需复制到 ASCII 路径（/tmp/p-dev）。
