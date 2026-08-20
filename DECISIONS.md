@@ -219,7 +219,7 @@ where h.opportunity_id = o.id and h.source = 'initial';
 
 ---
 
-### 补记 6（2026-05-11，属封面管线 / 二）：封面风格统一为「编辑插画 · 概念隐喻风」，PHOTO 路线下线
+### 补记 6（2026-08-20，属封面管线 / 二）：封面风格统一为「编辑插画 · 概念隐喻风」，PHOTO 路线下线
 
 **起因**：用户挑选 8 张理想封面参考图，风格共性非常鲜明——颗粒/点画纹理、哑光印刷纸感、有限配色（浅底 + 藏蓝主形 + 单一暖橙/金色点缀）、大量留白、单一视觉焦点、以尺度对比（小人物 vs 巨大之物）叙事 AI 与个体的关系。用户裁定新风格方向：**「编辑插画 · 概念隐喻风」**，旧封面里 Seedream 生成的 4 张全部重生成（9 张文章 og 原图不动）。
 
@@ -240,3 +240,29 @@ Editorial magazine illustration, conceptual metaphor. ${scene}. Flat shapes with
 **ISR 注意**：backfill 的 clear→置 NULL→再生成约 2 分钟窗口内，若恰逢列表页 ISR 渲染，会缓存程序化兜底态封面；属自愈现象（≤5 分钟自动恢复），验证线上封面时遇兜底态应先等 ISR 过期重截再下结论。
 
 **验证**：4 张新封面逐张目检干净（无文字崩坏），线上列表页 + 首页 headless Chrome 截图确认全部正确显示，9 张 og 原图不受影响。
+
+
+---
+
+### 补记 7（2026-08-20，属封面管线 / 三）：风格模板二次修订——去 magazine 措辞、配色放开、小人物不再硬性植入
+
+**起因**：补记 6 模板实测暴露三个问题，用户批准三点修订：
+1. **"Editorial magazine illustration" 开头被 Seedream 字面渲染成假刊头/乱码**（实测崩坏率 ~50%，6 次生成 3 次崩）→ 改为 "Editorial-style conceptual illustration"。
+2. **藏青太深、暖强调色总是橙色** → 配色放开为 2-4 柔和色（米白/桃粉/浅蓝/浅绿底 + 中蓝主形（非深藏青）+ 每图可变暖强调色（burnt orange / golden yellow / coral / warm pink）），允许双色渐变。
+3. **GLM 尺度对比引导执行太死，张张都有小人** → 场景层改为「隐喻优先从内容具体张力出发自由发挥：人物场景/静物/抽象构图/空间关系均可，不要默认植入人物；仅当"个体 vs 巨大之力"的尺度对比真正契合论点时才使用」。
+
+**新模板全文（定稿）**：
+
+```
+Editorial-style conceptual illustration. ${scene}. Flat shapes with visible grainy stipple texture, printed-paper matte feel. Limited palette of 2-4 soft colors: light background (off-white, soft peach, pale blue or pale green), medium-blue dominant shapes (not dark navy), one warm accent that varies per image (burnt orange, golden yellow, coral or warm pink); subtle two-color gradients allowed for depth. Generous negative space, single clear focal point. No text, no letters, no numbers, no logos, no watermarks anywhere in the image.
+```
+
+**改动**：`scripts/lib/cover.mjs`（buildCoverPrompt 模板 + deriveScene rules 一条替换，其余规则不变：blank/unmarked、无文字、只输出 1-2 句英文、双模型链）。构建通过；beta `b0878f6` / main `a419205`。
+
+**实测效果（4 张全部重生成验证）**：
+- **magazine 崩坏修复确认**：5 次生成（4+1 重掷）无一例假刊头/杂志版面；但有 1 例新型崩坏——GLM 场景句自带 "AI processing core" 导致 Seedream 在芯片上渲染发光 "AI" 字母（文字禁令被场景层内容击穿），重掷 1 次后干净。教训：**文字崩坏风险不仅来自风格模板措辞，也来自 GLM 场景句里的 "AI" 字样**——后续若崩坏率仍高，可考虑在场景层 rules 加「场景描述中不要出现 AI 字样」。
+- **配色分布**：4 张均为米白/浅蓝底 + 中蓝主形 + 橙/桃暖强调，其中 1 张出现彩虹渐变光束（双色渐变条款生效）；不再全是深青+橙。
+- **人物出现情况**：4 张场景全部为静物/抽象构图（棱镜折射、悬浮界面+发光核心、透明服务器机架、服务器+网络连线），无一硬性植入小人——去硬性引导生效。
+- GLM 场景提炼本轮 429 频发（4 条里 3 条走 glm-4.5-flash 兜底模型），双模型链按设计工作。
+
+**验证**：4 张逐张目检干净（1 张局部放大复核）；线上列表页 + 首页截图确认 4 张新封面全部正确显示（列表页曾命中 ISR 缓存兜底态，~5 分钟自愈后重截确认）。
