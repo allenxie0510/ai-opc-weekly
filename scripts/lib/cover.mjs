@@ -173,10 +173,13 @@ async function deriveScene(zk, { title, thesis, category }) {
  * ① 背景固定单色（Monochrome background）——上轮渐变漏到背景上，本轮收口；
  * ② 配色池只管强调色（medium-blue / off-white / soft peach / pale blue / pale green
  *   随机 1-2 个）；③ 双色渐变限定在主体元素内（within the subject elements）。
+ * 2026-08-20 渐变子句加强（用户批准，仅改代码不重生成现有封面）：
+ *   "subtle two-color gradients allowed within the subject elements for depth"
+ *   → "gradients ONLY on the subject, background stays flat solid color"。
  * 不变项：颗粒点纹质感、印刷哑光、大留白、单一视觉焦点、文字政策（只禁中文/标志/水印）。
  */
 export function buildCoverPrompt(scene) {
-  return `Editorial-style conceptual illustration. ${scene}. Flat shapes with visible grainy stipple texture, printed-paper matte feel. a dominant color chosen to fit the scene's mood, varying across images; Monochrome background; randomly select 1-2 Accent colors(medium-blue , off-white, soft peach, pale blue or pale green), subtle two-color gradients allowed within the subject elements for depth. Generous negative space, single clear focal point. No chinese text, no logos, no watermarks anywhere in the image.`;
+  return `Editorial-style conceptual illustration. ${scene}. Flat shapes with visible grainy stipple texture, printed-paper matte feel. a dominant color chosen to fit the scene's mood, varying across images; Monochrome background; randomly select 1-2 Accent colors(medium-blue , off-white, soft peach, pale blue or pale green), gradients ONLY on the subject, background stays flat solid color. Generous negative space, single clear focal point. No chinese text, no logos, no watermarks anywhere in the image.`;
 }
 
 /**

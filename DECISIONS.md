@@ -313,3 +313,5 @@ Editorial-style conceptual illustration. ${scene}. Flat shapes with visible grai
 - 崩坏率本轮 1/5（20%），介于二版与三版之间；GLM 429 兜底链正常工作（2 条走 glm-4.5-flash）。
 
 **改动**：`scripts/lib/cover.mjs`（仅 buildCoverPrompt 模板逐字替换，GLM 场景层不变）。构建通过；beta `8fb910c` / main `eb068ff`。**验证**：4 张逐张目检（1 张重掷）+ 线上列表页/首页截图确认。
+
+**补记 9 追加（2026-08-20）**：渐变子句按用户批准改为 `gradients ONLY on the subject, background stays flat solid color`（替换 "subtle two-color gradients allowed within the subject elements for depth"），仅改代码、不重生成现有封面，下次新生成时启用。
