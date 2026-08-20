@@ -315,3 +315,25 @@ Editorial-style conceptual illustration. ${scene}. Flat shapes with visible grai
 **改动**：`scripts/lib/cover.mjs`（仅 buildCoverPrompt 模板逐字替换，GLM 场景层不变）。构建通过；beta `8fb910c` / main `eb068ff`。**验证**：4 张逐张目检（1 张重掷）+ 线上列表页/首页截图确认。
 
 **补记 9 追加（2026-08-20）**：渐变子句按用户批准改为 `gradients ONLY on the subject, background stays flat solid color`（替换 "subtle two-color gradients allowed within the subject elements for depth"），仅改代码、不重生成现有封面，下次新生成时启用。
+
+
+---
+
+### 补记 10（2026-08-20，属雷达管线）：小而美桶偏大根因——无边界桶定义 + 兜底倒最大桶；新增「其他」桶
+
+**观察项**：雷达分类疑似兜底逻辑把过多条目倒进「小而美」（indie-tool）桶。
+
+**实测分布**（/radar 页 = 近 14 天 published，共 27 条，按卡片级精确计数）：小而美 11（40.7%）/ 微SaaS 8（29.6%）/ 内容变现 3 / 自动化 2 / 虚拟产品 2 / 设计资产 1。小而美确为最大桶且占比异常。
+
+**根因（双因叠加）**：
+1. **桶定义零边界**：分类 prompt 只给 slug 列表（`必须是以下之一: micro-saas / ...`），无任何定义与例子。indie-tool 语义上是「独立开发者工具」万金油——与站点主题（独立开发者 AI 工具）天然重合度最高，GLM 无边界指引时默认往最宽泛的桶塞。
+2. **兜底倒进最大桶**：`category: String(it.category || 'indie-tool')`——GLM 缺字段时直接落入小而美；且 category **无白名单校验**（同函数里 signal_type 有 includes 校验 → 'product'，category 没有，属于不对称疏漏）。实测窗口内未发现非法值（27 卡标签全命中），说明主因是 prompt 侧倾向，兜底是放大器。
+
+**修复**：
+- `scripts/generate-radar.mjs`：prompt 补 7 桶定义（每桶一句边界 + 1-2 个例子），明确 indie-tool 「仅当前四类都不沾边时使用，不要把所有工具都归这里」；新增 `other`（其他/无法判断）桶；写入侧改白名单校验，缺失/非法值 → `'other'`，不再兜底 indie-tool。
+- `lib/types.ts`：Category 联合类型 + CATEGORY_MAP 加 `'other': { label: '其他', cssClass: 'cat-other' }`；`app/globals.css` 共享 pill 选择器加 cat-other；admin 编辑链路（edit route 白名单 + admin-edit 下拉）同步加 other。
+- **机会管线（generate-opportunities.mjs）存在同款兜底**（VALID_CATEGORIES includes → 'indie-tool'，两处），本次未动——机会条目量小且有人工 review 环节，如后续观察机会分类也失衡再同样处理。
+
+**不回填旧数据**：旧条目重分类需逐条过 GLM，成本不低且历史分布不影响新条目质量，故不动；新分布从下一次雷达生成（每日 07:00）开始生效。
+
+**验证**：构建通过（Record<string,...> 映射不受新增枚举影响）。

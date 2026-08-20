@@ -28,6 +28,7 @@ const CATEGORY_OPTIONS = [
   'content-monetize',
   'indie-tool',
   'digital-product',
+  'other',
 ];
 
 const FIELD_DEFS: Record<string, FieldDef[]> = {

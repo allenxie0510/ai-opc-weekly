@@ -36,7 +36,7 @@ export interface NewsItem {
   claim_quote?: string;
 }
 
-export type Category = 'micro-saas' | 'design-assets' | 'automation' | 'content-monetize' | 'indie-tool' | 'digital-product';
+export type Category = 'micro-saas' | 'design-assets' | 'automation' | 'content-monetize' | 'indie-tool' | 'digital-product' | 'other';
 
 // X 推文相关
 export interface TwitterAccount {
@@ -69,6 +69,7 @@ export const CATEGORY_MAP: Record<Category, { label: string; cssClass: string }>
   'content-monetize': { label: '内容变现', cssClass: 'cat-content' },
   'indie-tool': { label: '小而美', cssClass: 'cat-tool' },
   'digital-product': { label: '虚拟产品', cssClass: 'cat-digital' },
+  'other': { label: '其他', cssClass: 'cat-other' },
 };
 
 // OPC Radar · 一人雷达

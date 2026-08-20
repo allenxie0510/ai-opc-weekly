@@ -261,10 +261,19 @@ ${styleBlock}
       "editor_note": "50–100字编辑点评，第一人称（我/我看），有明确立场，不中立和稀泥${samples.length > 0 ? '，口吻严格对齐上方样本' : ''}",
       "pick_reason": "收录理由标签，如：已验证收入 / 单人可复现 / 政策风向标 / 新工具红利 / 模式可迁移",
       "signal_type": "必须是以下之一: product（新产品/功能）/ launch（发布上线）/ funding（融资）/ m-and-a（收购并购）/ model（模型或API变化）/ policy（政策监管）/ metric（收入或增长数据披露）",
-      "category": "必须是以下之一: micro-saas / design-assets / automation / content-monetize / indie-tool / digital-product"
+      "category": "必须是以下之一: micro-saas / design-assets / automation / content-monetize / indie-tool / digital-product / other"
     }
   ]
 }
+
+分类桶定义（严格按边界归类；拿不准一律归 other，不要硬塞进相近桶）：
+- micro-saas：订阅制微型软件服务。例：按月收费的 AI 写作工具、垂直行业小 SaaS
+- design-assets：可售卖的设计素材/模板/字体/图标。例：UI 套件、图标包
+- automation：工作流自动化与集成编排。例：Zapier 类工具、自动报表机器人
+- content-monetize：内容创作与变现。例：付费 newsletter、在线课程、自媒体工具
+- indie-tool：不属于以上四类的独立开发者小工具——仅在前四类都不沾边时使用，不要把所有"工具"都归这里
+- digital-product：虚拟/数字商品。例：Notion 模板、电子书、提示词包
+- other：以上六类都不是，或素材信息不足以判断
 
 要求：
 - items 恰好 5–10 条；不符合筛选标准的素材直接忽略，不输出、不解释（弃选即舍弃）
@@ -287,7 +296,9 @@ ${styleBlock}
     score: Math.max(0, Math.min(100, parseInt(it.score, 10) || 0)),
     editor_note: String(it.editor_note || '').slice(0, 500),
     pick_reason: String(it.pick_reason || '').slice(0, 100),
-    category: String(it.category || 'indie-tool'),
+    // 分类白名单校验（与 signal_type 同款）：缺失/不在桶列表 → 'other'（其他），
+    // 不再兜底 indie-tool（小而美）——根因修复：兜底倒进最大桶 + 无边界定义导致小而美桶占比 ~40%
+    category: ['micro-saas', 'design-assets', 'automation', 'content-monetize', 'indie-tool', 'digital-product', 'other'].includes(it.category) ? it.category : 'other',
     signal_type: ['product', 'launch', 'funding', 'm-and-a', 'model', 'policy', 'metric'].includes(it.signal_type) ? it.signal_type : 'product',
     source_tier: tierOf(String(it.source_name || '')),
     status: itemStatus,
