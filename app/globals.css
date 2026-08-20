@@ -101,19 +101,12 @@ a { color: inherit; text-decoration: none; }
 }
 .nav-links a:hover { color: var(--color-ink); background: var(--color-surface); }
 .nav-links a.current { color: var(--color-ink); font-weight: 600; }
-.nav .fav-link {
-  position: relative; display: flex; align-items: center; gap: 4px;
-  font-family: var(--font-body); font-size: 14px; font-weight: 500;
-  color: var(--color-steel); text-decoration: none;
-  transition: color 0.2s ease;
-}
-.nav .fav-link:hover { color: var(--color-ink); }
-.nav .fav-badge {
-  display: none; background: var(--color-coral); color: #fff;
+/* 关注计数徽章：AuthSlot 下拉菜单「⭐ 关注」项内使用（flex 行内靠右） */
+.fav-badge {
+  display: inline-flex; background: var(--color-coral); color: #fff;
   font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 9999px;
-  line-height: 1; text-decoration: none;
+  line-height: 1; text-decoration: none; margin-left: auto;
 }
-.nav .fav-link.has-items .fav-badge { display: inline-flex; }
 .nav .nav-sep {
   color: var(--color-hairline); font-size: 14px; user-select: none;
 }
@@ -124,7 +117,8 @@ a { color: inherit; text-decoration: none; }
 }
 .nav .x-link:hover { color: var(--color-ink); background: var(--color-surface); }
 
-/* ── 全局登录态（2026-08-20：从探索页工具栏上移 header，极紧凑） ── */
+/* ── 全局登录态（2026-08-20：从探索页工具栏上移 header，极紧凑；
+   2026-08-21：归档/关注收进头像菜单，图标槽位对齐 + 分隔线分组） ── */
 .nav-auth { position: relative; display: flex; align-items: center; }
 .nav .nav-auth-link {
   font-size: 14px; font-weight: 500; color: var(--color-steel); text-decoration: none;
@@ -144,10 +138,12 @@ a { color: inherit; text-decoration: none; }
 }
 .nav-auth-email { color: var(--color-stone); padding: 4px 8px 8px; word-break: break-all; border-bottom: 1px solid var(--color-hairline-soft); margin-bottom: 4px; }
 .nav-auth-item {
-  display: block; text-align: left; padding: 8px; border-radius: 8px; border: 0; background: none;
+  display: flex; align-items: center; text-align: left; padding: 8px; border-radius: 8px; border: 0; background: none;
   color: var(--color-ink); text-decoration: none; font-size: 13px; cursor: pointer; font-family: var(--font-body);
 }
 .nav-auth-item:hover { background: var(--color-surface); }
+.nav-auth-ico { width: 18px; margin-right: 8px; text-align: center; flex-shrink: 0; }
+.nav-auth-divider { border-top: 1px solid var(--color-hairline-soft); margin: 4px 0; }
 .nav-auth-signout { color: var(--color-danger); }
 
 /* ═══ WEEK PICKER ═══ */
@@ -553,8 +549,9 @@ footer p + p { margin-top: 4px; }
 @media (max-width: 768px) {
   .container { padding: 0 20px; }
   /* 导航：单行不挤压、超出可左右横滑（方案 A，2026-08-20）——
-     真 390px 实测 logo 挤成两行、双字标签竖排；nowrap + flex-shrink:0
-     保住形状，overflow-x:auto 兜底窄屏，右端渐隐提示可滑 */
+     真 390px 实测 logo 挤成两行、双字标签竖排；nowrap + flex-shrink:0 保住形状。
+     2026-08-21：归档/关注收进头像菜单后 390px 已不再溢出，
+     overflow-x:auto 保留作 ≤375px 窄屏兜底（成本为零，不再配右端渐隐 mask） */
   .nav-inner {
     padding: 0 16px;
     flex-wrap: nowrap;
@@ -571,8 +568,7 @@ footer p + p { margin-top: 4px; }
   .nav .nav-sep { flex-shrink: 0; }
   .nav .x-link { font-size: 15px; padding: 10px 6px; flex-shrink: 0; white-space: nowrap; }
   .nav-links { margin-left: auto; flex-shrink: 0; gap: 2px; }
-  .nav-links a, .nav .fav-link, .nav .nav-auth-link { font-size: 13px; padding: 10px 10px; flex-shrink: 0; white-space: nowrap; }
-  .nav .fav-link { padding: 10px 4px; }
+  .nav-links a, .nav .nav-auth-link { font-size: 13px; padding: 10px 10px; flex-shrink: 0; white-space: nowrap; }
   .nav .nav-auth { flex-shrink: 0; }
   .week-picker-btn { font-size: 13px; padding: 4px 10px; }
   .week-picker-menu { min-width: 140px; left: auto; right: 0; transform: none; }

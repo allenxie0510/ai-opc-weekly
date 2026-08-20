@@ -6,7 +6,8 @@ import type { User } from '@supabase/supabase-js';
 import { WeeklyNav } from './weekly-nav';
 import { getSession, onAuthChange, signOut } from '@/modules/explore/lib/auth';
 
-function FavLinkWithBadge() {
+/** 关注数量徽章：读 localStorage，供 AuthSlot 菜单内「⭐ 关注」项使用 */
+function FavBadge() {
   const [count, setCount] = useState(0);
 
   const refresh = () => {
@@ -21,20 +22,18 @@ function FavLinkWithBadge() {
     window.addEventListener('fav-count-change', refresh);
     return () => window.removeEventListener('fav-count-change', refresh);
   }, []);
-  return (
-    <Link href="/favorites" className={`fav-link${count > 0 ? ' has-items' : ''}`}>
-      关注
-      {count > 0 && <span className="fav-badge">{count}</span>}
-    </Link>
-  );
+  return count > 0 ? <span className="fav-badge">{count}</span> : null;
 }
 
 /**
- * 全局登录态（2026-08-20 信息架构调整：从探索页工具栏上移全站 header）。
+ * 全局登录态（2026-08-20 信息架构调整：从探索页工具栏上移全站 header；
+ * 2026-08-21 再调整：归档/关注从 header 一级导航收进本菜单，header 只剩内容主导航 + 登录/头像）。
  * 未登录：紧凑「登录」文字链 → /explore?login=1（ExploreApp 自动开登录弹窗）。
- * 已登录：邮箱首字母圆形头像（28px，极紧凑不撑爆单行横滑 header），
- * 点击展开菜单（邮箱全文 / 我的探索 / 退出登录）。
+ * 已登录：邮箱首字母圆形头像（28px，极紧凑不撑爆单行横滑 header），点击展开菜单：
+ *   邮箱全文 / [内容入口] 我的探索 · 归档 · 关注(带计数徽章) / [账号操作] 退出登录。
  * 菜单用 position:fixed 定位——header 移动端 overflow-x:auto 会裁剪绝对定位下拉。
+ * 图标统一放固定宽度 .nav-auth-ico 槽位保证文字列对齐；/archive、/favorites 路由
+ * 本身公开可直访（favorites 基于 localStorage，匿名有空态提示）。
  */
 function AuthSlot() {
   const [user, setUser] = useState<User | null>(null);
@@ -84,12 +83,22 @@ function AuthSlot() {
       {menuPos && (
         <div className="nav-auth-menu" style={{ top: menuPos.top, right: menuPos.right }}>
           <div className="nav-auth-email">{label}</div>
-          <Link href="/explore" className="nav-auth-item" onClick={() => setMenuPos(null)}>📁 我的探索</Link>
+          <Link href="/explore" className="nav-auth-item" onClick={() => setMenuPos(null)}>
+            <span className="nav-auth-ico" aria-hidden="true">📁</span>我的探索
+          </Link>
+          <Link href="/archive" className="nav-auth-item" onClick={() => setMenuPos(null)}>
+            <span className="nav-auth-ico" aria-hidden="true">📥</span>归档
+          </Link>
+          <Link href="/favorites" className="nav-auth-item" onClick={() => setMenuPos(null)}>
+            <span className="nav-auth-ico" aria-hidden="true">⭐</span>关注
+            <FavBadge />
+          </Link>
+          <div className="nav-auth-divider" role="separator" />
           <button
             className="nav-auth-item nav-auth-signout"
             onClick={async () => { await signOut(); setMenuPos(null); }}
           >
-            退出登录
+            <span className="nav-auth-ico" aria-hidden="true" />退出登录
           </button>
         </div>
       )}
@@ -110,8 +119,6 @@ export function Header() {
           <Link href="/x" className="x-link">X</Link>
         </div>
         <div className="nav-links">
-          <Link href="/archive">归档</Link>
-          <FavLinkWithBadge />
           <AuthSlot />
         </div>
       </div>
