@@ -87,6 +87,17 @@ export function ExploreApp() {
     if (user) setLoginOpen(false);
   }, [user]);
 
+  // 全局 header 的「登录」入口跳转进来时（/explore?login=1）自动打开登录弹窗，
+  // 用 window.location 读取避免 useSearchParams 的 Suspense 要求；打开后清掉参数防刷新复弹
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const q = new URLSearchParams(window.location.search);
+    if (q.get('login') === '1') {
+      setLoginOpen(true);
+      window.history.replaceState(null, '', window.location.pathname);
+    }
+  }, []);
+
   // 登录后拉取会话列表
   useEffect(() => {
     if (user) {
@@ -226,13 +237,7 @@ export function ExploreApp() {
         <button className="xpl-tab" onClick={() => (user ? setSessionsOpen(true) : setLoginOpen(true))}>
           📁 我的探索
         </button>
-        <button className={`xpl-tab ${user ? 'on' : ''}`} onClick={() => setLoginOpen(true)}>
-          {user ? (user.email || user.phone || '已登录') : '🔒 登录'}
-        </button>
-        <button className="xpl-tab" onClick={() => setConfigOpen(true)}>
-          ⚙️ AI 设置
-        </button>
-        <button className="xpl-tab" onClick={resetAll}>
+        <button className="xpl-tab xpl-tab-ghost" onClick={resetAll}>
           清空
         </button>
       </div>
@@ -286,6 +291,7 @@ export function ExploreApp() {
         onLoad={loadSession}
         onDelete={deleteSession}
         onNew={newExploration}
+        onOpenConfig={() => { setSessionsOpen(false); setConfigOpen(true); }}
       />
       <ConfigModal open={configOpen} config={config} onChange={setConfig} onClose={() => setConfigOpen(false)} />
     </div>
