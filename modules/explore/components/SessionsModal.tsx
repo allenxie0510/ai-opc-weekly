@@ -11,6 +11,7 @@ export function SessionsModal({
   onLoad,
   onDelete,
   onNew,
+  onOpenConfig,
 }: {
   open: boolean;
   sessions: ExploreSession[];
@@ -20,6 +21,7 @@ export function SessionsModal({
   onLoad: (s: ExploreSession) => void;
   onDelete: (id: string) => void;
   onNew: () => void;
+  onOpenConfig?: () => void;
 }) {
   const [title, setTitle] = useState('');
 
@@ -48,6 +50,9 @@ export function SessionsModal({
           <div className="xpl-detail-actions" style={{ marginTop: 8 }}>
             <Button small onClick={() => onSave(title)}>💾 保存当前探索</Button>
             <Button small variant="ghost" onClick={onNew}>＋ 新建空白探索</Button>
+            {onOpenConfig && (
+              <Button small variant="ghost" onClick={onOpenConfig}>⚙️ AI 设置</Button>
+            )}
           </div>
         </div>
 

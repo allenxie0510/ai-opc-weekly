@@ -351,3 +351,19 @@ Editorial-style conceptual illustration. ${scene}. Flat shapes with visible grai
 **实施**（globals.css `@media (max-width: 768px)`）：nav-inner `flex-wrap:nowrap + overflow-x:auto + 隐藏滚动条 + -webkit-overflow-scrolling:touch + 右端 28px 渐隐 mask`；所有链接 `white-space:nowrap + flex-shrink:0`；紧凑化（x-link 15px/padding 10px 6px，次要项 13px/10px 10px，纵向 padding 加大兼顾点击区）；`.nav-links { margin-left:auto }` 保持放得下时右对齐。
 
 **附带检查**：首页/机会列表/机会详情/雷达/X 五页 390px 正文均无横向溢出、无贴边，未发现其他需修的移动端问题。附带发现：中文路径下 `next dev`（Turbopack）因非 ASCII 路径 char-boundary bug 起不来，本地开发需复制到 ASCII 路径（/tmp/p-dev）。
+
+---
+
+### 补记 12（2026-08-20，属探索模块 / 信息架构）：登录态上移全局 header，AI 设置入「我的探索」，探索页胶囊防竖断
+
+**起因**：用户手机端体验方向探测器，工具栏 6 颗胶囊（探索引擎/方法论/📁我的探索/邮箱大黑胶囊/⚙️AI设置/清空）在 390px 下挤压——胶囊文字逐字竖排断裂，登录邮箱黑胶囊占工具栏中间挤压其他按钮。
+
+**信息架构决策**：
+- **登录/注册 → 全站 header**（page-shell AuthSlot）：未登录显示紧凑「登录」文字链 → `/explore?login=1`（ExploreApp 用 window.location.search 读取并自动开登录弹窗，避开 useSearchParams 的 Suspense 要求）；已登录显示 28px 邮箱首字母圆形头像，点击展开菜单（邮箱全文 / 我的探索 / 退出登录）。**菜单用 position:fixed 定位**——header 移动端 overflow-x:auto 会裁剪 absolute 下拉。
+- **AI 设置 → 「我的探索」弹窗内**（SessionsModal 加 onOpenConfig 入口，ghost 小按钮），从探索页一级工具栏移除。
+- **清空**：保留功能，降为 ghost 文字钮（无边框低饱和，hover 才显 danger 色）。
+- **探索页胶囊**：`.xpl-tab` white-space:nowrap + flex-shrink:0（单颗内文字绝不竖断），`.xpl-tabs` 改 flex-wrap:wrap（容纳不下时整颗换行）。
+
+**联动调整**：昨日（补记 11）给移动端 nav-inner 加的右端 28px 渐隐 mask 会淡化右边缘的头像/关注按钮，本次移除——滚动提示靠边缘胶囊自然裁切。
+
+**验证**：本地 dev 真 390px（iframe 法）+ 桌面端截图确认；构建通过。已知限制：本地无 Supabase env，登录后头像态无法在本地截图验证，靠线上真实账号确认。
