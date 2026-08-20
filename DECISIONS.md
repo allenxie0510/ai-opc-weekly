@@ -202,3 +202,16 @@ where h.opportunity_id = o.id and h.source = 'initial';
 - 刷新接口错误透明化：每账号 `error`（含各源 HTTP 码）前端可展开查看，不再只有失败计数。
 - 部分失败不触发兜底（成功账号正常写入，失败账号等下一轮 Actions 覆盖）。
 - 遗留：xcancel 白名单申请（邮件 rss@xcancel.com 附 ID）仍建议发，多一个健康源；privacyredirect 的限流敏感意味着它不适合做 Vercel 侧的主源。
+
+### 补记 5（2026-08-20，属封面管线）：GLM 场景提炼无兜底模型 → 429 时段封面必丢
+
+**事件**：新机会「本地AI开发工具」发布无封面（cover_url=null，前端渐变兜底）。
+
+**根因（日志证据）**：生成运行（08-20 02:27 UTC，dispatch 32324681979）中 Track 1「无合格 og:image 原图」→ Track 2 场景提炼 `GLM 429: {"error":{"code":"1305","message":"该模型当前访问量过大"}}` →「GLM 场景提炼彻底失败——宁缺毋滥，cover_url 留空」。同一时段 glm-4.7-flash 全管线拥挤（聚类/Stage2/复评均 429 后切兜底模型），唯独封面链路的 deriveScene **没有兜底模型**（主线 GLM_MODELS=[4.7-flash, 4.5-flash] 的切换逻辑没覆盖到它）。修复后回填运行再次复现：4.7-flash 429 三连 → 切 4.5-flash 一次成功 → Seedream 出图 → 回写。与 Seedream/ARK key/额度/内容审核均无关。
+
+**修复**：
+- `scripts/lib/cover.mjs` deriveScene 改为模型链 `['glm-4.7-flash','glm-4.5-flash']`：主模型 429 三连或裸重试 429 均切兜底，日志带模型名。风格规则/prompt 不变（8-12 定稿保持）。
+- **admin 自助补封面**：`/api/admin/trigger` 新增 `workflow=backfill-covers`（透传 `clear=slug`，格式校验）；admin 机会草稿/已发布行加「🎨 补封面/重生成封面」按钮（dispatch backfill-covers.yml，密钥不出 Actions）；review 接口补 select cover_url。用户遇封面缺失可一键补救，无需找开发。
+- 日志充分性：封面链路原有日志已能定位到步骤级（og 未命中/GLM 429/留空），本次只补了模型名维度，未新增日志点。
+
+**验证**：回填运行 32327537004 成功，封面 `covers/opp-local-ai-development-tools.png`（PHOTO 路线：悬浮发光立方体工作站），线上详情页/列表已显示。
