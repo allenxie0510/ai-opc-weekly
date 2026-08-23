@@ -16,12 +16,9 @@ if (!SUPABASE_URL) { console.error('❌ 缺少 NEXT_PUBLIC_SUPABASE_URL'); proce
 if (!SRK) { console.error('❌ 缺少 SUPABASE_SERVICE_ROLE_KEY'); process.exit(1); }
 
 // ─── 信源列表（可自行增删）───────────────────────────────
+// 排序只影响抓取日志，不再影响入模顺序；generate-radar 会按 founder / enabler /
+// context 三层做确定性配额。大媒体保留作环境信号，但不会再靠数量占满 prompt。
 const SOURCES = [
-  {
-    kind: 'hackernews',
-    name: 'Hacker News',
-    url: 'https://hn.algolia.com/api/v1/search?tags=front_page',
-  },
   {
     kind: 'hackernews',
     name: 'Show HN',
@@ -31,7 +28,8 @@ const SOURCES = [
   {
     kind: 'github',
     name: 'GitHub Trending',
-    // topic:artificial-intelligence + 近 7 天创建 + stars>50，按 stars 排序
+    // topic:artificial-intelligence + 近 7 天创建 + stars>10，按 stars 排序；
+    // 原 >50 在 2026-08-22 实际运行返回 0 条，放宽召回后由 enabler 配额控噪。
     url: null, // URL 在抓取时动态生成（created:> 日期每天变化）
   },
   {
@@ -49,6 +47,24 @@ const SOURCES = [
     name: 'Product Hunt',
     // GraphQL API v2，需要 PRODUCTHUNT_TOKEN（API Dashboard → Developer Token，不过期）
     url: null,
+  },
+  {
+    kind: 'rss',
+    name: 'BetaList AI',
+    // 早期产品发布，常见单人/小团队；2026-08-23 GitHub Actions runner 实测 200/20 条
+    url: 'https://betalist.com/topics/artificial-intelligence/feed',
+  },
+  {
+    kind: 'rss',
+    name: 'Reddit r/SideProject',
+    // 创作者一手 build/launch/复盘；runner 实测 200/25 条。只抓一个 subreddit，
+    // 避免 Reddit 对数据中心 IP 的跨子版突发限流（连续请求会 429）。
+    url: 'https://www.reddit.com/r/SideProject/new/.rss?limit=25',
+  },
+  {
+    kind: 'hackernews',
+    name: 'Hacker News',
+    url: 'https://hn.algolia.com/api/v1/search?tags=front_page',
   },
   {
     kind: 'rss',
@@ -156,7 +172,7 @@ async function fetchHackerNews(source) {
 
 async function fetchGitHubTrending(source) {
   const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-  const q = encodeURIComponent(`topic:artificial-intelligence created:>${since} stars:>50`);
+  const q = encodeURIComponent(`topic:artificial-intelligence created:>${since} stars:>10`);
   const url = `https://api.github.com/search/repositories?q=${q}&sort=stars&order=desc&per_page=20`;
 
   const headers = { Accept: 'application/vnd.github+json' };

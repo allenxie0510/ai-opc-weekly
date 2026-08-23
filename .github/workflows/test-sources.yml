@@ -1,8 +1,8 @@
 name: Test Sources
 
-# 一次性/按需的信源可用性实测工具（2026-08-23 定位校准时引入）：
-# 本地网络对部分海外站点不可达，curl 实测必须在 GitHub Actions runner 环境做。
-# 新增信源前先把 URL 加进 URLS 跑一轮，✅ 才允许进 fetch-sources.mjs。
+# 一次性/按需的信源可用性实测工具（2026-08-23 定位校准时引入）。
+# 这里只保留本轮新增生产源；以后新增信源时先加入 URLS，runner 验证有真实
+# item/entry 后才能进入 fetch-sources.mjs。
 
 on:
   workflow_dispatch:
@@ -16,24 +16,14 @@ jobs:
           UA="ai-opc-weekly-radar/1.0"
           URLS=(
             "https://www.reddit.com/r/SideProject/new/.rss?limit=25"
-            "https://www.reddit.com/r/indiehackers/new/.rss?limit=25"
-            "https://www.reddit.com/r/EntrepreneurRideAlong/new/.rss?limit=25"
+            "https://betalist.com/topics/artificial-intelligence/feed"
           )
-          FIRST=1
           for u in "${URLS[@]}"; do
-            [ "$FIRST" = "0" ] && sleep 100  # reddit 限流窗口 >6s，测 100s 间隔能否放行多子版
-            FIRST=0
             BODY=$(mktemp)
             CODE=$(curl -s -o "$BODY" -w "%{http_code}" -A "$UA" --max-time 20 -L "$u")
-            ITEMS=$(grep -o "<entry>" "$BODY" | wc -l | tr -d ' ')
+            ITEMS=$(( $(grep -o "<item>" "$BODY" | wc -l) + $(grep -o "<entry>" "$BODY" | wc -l) ))
             SIZE=$(stat -c%s "$BODY")
             if [ "$CODE" = "200" ] && [ "$ITEMS" -gt 0 ]; then VERDICT="✅ 可用"; else VERDICT="❌ 不可用"; fi
             echo "$VERDICT | $CODE | ${SIZE}B | items=$ITEMS | $u"
-            # 首个可用 feed 打印首个 entry 原文结构（验证 parseRSS 的 link/title 提取兼容性）
-            if [ "$VERDICT" = "✅ 可用" ] && [ ! -f /tmp/entry_dumped ]; then
-              echo "── 首个 entry 原文 ──"
-              awk '/<entry>/{f=1} f{print} /<\/entry>/{exit}' "$BODY" | head -30
-              touch /tmp/entry_dumped
-            fi
             rm -f "$BODY"
           done

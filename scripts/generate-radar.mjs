@@ -15,6 +15,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { filterRadarItems, selectCandidateMaterials } from './lib/radar-policy.mjs';
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 
@@ -31,8 +32,10 @@ const GLM_MODELS = ['glm-4.7-flash', 'glm-4.5-flash'];
 const ZHIPU_API = 'https://open.bigmodel.cn/api/paas/v4/chat/completions';
 const AUTO_PUBLISH = process.env.RADAR_AUTO_PUBLISH === 'true';
 
-const CANDIDATE_LIMIT = 40;   // radar_candidates 取最近 36h 最多 N 条
-const TWEET_LIMIT = 20;       // tweets 取最近 24h 最多 N 条
+// 拉宽读取窗口，再由 radar-policy 做 founder/enabler/context 分层配额。
+// 旧逻辑只取 fetched_at 最新 40 条，后抓的大媒体能直接挤掉 founder-first 来源。
+const CANDIDATE_LIMIT = 500;
+const TWEET_LIMIT = 100;
 
 // Source Tier（确定性映射，不让模型定级）：
 // S 一手证据（GitHub 数据/官方源）/ A 创始人一手发布/结构化数据 / B 可靠媒体/机构分析 / C 社区信号 / D 二手
@@ -40,6 +43,8 @@ const SOURCE_TIER_MAP = {
   'GitHub Trending': 'S',
   'Show HN': 'A',        // 创始人一手发布的 0→1 产品
   'Product Hunt': 'A',   // 新品类雷达，投票数据可佐证热度
+  'BetaList AI': 'A',    // 早期产品结构化发布页
+  'Reddit r/SideProject': 'C', // 创作者一手社区信号，真实性仍需原帖支撑
   'IH Podcast': 'A',     // 创始人亲述真实收入访谈
   'RevenueCat': 'A',     // 订阅经济一手数据/年度报告
   'YC RFS': 'A',         // YC 官方创业方向清单
@@ -125,7 +130,7 @@ async function callGLMOnce(sysPrompt, userPrompt, model, temperature) {
       model,
       messages: [{ role: 'system', content: sysPrompt }, { role: 'user', content: userPrompt }],
       temperature,
-      max_tokens: 8192,  // 10条快讯+弃选的JSON约4-6K tokens，4096 会截断导致解析失败
+      max_tokens: 8192,  // 候选快讯 + 五维 fit JSON 约4-6K tokens，4096 可能截断
       thinking: { type: 'disabled' }  // 关闭推理模式：否则思考过程吃光 token，正文 content 为空
     })
   });
@@ -146,7 +151,7 @@ async function callGLMOnce(sysPrompt, userPrompt, model, temperature) {
   }
   const parsed = JSON.parse(m[0]);
   if (!Array.isArray(parsed.items)) throw new Error('items 字段不是数组');
-  console.log(`   ✅ 收录 ${parsed.items.length} 条 | 模型=${model} | tok in=${data.usage?.prompt_tokens} out=${data.usage?.completion_tokens}`);
+  console.log(`   ✅ 模型候选 ${parsed.items.length} 条 | 模型=${model} | tok in=${data.usage?.prompt_tokens} out=${data.usage?.completion_tokens}`);
   return parsed;
 }
 
@@ -183,13 +188,13 @@ async function main() {
   console.log('🚀 OPC Radar · 每日生成');
   console.log(`   模型: ${GLM_MODELS.join(' → ')} | 发布模式: ${AUTO_PUBLISH ? '自动 published' : 'draft 待审核'}\n`);
 
-  // 1. 取素材：radar_candidates 最近 36 小时
+  // 1. 取素材：radar_candidates 最近 72 小时（扩大召回，不等于扩大入模）
   console.log('📥 读取素材...');
-  const candCutoff = new Date(Date.now() - 36 * 60 * 60 * 1000).toISOString();
+  const candCutoff = new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString();
   const candidates = await sb(
     `/radar_candidates?fetched_at=gte.${encodeURIComponent(candCutoff)}&order=fetched_at.desc&limit=${CANDIDATE_LIMIT}`
   );
-  console.log(`   radar_candidates(36h): ${(candidates || []).length} 条`);
+  console.log(`   radar_candidates(72h): ${(candidates || []).length} 条`);
 
   // 2. 取素材：tweets 最近 24 小时（content 截断 300 字）
   const tweetCutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
@@ -207,18 +212,17 @@ async function main() {
   const seenUrls = new Set((seen || []).map(r => r.source_url).filter(Boolean));
   console.log(`   近48h已处理 URL: ${seenUrls.size} 条（将跳过）`);
 
-  // 3. 拼装素材清单（总量封顶 ~60 条），跳过已处理 URL
-  const material = [];
-  for (const c of candidates || []) {
-    if (c.source_url && seenUrls.has(c.source_url)) continue;
-    material.push(`[${c.source_name}] ${c.title}${c.snippet ? ' — ' + c.snippet.slice(0, 200) : ''}\nURL: ${c.source_url}`);
-  }
-  for (const t of tweets || []) {
-    if (t.url && seenUrls.has(t.url)) continue;
-    material.push(`[X/@${t.author_username}] ${(t.content || '').slice(0, 300)}\nURL: ${t.url}`);
-  }
-  const materialText = material.slice(0, 60).join('\n---\n');
-  console.log(`   拼入 prompt 素材: ${Math.min(material.length, 60)} 条`);
+  // 3. founder-first 分层抽样，跳过已处理 URL。大媒体/大公司只占 context 小配额。
+  const materials = selectCandidateMaterials(candidates || [], tweets || [], seenUrls, 54);
+  const materialText = materials.map(c => {
+    const laneLabel = { founder: '创始人/小团队一手', enabler: '工具与生态', context: '行业背景' }[c.policy.lane];
+    return `[${c.source_name} | ${laneLabel}] ${c.title}${c.snippet ? ' — ' + c.snippet.slice(0, 220) : ''}\nURL: ${c.source_url}`;
+  }).join('\n---\n');
+  const laneCounts = materials.reduce((acc, c) => {
+    acc[c.policy.lane] = (acc[c.policy.lane] || 0) + 1;
+    return acc;
+  }, {});
+  console.log(`   分层入模: ${materials.length} 条 | founder=${laneCounts.founder || 0} enabler=${laneCounts.enabler || 0} context=${laneCounts.context || 0}`);
 
   if (!materialText) {
     console.log('\n⚠️ 没有可用素材，跳过本次生成');
@@ -227,7 +231,7 @@ async function main() {
 
   // 4. GLM 筛选
   console.log('\n🤖 GLM 筛选...');
-  const sys = `你是「OPC Radar · 一人雷达」的编辑，一份面向 AI 一人公司（OPC）创业者的日更快讯。你只从给定素材中筛选，绝不编造素材之外的新闻。只返回一个 JSON 对象。`;
+  const sys = `你是「OPC Radar · 一人雷达」的编辑。这不是泛 AI 新闻摘要，而是面向一人公司（OPC）和 2–5 人小团队的创业机会雷达。你的默认动作是拒绝；素材不能导向具体用户、痛点、产品、商业模式、分发或成本变化时，就不收录。你只从给定素材中筛选，绝不补写素材没有提供的事实、收入或团队规模。只返回一个 JSON 对象。`;
 
   // 主编风格样本（few-shot）：有样本时注入口吻要求
   const samples = loadStyleSamples();
@@ -243,25 +247,43 @@ ${samples.map(s => `- ${s}`).join('\n')}\n`
     : '';
   if (samples.length > 0) console.log(`   ✍️ 注入主编风格样本: ${samples.length} 条`);
 
-  const user = `以下是今天抓取到的素材（HN / GitHub / RSS / X 推文）：
+  const user = `以下是今天抓取到的真实素材。每条已标注来源层：
+- 创始人/小团队一手：优先，关注真实产品、做法、收入、客户和复盘
+- 工具与生态：只有直接改变小团队能力、成本或分发时才收录
+- 行业背景：默认不收录；只有可迁移成一人公司具体动作时才可作为例外
 
 ${materialText}
 
-任务：从以上素材中筛选与「AI × 一人公司 / 独立开发者 / solo 创业」直接相关的 5–10 条快讯。筛选标准：单人或小团队可复现的商业模式、已验证收入、独立开发者可用的 AI 工具/平台动态、影响 solo 创业者的政策或生态变化。
+任务：筛选 0–8 条候选快讯，宁缺毋滥。优先级依次为：
+1. 个人或 2–5 人团队用 AI 解决具体场景，并公开产品、客户、收入、定价、获客或构建过程；
+2. 可由小团队在数周内验证的垂直机会，素材中能看出谁付费、为什么付费或从哪里触达；
+3. 让一人公司在开发、交付、获客、运营上出现明确成本/能力变化的工具或平台；
+4. 大公司动态仅作例外：必须写出一条素材直接支持的、可在 30 天内验证的迁移动作。只有“说明赛道很热”“可基于 API 做应用”“降低门槛”“关注生态”一律不算迁移价值。
+
+直接拒绝：融资/估值/收购本身、模型榜单或新品发布本身、CEO 观点、宏观趋势、泛效率工具、把任何大公司功能牵强改写成“独立开发者可做垂直版”。如果素材没有团队规模或收入，不得猜测为单人项目或已验证商业模式。
 ${styleBlock}
 输出一个 JSON 对象（不要输出其他文字），结构如下：
 {
   "items": [
     {
       "title": "中文标题（可改写素材原标题，30字以内）",
-      "summary": "60–120字中文摘要，说清楚发生了什么、对一人创业者意味着什么",
+      "summary": "60–120字中文摘要，说清楚已知事实及其对一人公司的直接意义",
       "source_name": "素材来源名",
       "source_url": "素材中的原始 URL（必须原样复制，不得编造）",
-      "score": 0到100的整数（与主题相关度 + 创业参考价值）,
+      "evidence_quote": "从该条素材的标题或摘要中逐字复制 8–80 个字符，作为事实锚点",
       "editor_note": "50–100字编辑点评，第一人称（我/我看），有明确立场，不中立和稀泥${samples.length > 0 ? '，口吻严格对齐上方样本' : ''}",
-      "pick_reason": "收录理由标签，如：已验证收入 / 单人可复现 / 政策风向标 / 新工具红利 / 模式可迁移",
+      "pick_reason": "收录理由标签，如：已验证收入 / 单人可复现 / 具体痛点 / 获客路径 / 成本变化 / 模式可迁移",
       "signal_type": "必须是以下之一: product（新产品/功能）/ launch（发布上线）/ funding（融资）/ m-and-a（收购并购）/ model（模型或API变化）/ policy（政策监管）/ metric（收入或增长数据披露）",
-      "category": "必须是以下之一: micro-saas / design-assets / automation / content-monetize / indie-tool / digital-product / other"
+      "category": "必须是以下之一: micro-saas / design-assets / automation / content-monetize / indie-tool / digital-product / other",
+      "company_scale": "必须是以下之一: solo / small-team / large-company / unknown；素材未写则 unknown",
+      "migration_play": "仅 large-company 候选必填：素材直接支持的可迁移动作、目标用户和30天验证方式；其他候选填空字符串",
+      "fit": {
+        "audience_relevance": "0–5，是否直接服务 OPC 创业决策；泛 AI 新闻不得高于2",
+        "actionability": "0–5，是否能明确说出下一步验证动作",
+        "evidence_strength": "0–5，素材是否提供一手发布、数据、产品或具体案例",
+        "solo_feasibility": "0–5，个人/2–5人是否能在有限资金下复现或利用",
+        "transferability": "0–5，模式/做法是否能迁移，而非只值得围观"
+      }
     }
   ]
 }
@@ -276,34 +298,52 @@ ${styleBlock}
 - other：以上六类都不是，或素材信息不足以判断
 
 要求：
-- items 恰好 5–10 条；不符合筛选标准的素材直接忽略，不输出、不解释（弃选即舍弃）
+- items 可以为空，最多 8 条；不要为了数量降低标准
+- 同一 source_name 最多 2 条；large-company 最多 1 条
 - 所有 source_url 必须来自素材清单原文，不得编造
+- evidence_quote 必须逐字存在于对应素材标题或摘要中；不得改写、翻译或拼接
 - summary 和 editor_note 用中文，不用「你/你的」
+- 每个 fit 维度必须独立评分，不得因为“AI 很重要”而全部给高分
 - 只返回 JSON 对象本身`;
 
   const result = await callGLM(sys, user);
+
+  // 4.5 硬门槛复核：来源 URL、五维 OPC fit、单源配额、大公司上限均由代码执行。
+  // 模型无法用高总分绕过任一低维度，也不能把素材外 URL 写入数据库。
+  const filtered = filterRadarItems(result.items || [], materials, { maxItems: 6, minimumScore: 70 });
+  const rejectStats = filtered.rejected.reduce((acc, row) => {
+    acc[row.reason] = (acc[row.reason] || 0) + 1;
+    return acc;
+  }, {});
+  console.log(`   🧭 硬门槛后保留 ${filtered.accepted.length}/${(result.items || []).length} 条${filtered.rejected.length ? ` | 拒绝 ${JSON.stringify(rejectStats)}` : ''}`);
 
   // 5. 写入 radar_items
   console.log('\n💾 写入 radar_items...');
   const now = new Date().toISOString();
   const itemStatus = AUTO_PUBLISH ? 'published' : 'draft';
 
-  const items = (result.items || []).map(it => ({
-    title: String(it.title || '').slice(0, 200),
-    summary: String(it.summary || '').slice(0, 500),
-    source_name: String(it.source_name || ''),
-    source_url: String(it.source_url || ''),
-    score: Math.max(0, Math.min(100, parseInt(it.score, 10) || 0)),
-    editor_note: String(it.editor_note || '').slice(0, 500),
-    pick_reason: String(it.pick_reason || '').slice(0, 100),
-    // 分类白名单校验（与 signal_type 同款）：缺失/不在桶列表 → 'other'（其他），
-    // 不再兜底 indie-tool（小而美）——根因修复：兜底倒进最大桶 + 无边界定义导致小而美桶占比 ~40%
-    category: ['micro-saas', 'design-assets', 'automation', 'content-monetize', 'indie-tool', 'digital-product', 'other'].includes(it.category) ? it.category : 'other',
-    signal_type: ['product', 'launch', 'funding', 'm-and-a', 'model', 'policy', 'metric'].includes(it.signal_type) ? it.signal_type : 'product',
-    source_tier: tierOf(String(it.source_name || '')),
-    status: itemStatus,
-    published_at: now,
-  }));
+  const items = filtered.accepted.map(it => {
+    const baseNote = String(it.editor_note || '').trim();
+    const migration = String(it.migration_play || '').trim();
+    return {
+      title: String(it.title || '').slice(0, 200),
+      summary: String(it.summary || '').slice(0, 500),
+      source_name: String(it.source_name || ''),
+      source_url: String(it.source_url || ''),
+      // 总分由五维 fit 按固定权重计算，不采用模型自报的“印象分”。
+      score: it.score,
+      // 大公司例外的迁移动作必须随内容进入审核台，不能只在过滤时看过即丢。
+      editor_note: `${baseNote}${it._large_company && migration ? ` 迁移验证：${migration}` : ''}`.slice(0, 500),
+      pick_reason: String(it._large_company ? '可迁移验证' : (it.pick_reason || '')).slice(0, 100),
+      // 分类白名单校验（与 signal_type 同款）：缺失/不在桶列表 → 'other'（其他），
+      // 不再兜底 indie-tool（小而美）——根因修复：兜底倒进最大桶 + 无边界定义导致小而美桶占比 ~40%
+      category: ['micro-saas', 'design-assets', 'automation', 'content-monetize', 'indie-tool', 'digital-product', 'other'].includes(it.category) ? it.category : 'other',
+      signal_type: ['product', 'launch', 'funding', 'm-and-a', 'model', 'policy', 'metric'].includes(it.signal_type) ? it.signal_type : 'product',
+      source_tier: tierOf(String(it.source_name || '')),
+      status: itemStatus,
+      published_at: now,
+    };
+  });
 
   // 5.1 抓取封面图（OG image，并发，单条失败不影响整体）
   console.log('\n🖼️ 抓取封面图...');
@@ -323,7 +363,13 @@ ${styleBlock}
       const msg = String(e.message);
       if (/image_url|signal_type|source_tier/.test(msg)) {
         console.log('   ⚠️ 表缺少新列（image_url/signal_type/source_tier），本次降级写入（请执行 scripts/migration-001.sql）');
-        const stripped = items.map(({ image_url, signal_type, source_tier, ...rest }) => rest);
+        const stripped = items.map(item => {
+          const compatible = { ...item };
+          delete compatible.image_url;
+          delete compatible.signal_type;
+          delete compatible.source_tier;
+          return compatible;
+        });
         await sb('/radar_items', { method: 'POST', headers: { Prefer: 'return=minimal' }, body: JSON.stringify(stripped) });
       } else {
         throw e;
