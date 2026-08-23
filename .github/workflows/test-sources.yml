@@ -1,0 +1,33 @@
+name: Test Sources
+
+# 一次性/按需的信源可用性实测工具（2026-08-23 定位校准时引入）：
+# 本地网络对部分海外站点不可达，curl 实测必须在 GitHub Actions _runner 环境做。
+# 新增信源前先把 URL 加进 URLS 跑一轮，✅ 才允许进 fetch-sources.mjs。
+
+on:
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Probe candidate feeds
+        run: |
+          UA="ai-opc-weekly-radar/1.0"
+          URLS=(
+            "https://www.reddit.com/r/SideProject/new/.rss?limit=25"
+            "https://www.reddit.com/r/EntrepreneurRideAlong/new/.rss?limit=25"
+            "https://www.reddit.com/r/indiehackers/new/.rss?limit=25"
+            "https://feeds.feedburner.com/BetaList"
+            "https://betalist.com/topics/artificial-intelligence/feed"
+            "https://microlaunch.net/feed"
+          )
+          for u in "${URLS[@]}"; do
+            BODY=$(mktemp)
+            CODE=$(curl -s -o "$BODY" -w "%{http_code}" -A "$UA" --max-time 20 -L "$u")
+            ITEMS=$(grep -c "<item>\|<entry>" "$BODY" || true)
+            SIZE=$(stat -c%s "$BODY")
+            if [ "$CODE" = "200" ] && [ "$ITEMS" -gt 0 ]; then VERDICT="✅ 可用"; else VERDICT="❌ 不可用"; fi
+            echo "$VERDICT | $CODE | ${SIZE}B | items=$ITEMS | $u"
+            rm -f "$BODY"
+          done
