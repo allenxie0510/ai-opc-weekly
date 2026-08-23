@@ -148,6 +148,7 @@ const SYSTEM = `你是一位顶级商业战略顾问，精通孙正义（SoftBan
 function profileToText(p: ThemeProfile): string {
   return [
     `人生/事业愿景（50 年计划）：${p.vision || '（未填写）'}`,
+    `本次探索主题/方向（最高优先级范围边界）：${p.direction || '（未填写）'}`,
     `兴趣与擅长领域：${p.interests || '（未填写）'}`,
     `已掌握资源（资金/人脉/技术/渠道）：${p.resources || '（未填写）'}`,
     `硬约束（地域/时间/资金上限/不能做）：${p.constraints || '（未填写）'}`,
@@ -155,6 +156,39 @@ function profileToText(p: ThemeProfile): string {
     `时间跨度：${p.horizonYears} 年`,
     `个人强项：${p.strengths || '（未填写）'}`,
   ].join('\n');
+}
+
+const CROSS_INDUSTRY_PATTERN = /((跨行业|跨领域)(探索|发散|机会|应用|场景)|不限行业|不限领域|全行业|全领域|开放探索|自由发散|多行业探索|多领域探索)/i;
+const NO_CROSS_INDUSTRY_PATTERN = /(不|不要|不得|禁止|严禁|避免|仅限).{0,6}(跨行业|跨领域)/i;
+
+function crossIndustryRequested(p: ThemeProfile): boolean {
+  const text = `${p.direction}\n${p.constraints}`;
+  return !NO_CROSS_INDUSTRY_PATTERN.test(text) && CROSS_INDUSTRY_PATTERN.test(text);
+}
+
+function opportunityScopeRules(p: ThemeProfile): string[] {
+  const direction = p.direction.trim();
+  if (!direction) {
+    return [
+      '- 用户未明确填写探索方向：可以根据愿景、兴趣、资源和硬约束发散，但每个机会都必须与这些画像信息有直接关联。',
+    ];
+  }
+
+  if (crossIndustryRequested(p)) {
+    return [
+      `- 用户明确要求跨行业探索；所有机会仍必须以「${direction}」为共同主线，再扩展到不同行业场景。`,
+      '- 跨行业只是应用场景变化，不得丢失用户选定的共同主线。',
+    ];
+  }
+
+  return [
+    `- 【硬范围】只能在用户选定的「${direction}」内部生成机会。这是最高优先级约束，不是参考偏好。`,
+    '- 多样性必须来自该方向内部的不同目标用户、使用场景、细分痛点、工作流、交付形态和商业模式，不得用跨到无关行业的方式凑数。',
+    '- 除非用户在探索方向或硬约束中明确要求跨行业/跨领域，否则严禁引入任何方向外的行业、人群或问题。',
+    '- 不得因为热门赛道、演示样本、常见案例或“覆盖更多大类”而偏离用户方向。',
+    `- 每个机会的名称、一句话价值主张、目标用户和解决方案都必须能明确说明它如何属于「${direction}」。`,
+    '- 如果在该范围内不易凑足数量，应继续下钻细分用户与工作流，不得放宽范围。',
+  ];
 }
 
 const OPP_SCHEMA = `每个机会必须是如下 JSON 对象（数组元素）：
@@ -341,6 +375,41 @@ const CATEGORY_TAIL: Record<string, string[]> = {
   '金融科技': ['· 跨境支付版', '· 信用修复版'],
 };
 
+const SCOPED_MOCK_VARIANTS = [
+  { name: '个人工作台', users: '该方向的独立从业者与一人公司', pain: '工具分散、重复操作多，难以形成稳定工作流', solution: '把核心任务组合成可复用的 AI 工作流与个人工作台', model: '个人订阅 + 高级模板包' },
+  { name: '小团队协作中枢', users: '该方向的 2–10 人小团队', pain: '需求、产出与反馈分散，协作与版本管理成本高', solution: '将需求、协作、审核和交付集中到一条智能流程', model: '团队席位订阅' },
+  { name: '模板与资产市场', users: '该方向的专业创作者、服务商与需求方', pain: '高质量方法与资产难沉淀、难复用、难交易', solution: '让创作者发布模板、工作流和数字资产，平台负责匹配与交付', model: '交易佣金 + 会员订阅' },
+  { name: '智能审查助手', users: '该方向中需要稳定质量与一致性的团队', pain: '质量检查依赖人工经验，标准不一且返工频繁', solution: '用 AI 根据自定义标准自动审查、标注问题并给出修改建议', model: '按用量计费 + 团队版' },
+  { name: '需求到交付自动化', users: '该方向的专业服务提供者', pain: '客户需求不清、沟通轮次多，从需求到交付周期过长', solution: '自动结构化需求、生成初稿、收集反馈并推进交付', model: '项目订阅 + 交付量计费' },
+  { name: '垂直顾问 Copilot', users: '该方向中缺少专业方法的中小客户', pain: '专业顾问价格高、交付慢，小客户难以获得持续支持', solution: '把专家方法沉淀为可对话、可执行、可复盘的垂直 AI 顾问', model: '月度订阅 + 人工顾问升级' },
+  { name: '供需撮合平台', users: '该方向的需求方与专业服务方', pain: '供需信息不对称，匹配、询价和交付质量难保障', solution: '用 AI 理解需求和能力，完成匹配、报价、交付验收与评价闭环', model: '交易佣金 + 服务方会员' },
+  { name: '数据洞察看板', users: '该方向的经营者和决策者', pain: '业务数据分散，无法快速判断哪些动作真正有效', solution: '聚合关键信号，自动归因并给出下一步可执行建议', model: '数据源订阅 + 高级分析' },
+  { name: '客户自助配置器', users: '需要个性化交付的该方向客户', pain: '个性化需求多，人工售前沟通与报价成本高', solution: '让客户通过引导式对话自助定义需求，即时生成方案与报价', model: '按线索量 + 成交增值费' },
+  { name: '开放能力 API', users: '希望将该方向能力集成到自有产品的开发者与平台', pain: '底层能力重复建设，专业数据和工作流接入成本高', solution: '将该方向的核心模型、规则和工作流封装为可组合 API', model: '按调用量计费' },
+];
+
+function scopedMockSeed(direction: string, index: number): Seed {
+  const variant = SCOPED_MOCK_VARIANTS[index % SCOPED_MOCK_VARIANTS.length];
+  const round = Math.floor(index / SCOPED_MOCK_VARIANTS.length) + 1;
+  const suffix = round > 1 ? ` · 细分版 ${round}` : '';
+  return T(
+    `${direction} · ${variant.name}${suffix}`,
+    `在「${direction}」范围内，${variant.solution}`,
+    direction,
+    variant.users,
+    variant.pain,
+    `${direction}：${variant.solution}`,
+    variant.model,
+    `「${direction}」的垂直数据、模板、工作流与用户反馈飞轮`,
+    `从「${direction}」中的细分用户和高频任务切入，先验证付费再扩展`,
+    `AI 与「${direction}」专业工作流融合`,
+    '低',
+    '中',
+    '早',
+    { passion: 7, uniqueness: 7, no1: 7, market: 7, margin: 8, capital: 8, strengthFit: 7, scalability: 8, trend: 8, sustainability: 7 }
+  );
+}
+
 function seedToOpp(seed: Seed, rng: () => number, profile: ThemeProfile): Opportunity {
   const scores: Record<string, number> = {};
   for (const c of CRITERIA) {
@@ -396,7 +465,9 @@ async function mockGenerate(
   count: number,
   onProgress: (p: GenProgress) => void
 ): Promise<Opportunity[]> {
-  const rng = mulberry32((profile.vision + profile.interests).length * 7919 + count);
+  const scope = profile.direction.trim() || profile.interests.trim();
+  const scoped = Boolean(scope) && !crossIndustryRequested(profile);
+  const rng = mulberry32((profile.vision + profile.direction + profile.interests).length * 7919 + count);
   const out: Opportunity[] = [];
   const total = Math.max(1, count);
   const batch = Math.min(12, total);
@@ -405,7 +476,9 @@ async function mockGenerate(
   let seedCursor = 0;
   for (let i = 0; i < total; i++) {
     let seed: Seed;
-    if (seedCursor < shuffled.length) {
+    if (scoped) {
+      seed = scopedMockSeed(scope, i);
+    } else if (seedCursor < shuffled.length) {
       seed = shuffled[seedCursor++];
     } else {
       // 超量时做变体，保证「海量」效果
@@ -482,7 +555,7 @@ async function openaiGenerate(
       '你正在帮助创业者复现孙正义年轻时代的方法：先海量枚举候选事业，再系统筛选。',
       '请根据下面这位创业者的画像，生成【各不相同、具体可落地】的商业机会。',
       '要求：',
-      '- 覆盖尽可能多样的大类（AI 应用、出海、健康、教育、银发、宠物、新能源、本地生活、SaaS、内容、消费等），避免同质化。',
+      ...opportunityScopeRules(profile),
       '- 每个机会都要有真实痛点、清晰商业模式与护城河，而不是空泛概念。',
       `- 为每个机会的 10 个维度打 1–10 分（要客观、有区分度，不要都打 8 分）。`,
       `- 严格输出 JSON 数组，共 ${n} 个元素。`,
@@ -495,7 +568,7 @@ async function openaiGenerate(
       '',
       OPP_SCHEMA,
     ].join('\n');
-    const content = await callLLM(cfg, SYSTEM, user, { json: true, temperature: 0.9 });
+    const content = await callLLM(cfg, SYSTEM, user, { json: true, temperature: 0.65 });
     const parsed = extractJson(content);
     const arr = Array.isArray(parsed) ? parsed : [];
     const mapped: Opportunity[] = arr.slice(0, n).map((raw: any) => {

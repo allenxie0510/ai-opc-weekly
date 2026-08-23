@@ -184,6 +184,10 @@ export function ExploreApp() {
       return [...prev, ...list.filter((o) => !seen.has(o.id))];
     });
   }
+  function replaceOpps(list: Opportunity[]) {
+    setOpportunities(list);
+    setPlans({});
+  }
   function patchOpp(id: string, patch: Partial<Opportunity>) {
     setOpportunities((prev) => prev.map((o) => (o.id === id ? { ...o, ...patch } : o)));
   }
@@ -256,6 +260,7 @@ export function ExploreApp() {
               profile={profile}
               opportunities={opportunities}
               plans={plans}
+              onReplace={replaceOpps}
               onAppend={appendOpps}
               onPatch={patchOpp}
               onDelete={deleteOpps}

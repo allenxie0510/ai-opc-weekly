@@ -13,6 +13,7 @@ export function StepGenerate({
   profile,
   opportunities,
   plans,
+  onReplace,
   onAppend,
   onPatch,
   onDelete,
@@ -22,6 +23,7 @@ export function StepGenerate({
   profile: ThemeProfile;
   opportunities: Opportunity[];
   plans: PlansMap;
+  onReplace: (list: Opportunity[]) => void;
   onAppend: (list: Opportunity[]) => void;
   onPatch: (id: string, patch: Partial<Opportunity>) => void;
   onDelete: (ids: string[]) => void;
@@ -41,8 +43,14 @@ export function StepGenerate({
     setError('');
     setProgress({ done: 0, total: count });
     try {
+      let firstBatch = true;
       await ai.generateOpportunities(config, profile, count, 12, (p) => {
-        onAppend(p.batch);
+        if (firstBatch) {
+          onReplace(p.batch);
+          firstBatch = false;
+        } else {
+          onAppend(p.batch);
+        }
         setProgress({ done: p.done, total: p.total });
       });
     } catch (e: any) {
@@ -129,6 +137,9 @@ export function StepGenerate({
         )}
         {isMock(config) && !running && (
           <span className="xpl-muted">演示模式（未配置 API Key）——用内置样本模拟生成。右上角「AI 设置」可接入真实模型。</span>
+        )}
+        {!running && (
+          <span className="xpl-muted">每次生成都会建立与当前方向一致的新候选池，不会混入旧方向结果。</span>
         )}
       </div>
 
