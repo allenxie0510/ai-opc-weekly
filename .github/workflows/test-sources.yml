@@ -25,9 +25,10 @@ jobs:
           for u in "${URLS[@]}"; do
             BODY=$(mktemp)
             CODE=$(curl -s -o "$BODY" -w "%{http_code}" -A "$UA" --max-time 20 -L "$u")
-            ITEMS=$(grep -c "<item>\|<entry>" "$BODY" || true)
+            ITEMS=$(grep -o "<item>\|<entry>" "$BODY" | wc -l | tr -d ' ')
             SIZE=$(stat -c%s "$BODY")
             if [ "$CODE" = "200" ] && [ "$ITEMS" -gt 0 ]; then VERDICT="✅ 可用"; else VERDICT="❌ 不可用"; fi
             echo "$VERDICT | $CODE | ${SIZE}B | items=$ITEMS | $u"
             rm -f "$BODY"
+            sleep 6  # reddit 对数据中心 IP 突发请求限流（429），间隔后重测
           done
