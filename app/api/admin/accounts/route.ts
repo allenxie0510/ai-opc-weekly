@@ -2,14 +2,9 @@
  * 管理员 API — 增删 Twitter 账号
  * 认证：请求头 X-Admin-Token 需匹配环境变量 ADMIN_PASSWORD
  */
-import { createClient } from '@supabase/supabase-js';
+import { createServerSupabase } from '@/lib/server-supabase';
 
 export const runtime = 'nodejs';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 function isAdmin(request: Request): boolean {
   const token = request.headers.get('x-admin-token');
@@ -22,6 +17,8 @@ export async function GET(request: Request) {
   if (!isAdmin(request)) {
     return Response.json({ error: '未授权' }, { status: 401 });
   }
+  const supabase = createServerSupabase();
+  if (!supabase) return Response.json({ error: '服务端未配置 Supabase' }, { status: 503 });
   const { data, error } = await supabase
     .from('twitter_accounts')
     .select('*')
@@ -35,6 +32,8 @@ export async function POST(request: Request) {
   if (!isAdmin(request)) {
     return Response.json({ error: '未授权' }, { status: 401 });
   }
+  const supabase = createServerSupabase();
+  if (!supabase) return Response.json({ error: '服务端未配置 Supabase' }, { status: 503 });
 
   try {
     const body = await request.json();
@@ -69,6 +68,8 @@ export async function DELETE(request: Request) {
   if (!isAdmin(request)) {
     return Response.json({ error: '未授权' }, { status: 401 });
   }
+  const supabase = createServerSupabase();
+  if (!supabase) return Response.json({ error: '服务端未配置 Supabase' }, { status: 503 });
 
   const { searchParams } = new URL(request.url);
   const username = searchParams.get('username');

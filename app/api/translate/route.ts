@@ -3,15 +3,10 @@
  * body: { tweet_id: string, text: string }
  * 先查 Supabase translated_text 缓存，没有再调 DeepSeek
  */
-import { createClient } from '@supabase/supabase-js';
+import { createServerSupabase } from '@/lib/server-supabase';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 const DEEPSEEK_ENDPOINT = (process.env.DEEPSEEK_API_ENDPOINT || 'https://api.deepseek.com')
   .replace(/\/$/, '');
@@ -83,12 +78,13 @@ export async function POST(req: Request) {
       return Response.json({ error: `文本过长，最多 ${MAX_TEXT_LENGTH} 个字符` }, { status: 400 });
     }
 
-    // 1. 查缓存
-    const { data: cached } = await supabase
+    const supabase = createServerSupabase();
+    // 1. 查缓存（Supabase 未配置时仍可直接翻译）
+    const { data: cached } = supabase ? await supabase
       .from('tweets')
       .select('translated_text')
       .eq('tweet_id', tweet_id)
-      .single();
+      .single() : { data: null };
 
     if (cached?.translated_text) {
       return Response.json({ translated_text: cached.translated_text, cached: true });
@@ -101,10 +97,12 @@ export async function POST(req: Request) {
     }
 
     // 3. 写入缓存
-    await supabase
-      .from('tweets')
-      .update({ translated_text: result })
-      .eq('tweet_id', tweet_id);
+    if (supabase) {
+      await supabase
+        .from('tweets')
+        .update({ translated_text: result })
+        .eq('tweet_id', tweet_id);
+    }
 
     return Response.json({ translated_text: result, cached: false });
   } catch (e: unknown) {

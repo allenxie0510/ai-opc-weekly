@@ -1,19 +1,18 @@
-import { createClient } from '@supabase/supabase-js';
+import { createServerSupabase } from '@/lib/server-supabase';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
 export async function GET() {
+  const supabase = createServerSupabase();
+  if (!supabase) return Response.json({ count: 0, configured: false });
   const { data } = await supabase.from('page_views').select('count').eq('key','total').single();
   return Response.json({ count: data?.count || 0 });
 }
 
 export async function POST(req: Request) {
+  const supabase = createServerSupabase();
+  if (!supabase) return Response.json({ count: 0, configured: false });
   const { uid } = await req.json().catch(() => ({}));
   if (!uid) return Response.json({ error: 'missing uid' }, { status: 400 });
 

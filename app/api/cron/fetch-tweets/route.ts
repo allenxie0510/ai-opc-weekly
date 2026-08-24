@@ -4,14 +4,9 @@
  * 前置条件：在 Supabase twitter_accounts 表的 rss_url 列填入 RSS.app 生成的 feed URL
  * RSS.app 免费版将所有账号聚合到同一 feed，通过 <dc:creator> 区分作者
  */
-import { createClient } from '@supabase/supabase-js';
+import { createServerSupabase } from '@/lib/server-supabase';
 
 export const runtime = 'nodejs';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 function parseRSSFeed(xml: string): {
   tweet_id: string; author_username: string;
@@ -76,6 +71,8 @@ function parseRSSFeed(xml: string): {
 
 export async function GET() {
   try {
+    const supabase = createServerSupabase();
+    if (!supabase) return Response.json({ status: 'unavailable', error: '服务端未配置 Supabase' }, { status: 503 });
     // 读取所有有 rss_url 的账号 — 去重（免费版可能共用同一 URL）
     const { data: accounts } = await supabase
       .from('twitter_accounts')

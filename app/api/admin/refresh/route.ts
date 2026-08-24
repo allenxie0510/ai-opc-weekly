@@ -12,9 +12,9 @@
  * - 时长：serverless 有时长上限，这里并发 4 路、单源 8s 超时，
  *   典型情况 ~10-15s 完成（15 个账号多数命中首源）。
  */
-import { createClient } from '@supabase/supabase-js';
 import { NextRequest } from 'next/server';
 import { discoverSources, fetchAccountTweets, hasCurl } from '@/lib/nitter-fetch.mjs';
+import { createServerSupabase } from '@/lib/server-supabase';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -44,11 +44,6 @@ type RefreshResult = {
   error?: string;
 };
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
 function isAdmin(request: Request): boolean {
   const token = request.headers.get('x-admin-token');
   const expected = process.env.ADMIN_PASSWORD;
@@ -59,8 +54,11 @@ export async function POST(req: NextRequest) {
   if (!isAdmin(req)) {
     return Response.json({ error: '未授权' }, { status: 401 });
   }
+  const db = createServerSupabase();
+  if (!db) return Response.json({ error: '服务端未配置 Supabase' }, { status: 503 });
+  const supabaseClient = db;
 
-  const { data: accounts, error: acctErr } = await supabase
+  const { data: accounts, error: acctErr } = await supabaseClient
     .from('twitter_accounts')
     .select('*');
 
@@ -90,7 +88,7 @@ export async function POST(req: NextRequest) {
         }
         let count = 0;
         for (const t of r.tweets) {
-          const { error } = await supabase.from('tweets').upsert({
+          const { error } = await supabaseClient.from('tweets').upsert({
             tweet_id: t.tweet_id,
             author_username: t.author_username,
             author_display_name: acc.display_name || t.author_username,

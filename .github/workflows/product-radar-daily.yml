@@ -1,0 +1,44 @@
+name: Product Radar Daily
+
+on:
+  schedule:
+    # 07:00 Asia/Shanghai (GitHub cron uses UTC)
+    - cron: '0 23 * * *'
+  workflow_dispatch:
+    inputs:
+      persist:
+        description: 'Persist normalized output to Supabase'
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: product-radar-daily
+  cancel-in-progress: false
+
+jobs:
+  pipeline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Verify deterministic product-radar rules
+        run: npm run test:product-radar
+      - name: Run fixture-safe pipeline
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          if [ "${{ github.event.inputs.persist }}" = "true" ]; then
+            npm run pipeline:product-radar -- --persist
+          else
+            npm run pipeline:product-radar
+          fi

@@ -34,3 +34,21 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## 小红书选品雷达
+
+新的「工具」产品层提供 `/tools/xhs-product-radar`，完整决策链在无任何外部 API Key 时也可通过 Fixture Data 运行。
+
+```bash
+cp .env.example .env.local
+npm run dev
+npm run test:product-radar
+npm run pipeline:product-radar
+```
+
+- `XHS_PRODUCT_RADAR_ENABLED=false` 会隐藏入口，并让选品雷达路由返回 404。浏览器导航的同步开关为 `NEXT_PUBLIC_XHS_PRODUCT_RADAR_ENABLED`。
+- `PRODUCT_RADAR_DATA_MODE=fixture` 是安全默认值。`live` 模式只读取 Supabase 中已发布的规范化 payload，查询失败会回退 Fixture。
+- 先应用 `supabase/migrations/20260824090000_product_radar.sql`，再使用 `npm run pipeline:product-radar -- --persist` 写入。持久化需要服务端 `SUPABASE_SERVICE_ROLE_KEY`。
+- 每日 GitHub Action 在上海时间 07:00 运行。手动触发时可选择是否持久化；默认只进行安全的 Fixture 流水线校验。
+
+所有外部数据都必须通过 `lib/product-radar/providers` 下的 Provider Adapter 归一化。不允许使用小红书登录 Cookie、验证码绕过、反爬规避或未授权抓取。

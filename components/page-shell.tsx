@@ -5,6 +5,7 @@ import { useState, useEffect, useRef } from 'react';
 import type { User } from '@supabase/supabase-js';
 import { WeeklyNav } from './weekly-nav';
 import { getSession, onAuthChange, signOut } from '@/modules/explore/lib/auth';
+import { isProductRadarEnabled } from '@/lib/product-radar/config';
 
 /** 关注数量徽章：读 localStorage，供 AuthSlot 菜单内「⭐ 关注」项使用 */
 function FavBadge() {
@@ -18,9 +19,12 @@ function FavBadge() {
   };
 
   useEffect(() => {
-    refresh();
+    const timer = window.setTimeout(refresh, 0);
     window.addEventListener('fav-count-change', refresh);
-    return () => window.removeEventListener('fav-count-change', refresh);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener('fav-count-change', refresh);
+    };
   }, []);
   return count > 0 ? <span className="fav-badge">{count}</span> : null;
 }
@@ -107,6 +111,7 @@ function AuthSlot() {
 }
 
 export function Header() {
+  const productRadarEnabled = isProductRadarEnabled();
   return (
     <nav className="nav">
       <div className="nav-inner">
@@ -116,6 +121,7 @@ export function Header() {
           <Link href="/opportunities" className="x-link">机会</Link>
           <Link href="/explore" className="x-link">方向</Link>
           <Link href="/radar" className="x-link">雷达</Link>
+          {productRadarEnabled && <Link href="/tools" className="x-link">工具</Link>}
           <Link href="/x" className="x-link">X</Link>
         </div>
         <div className="nav-links">

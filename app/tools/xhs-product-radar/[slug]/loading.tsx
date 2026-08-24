@@ -1,0 +1,1 @@
+export default function Loading() { return <main className="container page-wrap pr-detail"><div className="pr-skeleton hero" /><div className="pr-skeleton section" /><div className="pr-skeleton section" /></main>; }
