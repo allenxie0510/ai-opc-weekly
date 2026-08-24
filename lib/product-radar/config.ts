@@ -1,6 +1,12 @@
 import type { ProductRadarDataMode } from './domain';
 
+export function isToolsEnabled(): boolean {
+  const value = process.env.TOOLS_ENABLED ?? process.env.NEXT_PUBLIC_TOOLS_ENABLED;
+  return value?.toLowerCase() === 'true';
+}
+
 export function isProductRadarEnabled(): boolean {
+  if (!isToolsEnabled()) return false;
   const value = process.env.XHS_PRODUCT_RADAR_ENABLED ?? process.env.NEXT_PUBLIC_XHS_PRODUCT_RADAR_ENABLED;
   return value?.toLowerCase() !== 'false';
 }

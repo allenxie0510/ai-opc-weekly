@@ -5,6 +5,31 @@ import { calculateProfit, normalizeProfitInput } from '../../lib/product-radar/p
 import { getFixtureOpportunities } from '../../lib/product-radar/fixtures';
 import { FixtureProductRadarRepository } from '../../lib/product-radar/repository';
 import { validateAIProductAnalysis } from '../../lib/product-radar/validation';
+import { isProductRadarEnabled, isToolsEnabled } from '../../lib/product-radar/config';
+
+test('tools product layer is opt-in and gates the product radar', () => {
+  const keys = ['TOOLS_ENABLED', 'NEXT_PUBLIC_TOOLS_ENABLED', 'XHS_PRODUCT_RADAR_ENABLED', 'NEXT_PUBLIC_XHS_PRODUCT_RADAR_ENABLED'] as const;
+  const previous = Object.fromEntries(keys.map((key) => [key, process.env[key]]));
+
+  try {
+    keys.forEach((key) => delete process.env[key]);
+    assert.equal(isToolsEnabled(), false);
+    assert.equal(isProductRadarEnabled(), false);
+
+    process.env.TOOLS_ENABLED = 'true';
+    assert.equal(isToolsEnabled(), true);
+    assert.equal(isProductRadarEnabled(), true);
+
+    process.env.XHS_PRODUCT_RADAR_ENABLED = 'false';
+    assert.equal(isProductRadarEnabled(), false);
+  } finally {
+    keys.forEach((key) => {
+      const value = previous[key];
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    });
+  }
+});
 
 test('opportunity score uses documented weights and caps risk penalty at 20', () => {
   const score = calculateOpportunityScore({ momentum: 100, contentability: 80, competitionGap: 60, supplyFit: 40, margin: 20, timing: 0 }, 30);

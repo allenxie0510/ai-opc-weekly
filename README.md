@@ -46,7 +46,8 @@ npm run test:product-radar
 npm run pipeline:product-radar
 ```
 
-- `XHS_PRODUCT_RADAR_ENABLED=false` 会隐藏入口，并让选品雷达路由返回 404。浏览器导航的同步开关为 `NEXT_PUBLIC_XHS_PRODUCT_RADAR_ENABLED`。
+- 工具产品层默认不公开：`TOOLS_ENABLED` 未设为 `true` 时，导航不显示“工具”，`/tools`、选品雷达页面及其 API 均返回 404，站点地图也不收录相关地址。功能代码、Fixture、Provider 和流水线仍完整保留。
+- 准备重新上线时设置 `TOOLS_ENABLED=true`；浏览器导航的同步开关为 `NEXT_PUBLIC_TOOLS_ENABLED`。单独关闭选品雷达仍可使用 `XHS_PRODUCT_RADAR_ENABLED=false`。
 - `PRODUCT_RADAR_DATA_MODE=fixture` 是安全默认值。`live` 模式只读取 Supabase 中已发布的规范化 payload，查询失败会回退 Fixture。
 - 先应用 `supabase/migrations/20260824090000_product_radar.sql`，再使用 `npm run pipeline:product-radar -- --persist` 写入。持久化需要服务端 `SUPABASE_SERVICE_ROLE_KEY`。
 - 每日 GitHub Action 在上海时间 07:00 运行。手动触发时可选择是否持久化；默认只进行安全的 Fixture 流水线校验。

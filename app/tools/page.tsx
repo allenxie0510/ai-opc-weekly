@@ -1,8 +1,9 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { notFound } from 'next/navigation';
 import { Header } from '@/components/page-shell';
 import { ProductVisual } from '@/components/product-radar/ProductVisual';
-import { isProductRadarEnabled } from '@/lib/product-radar/config';
+import { isProductRadarEnabled, isToolsEnabled } from '@/lib/product-radar/config';
 
 export const metadata: Metadata = {
   title: '工具 · AI OPC',
@@ -10,6 +11,7 @@ export const metadata: Metadata = {
 };
 
 export default function ToolsPage() {
+  if (!isToolsEnabled()) notFound();
   const enabled = isProductRadarEnabled();
   return (
     <><Header /><main className="container page-wrap pr-tools-page">
