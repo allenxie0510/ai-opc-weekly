@@ -14,13 +14,35 @@
  */
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest } from 'next/server';
-import { fetchAccountTweets, hasCurl } from '@/lib/nitter-fetch.mjs';
+import { discoverSources, fetchAccountTweets, hasCurl } from '@/lib/nitter-fetch.mjs';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
 
 const CONCURRENCY = 4;
 const SOURCE_TIMEOUT_SEC = 8;
+
+type TweetPayload = {
+  tweet_id: string;
+  author_username: string;
+  content: string;
+  published_at: string;
+  url: string;
+  media_urls: string[];
+};
+
+type FetchResult =
+  | { ok: true; source: string; transport: string; tweets: TweetPayload[] }
+  | { ok: false; attempts: string[] };
+
+type RefreshResult = {
+  username: string;
+  status: number;
+  count: number;
+  source?: string;
+  transport?: string;
+  error?: string;
+};
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -46,15 +68,22 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: acctErr?.message || '无账号' }, { status: 500 });
   }
 
-  const results: any[] = [];
+  const results: RefreshResult[] = [];
   let total = 0;
   let idx = 0;
+  const sources = await discoverSources({ forceRefresh: true, timeoutMs: 5000 });
+  const sourceState = new Map();
 
   async function worker() {
     while (idx < accounts!.length) {
       const acc = accounts![idx++];
       try {
-        const r: any = await fetchAccountTweets(acc, { timeoutSec: SOURCE_TIMEOUT_SEC });
+        const r = await fetchAccountTweets(acc, {
+          timeoutSec: SOURCE_TIMEOUT_SEC,
+          sources,
+          sourceState,
+          failureThreshold: 2,
+        }) as FetchResult;
         if (!r.ok) {
           results.push({ username: acc.username, status: -1, count: 0, error: r.attempts.join(' | ') });
           continue;
@@ -75,8 +104,13 @@ export async function POST(req: NextRequest) {
         }
         results.push({ username: acc.username, status: 200, count, source: r.source, transport: r.transport });
         total += count;
-      } catch (e: any) {
-        results.push({ username: acc.username, status: -1, count: 0, error: e.message });
+      } catch (e: unknown) {
+        results.push({
+          username: acc.username,
+          status: -1,
+          count: 0,
+          error: e instanceof Error ? e.message : String(e),
+        });
       }
     }
   }

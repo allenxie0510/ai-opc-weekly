@@ -8,7 +8,7 @@
  * 与 app/api/admin/refresh/route.ts 共享，改逻辑只改那一处。
  */
 import { createClient } from '@supabase/supabase-js';
-import { fetchAccountTweets } from '../lib/nitter-fetch.mjs';
+import { discoverSources, fetchAccountTweets } from '../lib/nitter-fetch.mjs';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -20,12 +20,12 @@ if (!SUPABASE_URL || !SUPABASE_KEY) {
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// 账号间礼貌延时（约 15 个账号；实例对连击限流敏感，2.5s 实测安全）
+// 账号间礼貌延时，减少免费公共实例的瞬时压力。
 const SLEEP_MS = 2500;
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
 async function main() {
-  console.log('🔄 开始从 Nitter 公共实例拉取推文...\n');
+  console.log('🔄 开始从免费 X 公共源拉取推文...\n');
 
   // 读取所有账号（不再依赖 rss_url，nitter 实例只需 username）
   const { data: accounts, error: acctErr } = await supabase
@@ -41,15 +41,25 @@ async function main() {
     process.exit(0);
   }
 
-  console.log(`📡 ${accounts.length} 个账号，候选源: nitter.net → nitter.privacyredirect.com → xcancel.com → rss_url 兜底\n`);
+  const sources = await discoverSources({ forceRefresh: true });
+  console.log(`📡 ${accounts.length} 个账号，${sources.length} 个免费候选源`);
+  console.log(`   ${sources.map((source) => source.name).join(' → ')}\n`);
 
   const debug = process.env.FETCH_DEBUG === '1';
+  // 同一轮中某源出现网络错误/403/429/5xx 后立即熔断，避免 18 个账号重复等待已故障源。
+  const sourceState = new Map();
   let synced = 0, okAccounts = 0;
   const failed = [];
 
   for (let i = 0; i < accounts.length; i++) {
     const acc = accounts[i];
-    const r = await fetchAccountTweets(acc, { timeoutSec: 20, debug });
+    const r = await fetchAccountTweets(acc, {
+      timeoutSec: 12,
+      debug,
+      sources,
+      sourceState,
+      failureThreshold: 1,
+    });
 
     if (!r.ok) {
       failed.push(acc.username);
@@ -147,7 +157,7 @@ async function main() {
   // 全灭报警：0 个账号成功说明是系统性故障（公共实例全挂/网络全断），
   // exit 1 让 Actions 标红——只 log 警告会让故障被掩盖（RSS.app 402 曾静默失败两天）
   if (okAccounts === 0 && accounts.length > 0) {
-    console.error(`\n❌ 全部账号失败（0/${accounts.length}），Nitter 公共实例可能整体不可用，考虑更换抓取源`);
+    console.error(`\n❌ 全部账号失败（0/${accounts.length}），本轮免费 RSS/HTML 公共源均不可用`);
     process.exit(1);
   }
 
