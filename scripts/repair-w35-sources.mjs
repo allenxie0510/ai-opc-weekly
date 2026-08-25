@@ -22,28 +22,7 @@ const TARGETS = [
   {
     id: 'c60d9cb7-6015-4358-a50e-052ce5e1b8d4',
     oldTitle: 'Cohesive：AI营销文案生成器',
-    productTerm: 'Cohesive',
-    replacement: {
-      title: 'Cohesive：面向创作者的 AI 内容工作台',
-      description: 'Cohesive 是一款真实运营中的 AI 内容编辑器，官方页面显示它覆盖 SEO、广告文案、营销文案和社交媒体内容等场景，并提供 200 多个模板。它把文字编辑、AI 图片、AI 语音、资料研究和多人协作放进同一个内容工作台。官方定价页可以核对免费 Basic 层、每位编辑 25 美元月费的 Creator 层，以及每位编辑 45 美元月费的 Agency 层；不同档位按模板运行次数、图片、语音时长和集成数量区分。此前周报中关于“3 人团队、15,000 美元 MRR、3,000 家付费用户、75% 用户来自欧美”的内容没有找到对应原始证据，因此已全部删除，收入和团队规模统一标记为未披露。',
-      insight: '我不建议 OPC 复刻一个大而全的通用写作平台。更可行的迁移方式，是从 Cohesive 的模板和工作流思路中拆出一个明确行业，例如跨境商品详情、房产经纪内容或本地商家促销，把资料输入、生成、审核和多格式交付做成一条窄流程。没有原始收入证据，就只把它当产品结构案例。',
-      category: 'content-monetize',
-      creator_level: 'medium',
-      compound_potential: 'medium',
-      mrr_range: '未披露',
-      pricing: '免费 / $25 / $45 每位编辑',
-      mvp_time: '未披露',
-      refs: [
-        { label: 'Cohesive 官方产品页', url: 'https://cohesive.so/' },
-        { label: 'Cohesive 官方定价', url: 'https://cohesive.so/pricing/' },
-      ],
-      tags: ['AI内容', '模板工作流', '创作者工具'],
-      rank: 3,
-      section: 'deepdive',
-      revenue_type: 'undisclosed',
-      revenue_source_url: '',
-      claim_quote: '',
-    },
+    deleteOnly: true,
   },
   {
     id: '12c6a35b-c0a1-49bf-8e95-65e1788fb47b',
@@ -67,7 +46,7 @@ const TARGETS = [
         { label: 'Jobric 官方网站与定价', url: 'https://www.jobric.ai/' },
       ],
       tags: ['职位匹配', '垂直AI', '候选人订阅'],
-      rank: 4,
+      rank: 3,
       section: 'deepdive',
       revenue_type: 'founder_disclosed',
       revenue_source_url: 'https://www.indiehackers.com/post/tech/hitting-3-3k-mrr-in-two-months-while-working-a-full-time-job-eb5timbPqFlDFWZjha9i',
@@ -96,7 +75,7 @@ const TARGETS = [
         { label: 'Visualizee.ai 官方网站与定价', url: 'https://visualizee.ai/' },
       ],
       tags: ['专业渲染', '垂直工作流', 'SEO增长'],
-      rank: 5,
+      rank: 4,
       section: 'deepdive',
       revenue_type: 'founder_disclosed',
       revenue_source_url: 'https://www.indiehackers.com/post/from-150-month-to-8-6k-mrr-how-one-pivot-and-a-lot-of-seo-saved-my-ai-startup-2af6a82ee6',
@@ -137,14 +116,16 @@ async function verifyReplacement(target) {
 }
 
 async function main() {
-  // No destructive operation is allowed until all four source checks pass.
-  for (const target of TARGETS) await verifyReplacement(target);
+  // No destructive operation is allowed until every replacement source passes.
+  for (const target of TARGETS.filter(item => item.replacement)) {
+    await verifyReplacement(target);
+  }
   if (EVIDENCE_ONLY) {
     console.log('All replacement evidence passed; database mutation skipped.');
     return;
   }
 
-  const issues = await sb(`/weekly_issues?slug=eq.${ISSUE_SLUG}&select=id,slug&limit=1`);
+  const issues = await sb(`/weekly_issues?slug=eq.${ISSUE_SLUG}&select=id,slug,summary&limit=1`);
   const issue = issues?.[0];
   if (!issue) throw new Error(`Weekly issue not found: ${ISSUE_SLUG}`);
 
@@ -157,12 +138,13 @@ async function main() {
   }
   for (const target of TARGETS) {
     const row = originals.find(item => item.id === target.id);
-    if (!row || ![target.oldTitle, target.replacement.title].includes(row.title)) {
+    const allowedTitles = [target.oldTitle, target.replacement?.title].filter(Boolean);
+    if (!row || !allowedTitles.includes(row.title)) {
       throw new Error(`Safety check failed for ${target.id}: unexpected title`);
     }
   }
 
-  const replacements = TARGETS.map(target => ({
+  const replacements = TARGETS.filter(target => target.replacement).map(target => ({
     id: target.id,
     weekly_issue_id: issue.id,
     ...target.replacement,
@@ -174,11 +156,13 @@ async function main() {
   });
 
   try {
-    await sb('/news_items', {
-      method: 'POST',
-      headers: { Prefer: 'return=representation' },
-      body: JSON.stringify(replacements),
-    });
+    if (replacements.length > 0) {
+      await sb('/news_items', {
+        method: 'POST',
+        headers: { Prefer: 'return=representation' },
+        body: JSON.stringify(replacements),
+      });
+    }
   } catch (error) {
     console.error('Replacement insert failed; restoring original rows.');
     await sb('/news_items', {
@@ -189,13 +173,26 @@ async function main() {
     throw error;
   }
 
+  await sb(`/weekly_issues?id=eq.${issue.id}`, {
+    method: 'PATCH',
+    headers: { Prefer: 'return=minimal' },
+    body: JSON.stringify({
+      summary: '本周 4 个深度拆解：AI × 一人公司创业 / 商业 / 变现，全部附可核验来源。',
+    }),
+  });
+
   const verified = await sb(
     `/news_items?weekly_issue_id=eq.${issue.id}&order=rank.asc&select=id,title,rank,refs,revenue_type,revenue_source_url,claim_quote`,
   );
-  for (const target of TARGETS) {
+  for (const target of TARGETS.filter(item => item.replacement)) {
     const row = verified.find(item => item.id === target.id);
     if (!row || row.title !== target.replacement.title) {
       throw new Error(`Post-write verification failed for ${target.id}`);
+    }
+  }
+  for (const target of TARGETS.filter(item => item.deleteOnly)) {
+    if (verified.some(item => item.id === target.id)) {
+      throw new Error(`Post-delete verification failed for ${target.id}`);
     }
   }
 
