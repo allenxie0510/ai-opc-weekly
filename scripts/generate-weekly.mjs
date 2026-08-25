@@ -23,6 +23,8 @@
  * - Supabase INSERT 空响应 → 回查 slug 取 id
  */
 
+import { extractProductTerms, validateSourceUrl } from './lib/source-validation.mjs';
+
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SRK = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const ZK = process.env.ZHIPU_API_KEY;
@@ -167,30 +169,18 @@ function isPlausibleTweetUrl(url) {
   return true;
 }
 
-async function checkUrl(url) {
-  try {
-    const res = await fetch(url, {
-      method: 'GET',
-      headers: { 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36' },
-      redirect: 'follow',
-      signal: AbortSignal.timeout(8000),
-    });
-    // 2xx/3xx 有效；401/403/405 是反爬拦截不代表不存在；404/410 确认无效
-    return res.status < 400 || [401, 403, 405].includes(res.status);
-  } catch {
-    return true; // 网络错误（超时/被墙）不等于编造，保守保留
-  }
-}
-
-async function validateRefs(refs, title) {
+async function validateRefs(refs, title, quote = '') {
+  const expectedTerms = extractProductTerms(title);
   const results = await Promise.all(refs.map(async r => {
     if (!isPlausibleTweetUrl(r.url)) {
       console.log(`   🔍 丢弃可疑推文链接（${title.slice(0, 15)}）: ${r.url}`);
       return null;
     }
-    const ok = await checkUrl(r.url);
-    if (!ok) console.log(`   🔍 丢弃 404 链接（${title.slice(0, 15)}）: ${r.url}`);
-    return ok ? r : null;
+    const checked = await validateSourceUrl(r.url, { expectedTerms, quote });
+    if (!checked.ok) {
+      console.log(`   🔍 丢弃未通过实证校验的链接（${checked.reason}，${title.slice(0, 15)}）: ${r.url}`);
+    }
+    return checked.ok ? { ...r, url: checked.finalUrl || r.url } : null;
   }));
   return results.filter(Boolean);
 }
@@ -340,7 +330,11 @@ ${taskLine}
         if (hasNumber) {
           let verified = false;
           if (m.revenue_source_url && m.claim_quote) {
-            const okRefs = await validateRefs([{ label: 'revenue', url: m.revenue_source_url }], m.title);
+            const okRefs = await validateRefs(
+              [{ label: 'revenue', url: m.revenue_source_url }],
+              m.title,
+              m.claim_quote,
+            );
             verified = okRefs.length > 0;
           }
           if (!verified) {
