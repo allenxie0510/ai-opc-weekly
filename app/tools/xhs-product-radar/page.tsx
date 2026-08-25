@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Header } from '@/components/page-shell';
 import { RadarFeed } from '@/components/product-radar/RadarFeed';
-import { isProductRadarEnabled } from '@/lib/product-radar/config';
+import { canAccessProductRadar } from '@/lib/product-radar/access';
 import { getProductRadarRepository } from '@/lib/product-radar/repository';
 
 export const revalidate = 300;
@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 };
 
 export default async function ProductRadarPage() {
-  if (!isProductRadarEnabled()) notFound();
+  if (!(await canAccessProductRadar())) notFound();
   const feed = await getProductRadarRepository().list();
   return (
     <><Header /><main className="container page-wrap pr-page">

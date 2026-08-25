@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isProductRadarEnabled, PRODUCT_RADAR_CACHE_SECONDS } from '@/lib/product-radar/config';
+import { requestCanAccessProductRadar } from '@/lib/product-radar/access';
 import { getProductRadarRepository } from '@/lib/product-radar/repository';
 import type { DecisionLabel, OpportunityStage, RiskLevel } from '@/lib/product-radar/domain';
 
@@ -14,7 +15,7 @@ function numberParam(value: string | null, min: number, max: number) {
 }
 
 export async function GET(request: NextRequest) {
-  if (!isProductRadarEnabled()) return NextResponse.json({ error: 'Product radar is disabled' }, { status: 404 });
+  if (!requestCanAccessProductRadar(request)) return NextResponse.json({ error: 'Product radar is disabled' }, { status: 404 });
   const query = request.nextUrl.searchParams;
   const stage = query.get('stage') as OpportunityStage | null;
   const decision = query.get('decision') as DecisionLabel | null;
@@ -29,5 +30,8 @@ export async function GET(request: NextRequest) {
     limit: numberParam(query.get('limit'), 1, 100),
     offset: numberParam(query.get('offset'), 0, 10_000),
   });
-  return NextResponse.json(feed, { headers: { 'Cache-Control': `public, s-maxage=${PRODUCT_RADAR_CACHE_SECONDS}, stale-while-revalidate=600` } });
+  const cacheControl = isProductRadarEnabled()
+    ? `public, s-maxage=${PRODUCT_RADAR_CACHE_SECONDS}, stale-while-revalidate=600`
+    : 'private, no-store';
+  return NextResponse.json(feed, { headers: { 'Cache-Control': cacheControl } });
 }

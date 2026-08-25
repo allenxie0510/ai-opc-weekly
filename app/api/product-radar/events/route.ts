@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { isProductRadarEnabled } from '@/lib/product-radar/config';
+import { requestCanAccessProductRadar } from '@/lib/product-radar/access';
 
 const allowed = new Set(['view_radar_feed', 'filter_radar', 'view_opportunity', 'toggle_watchlist', 'change_profit_input', 'open_supply_offer']);
 const recent = new Map<string, { count: number; expiresAt: number }>();
 
 export async function POST(request: NextRequest) {
-  if (!isProductRadarEnabled()) return NextResponse.json({ error: 'Product radar is disabled' }, { status: 404 });
+  if (!requestCanAccessProductRadar(request)) return NextResponse.json({ error: 'Product radar is disabled' }, { status: 404 });
   const key = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'anonymous';
   const now = Date.now();
   const state = recent.get(key);

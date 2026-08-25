@@ -1,18 +1,16 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
 import { Header } from '@/components/page-shell';
 import { ProductVisual } from '@/components/product-radar/ProductVisual';
-import { isProductRadarEnabled, isToolsEnabled } from '@/lib/product-radar/config';
+import { canAccessProductRadar } from '@/lib/product-radar/access';
 
 export const metadata: Metadata = {
   title: '工具 · AI OPC',
   description: '为一人公司提供的轻量决策工具。',
 };
 
-export default function ToolsPage() {
-  if (!isToolsEnabled()) notFound();
-  const enabled = isProductRadarEnabled();
+export default async function ToolsPage() {
+  const enabled = await canAccessProductRadar();
   return (
     <><Header /><main className="container page-wrap pr-tools-page">
       <header className="pr-tools-hero"><span className="pr-kicker">AI OPC TOOLKIT</span><h1>把信息变成今天能执行的决策</h1><p>工具层不追求更多数据，只帮一人公司缩小选择范围、看清证据和最低成本的下一步。</p></header>

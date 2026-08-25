@@ -111,7 +111,34 @@ function AuthSlot() {
 }
 
 export function Header() {
-  const productRadarEnabled = isProductRadarEnabled();
+  const [adminToolsAccess, setAdminToolsAccess] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    const refresh = async () => {
+      try {
+        const token = localStorage.getItem('ai_opc_admin_token');
+        const response = await fetch('/api/admin/session', token ? {
+          method: 'POST',
+          headers: { 'x-admin-token': token },
+          cache: 'no-store',
+        } : { cache: 'no-store' });
+        const data = await response.json();
+        if (active) setAdminToolsAccess(response.ok && data.authenticated === true);
+      } catch {
+        if (active) setAdminToolsAccess(false);
+      }
+    };
+    const handleSessionChange = () => void refresh();
+    void refresh();
+    window.addEventListener('aiopc-admin-session-change', handleSessionChange);
+    return () => {
+      active = false;
+      window.removeEventListener('aiopc-admin-session-change', handleSessionChange);
+    };
+  }, []);
+
+  const showTools = isProductRadarEnabled() || adminToolsAccess;
   return (
     <nav className="nav">
       <div className="nav-inner">
@@ -121,7 +148,7 @@ export function Header() {
           <Link href="/opportunities" className="x-link">机会</Link>
           <Link href="/explore" className="x-link">方向</Link>
           <Link href="/radar" className="x-link">雷达</Link>
-          {productRadarEnabled && <Link href="/tools" className="x-link">工具</Link>}
+          {showTools && <Link href="/tools" className="x-link">工具</Link>}
           <Link href="/x" className="x-link">X</Link>
         </div>
         <div className="nav-links">

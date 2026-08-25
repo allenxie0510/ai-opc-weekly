@@ -12,6 +12,7 @@ import { WatchlistButton } from '@/components/product-radar/WatchlistButton';
 import { OpportunityViewEvent } from '@/components/product-radar/OpportunityViewEvent';
 import { getFixtureOpportunities } from '@/lib/product-radar/fixtures';
 import { isProductRadarEnabled, isStale } from '@/lib/product-radar/config';
+import { canAccessProductRadar } from '@/lib/product-radar/access';
 import { getProductRadarRepository } from '@/lib/product-radar/repository';
 import { EVIDENCE_DESCRIPTIONS, RISK_LABELS, STAGE_LABELS } from '@/lib/product-radar/presentation';
 
@@ -22,14 +23,14 @@ export function generateStaticParams() {
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
-  if (!isProductRadarEnabled()) notFound();
+  if (!(await canAccessProductRadar())) notFound();
   const { slug } = await params;
   const item = await getProductRadarRepository().getBySlug(slug);
   return item ? { title: `${item.title} · 小红书选品雷达`, description: item.whyNow } : { title: '商品机会未找到' };
 }
 
 export default async function ProductOpportunityPage({ params }: { params: Promise<{ slug: string }> }) {
-  if (!isProductRadarEnabled()) notFound();
+  if (!(await canAccessProductRadar())) notFound();
   const { slug } = await params;
   const item = await getProductRadarRepository().getBySlug(slug);
   if (!item) notFound();

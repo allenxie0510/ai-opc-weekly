@@ -47,6 +47,7 @@ npm run pipeline:product-radar
 ```
 
 - 工具产品层默认不公开：`TOOLS_ENABLED` 未设为 `true` 时，导航不显示“工具”，`/tools`、选品雷达页面及其 API 均返回 404，站点地图也不收录相关地址。功能代码、Fixture、Provider 和流水线仍完整保留。
+- 管理员在 `/admin` 使用 `ADMIN_PASSWORD` 登录后会获得 7 天 HttpOnly 管理会话，可从审核台的“工具预览”或全站导航完整访问隐藏工具；普通用户仍不可见且直达返回 404。退出审核台会立即清除该会话。
 - 准备重新上线时设置 `TOOLS_ENABLED=true`；浏览器导航的同步开关为 `NEXT_PUBLIC_TOOLS_ENABLED`。单独关闭选品雷达仍可使用 `XHS_PRODUCT_RADAR_ENABLED=false`。
 - `PRODUCT_RADAR_DATA_MODE=fixture` 是安全默认值。`live` 模式只读取 Supabase 中已发布的规范化 payload，查询失败会回退 Fixture。
 - 先应用 `supabase/migrations/20260824090000_product_radar.sql`，再使用 `npm run pipeline:product-radar -- --persist` 写入。持久化需要服务端 `SUPABASE_SERVICE_ROLE_KEY`。

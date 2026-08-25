@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
 import { Header } from '@/components/page-shell';
 import { RECOMMENDATION_MAP, CONVICTION_MAP, CATEGORY_MAP } from '@/lib/types';
 
@@ -81,8 +82,11 @@ export default function AdminPage() {
       const res = await fetch('/api/admin/review', {
         headers: { 'x-admin-token': t },
         cache: 'no-store',
-      });      if (res.status === 401) {
+      });
+      if (res.status === 401) {
         localStorage.removeItem('ai_opc_admin_token');
+        await fetch('/api/admin/session', { method: 'DELETE' });
+        window.dispatchEvent(new Event('aiopc-admin-session-change'));
         setAuthed(false);
         setMessage('密码错误，请重新输入');
         return;
@@ -92,6 +96,16 @@ export default function AdminPage() {
         setMessage(data.error || '加载失败');
         return;
       }
+      const sessionResponse = await fetch('/api/admin/session', {
+        method: 'POST',
+        headers: { 'x-admin-token': t },
+        cache: 'no-store',
+      });
+      if (!sessionResponse.ok) {
+        setAuthed(false);
+        setMessage('管理员会话建立失败，请重新登录');
+        return;
+      }
       setRadarDrafts(data.radarDrafts || []);
       setWeeklyDrafts(data.weeklyDrafts || []);
       setRadarRejected(data.radarRejected || []);
@@ -99,6 +113,7 @@ export default function AdminPage() {
       setOpportunityPublished(data.opportunityPublished || []);
       setSelected(new Set());
       setAuthed(true);
+      window.dispatchEvent(new Event('aiopc-admin-session-change'));
     } catch {
       setMessage('网络错误');
     } finally {
@@ -120,6 +135,16 @@ export default function AdminPage() {
     localStorage.setItem('ai_opc_admin_token', passwordInput);
     setToken(passwordInput);
     void load(passwordInput);
+  }
+
+  async function logout() {
+    localStorage.removeItem('ai_opc_admin_token');
+    await fetch('/api/admin/session', { method: 'DELETE' });
+    setToken('');
+    setAuthed(false);
+    setPasswordInput('');
+    setMessage('');
+    window.dispatchEvent(new Event('aiopc-admin-session-change'));
   }
 
   async function revalidateSite() {
@@ -318,6 +343,9 @@ export default function AdminPage() {
             <div className="admin-topbar">
               <h1>审核台</h1>
               <div className="admin-actions">
+                <Link className="admin-btn" href="/tools">
+                  🧰 工具预览
+                </Link>
                 <button
                   className="admin-btn primary"
                   onClick={() => void trigger('daily-radar')}
@@ -348,6 +376,9 @@ export default function AdminPage() {
                 </button>
                 <button className="admin-btn" onClick={() => void load(token)} disabled={loading}>
                   {loading ? '刷新中…' : '刷新'}
+                </button>
+                <button className="admin-btn" onClick={() => void logout()}>
+                  退出
                 </button>
               </div>
             </div>

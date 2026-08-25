@@ -6,6 +6,36 @@ import { getFixtureOpportunities } from '../../lib/product-radar/fixtures';
 import { FixtureProductRadarRepository } from '../../lib/product-radar/repository';
 import { validateAIProductAnalysis } from '../../lib/product-radar/validation';
 import { isProductRadarEnabled, isToolsEnabled } from '../../lib/product-radar/config';
+import {
+  ADMIN_SESSION_COOKIE,
+  ADMIN_SESSION_MAX_AGE_SECONDS,
+  createAdminSessionValue,
+  isAdminPassword,
+  isAdminSessionValue,
+  requestHasAdminSession,
+} from '../../lib/admin-session';
+
+test('admin tools session is signed, expires and can be read from a request cookie', () => {
+  const previous = process.env.ADMIN_PASSWORD;
+  const now = new Date('2026-08-25T00:00:00Z').getTime();
+  try {
+    process.env.ADMIN_PASSWORD = 'test-admin-password';
+    assert.equal(isAdminPassword('test-admin-password'), true);
+    assert.equal(isAdminPassword('wrong-password'), false);
+    const value = createAdminSessionValue(now);
+    assert.ok(value);
+    assert.equal(isAdminSessionValue(value, now), true);
+    assert.equal(isAdminSessionValue(`${value}tampered`, now), false);
+    assert.equal(isAdminSessionValue(value, now + ADMIN_SESSION_MAX_AGE_SECONDS * 1000 + 1), false);
+    const request = new Request('https://www.aiopcnews.com/tools', { headers: { cookie: `${ADMIN_SESSION_COOKIE}=${encodeURIComponent(value)}` } });
+    assert.equal(requestHasAdminSession(request, now), true);
+    const malformed = new Request('https://www.aiopcnews.com/tools', { headers: { cookie: `${ADMIN_SESSION_COOKIE}=%E0%A4%A` } });
+    assert.equal(requestHasAdminSession(malformed, now), false);
+  } finally {
+    if (previous === undefined) delete process.env.ADMIN_PASSWORD;
+    else process.env.ADMIN_PASSWORD = previous;
+  }
+});
 
 test('tools product layer is opt-in and gates the product radar', () => {
   const keys = ['TOOLS_ENABLED', 'NEXT_PUBLIC_TOOLS_ENABLED', 'XHS_PRODUCT_RADAR_ENABLED', 'NEXT_PUBLIC_XHS_PRODUCT_RADAR_ENABLED'] as const;

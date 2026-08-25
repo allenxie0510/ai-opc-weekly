@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { isProductRadarEnabled } from '@/lib/product-radar/config';
+import { requestCanAccessProductRadar } from '@/lib/product-radar/access';
 import { calculateProfit } from '@/lib/product-radar/profit';
 
 const counters = new Map<string, { count: number; expiresAt: number }>();
@@ -14,7 +14,7 @@ function limited(request: NextRequest): boolean {
 }
 
 export async function POST(request: NextRequest) {
-  if (!isProductRadarEnabled()) return NextResponse.json({ error: 'Product radar is disabled' }, { status: 404 });
+  if (!requestCanAccessProductRadar(request)) return NextResponse.json({ error: 'Product radar is disabled' }, { status: 404 });
   if (limited(request)) return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
   try {
     const body = await request.json();
