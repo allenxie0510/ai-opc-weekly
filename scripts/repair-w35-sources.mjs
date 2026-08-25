@@ -1,9 +1,9 @@
 /**
  * One-time, evidence-gated repair for 2026-w35.
  *
- * The two original rows contained hallucinated domains and source quotes.
+ * The original rows contained hallucinated domains, source quotes or metrics.
  * This script validates every replacement URL and exact revenue quote before
- * deleting anything, then replaces the two rows. If insertion fails, it
+ * deleting anything, then replaces the affected rows. If insertion fails, it
  * restores the original rows.
  */
 import { validateSourceUrl } from './lib/source-validation.mjs';
@@ -20,8 +20,35 @@ if ((!SUPABASE_URL || !SERVICE_KEY) && !EVIDENCE_ONLY) {
 const ISSUE_SLUG = '2026-w35';
 const TARGETS = [
   {
+    id: 'c60d9cb7-6015-4358-a50e-052ce5e1b8d4',
+    oldTitle: 'Cohesive：AI营销文案生成器',
+    productTerm: 'Cohesive',
+    replacement: {
+      title: 'Cohesive：面向创作者的 AI 内容工作台',
+      description: 'Cohesive 是一款真实运营中的 AI 内容编辑器，官方页面显示它覆盖 SEO、广告文案、营销文案和社交媒体内容等场景，并提供 200 多个模板。它把文字编辑、AI 图片、AI 语音、资料研究和多人协作放进同一个内容工作台。官方定价页可以核对免费 Basic 层、每位编辑 25 美元月费的 Creator 层，以及每位编辑 45 美元月费的 Agency 层；不同档位按模板运行次数、图片、语音时长和集成数量区分。此前周报中关于“3 人团队、15,000 美元 MRR、3,000 家付费用户、75% 用户来自欧美”的内容没有找到对应原始证据，因此已全部删除，收入和团队规模统一标记为未披露。',
+      insight: '我不建议 OPC 复刻一个大而全的通用写作平台。更可行的迁移方式，是从 Cohesive 的模板和工作流思路中拆出一个明确行业，例如跨境商品详情、房产经纪内容或本地商家促销，把资料输入、生成、审核和多格式交付做成一条窄流程。没有原始收入证据，就只把它当产品结构案例。',
+      category: 'content-monetize',
+      creator_level: 'medium',
+      compound_potential: 'medium',
+      mrr_range: '未披露',
+      pricing: '免费 / $25 / $45 每位编辑',
+      mvp_time: '未披露',
+      refs: [
+        { label: 'Cohesive 官方产品页', url: 'https://cohesive.so/' },
+        { label: 'Cohesive 官方定价', url: 'https://cohesive.so/pricing/' },
+      ],
+      tags: ['AI内容', '模板工作流', '创作者工具'],
+      rank: 3,
+      section: 'deepdive',
+      revenue_type: 'undisclosed',
+      revenue_source_url: '',
+      claim_quote: '',
+    },
+  },
+  {
     id: '12c6a35b-c0a1-49bf-8e95-65e1788fb47b',
     oldTitle: 'AI 视频脚本生成器 ScriptGenius',
+    productTerm: 'Jobric',
     replacement: {
       title: 'Jobric：候选人付费的 AI 职位匹配',
       description: 'Jobric 是 Erik Chavez 在微软全职工作之外、用个人资金开发的候选人侧 AI 职位匹配平台。用户上传简历和求职偏好后，系统从多个招聘平台筛选岗位，通过匹配评分、AI 适配分析和公司简报减少无效投递。Indie Hackers 2026 年 6 月 26 日的创始人访谈显示，Erik 于 5 月 1 日开始收费，公测用户转付费后达到 3,300 美元 MRR；他强调核心不是简单的 LLM 封装，而是职位与履历数据、确定性匹配逻辑、按需容器和自托管小模型。官网可以独立核对免费层，以及 29 美元和 49 美元两个付费月费档。这个案例的可迁移价值是从一个人的具体痛点切入，让工程规则承担确定性判断，AI 只处理语义层，再以候选人订阅保持利益一致。',
@@ -50,6 +77,7 @@ const TARGETS = [
   {
     id: 'ffca40a0-5624-4252-9f44-7e164ec6e898',
     oldTitle: 'AI 图片版权检测工具 CopyRightGuard',
+    productTerm: 'Visualizee',
     replacement: {
       title: 'Visualizee.ai：把专业渲染改成对话',
       description: 'Visualizee.ai 是 Piotr Obidowski 在全职工作之外独立运营的专业 AI 渲染工具，面向建筑师、室内设计师、家具和汽车设计等具体工作流。Piotr 在 Indie Hackers 的创始人原帖中披露，早期节点式产品连续两年只有约 100 至 150 美元月收入；六个月前将复杂节点改成自然语言对话，并从一次性收费切换为订阅后，产品达到 8,600 美元 MRR。其官网仍可实际访问，并明确展示 15、35 和 80 美元月费档，以及商业许可、批量渲染等差异。这个案例的重点不是再做一个通用生图器，而是把专业用户不愿学习的提示词和节点操作隐藏到场景化工作流后面，用高意图 SEO 获取建筑与设计类用户。',
@@ -94,11 +122,10 @@ async function sb(path, options = {}) {
 
 async function verifyReplacement(target) {
   const item = target.replacement;
-  const productTerm = item.title.includes('Jobric') ? 'Jobric' : 'Visualizee';
   for (const ref of item.refs) {
     const quote = ref.url === item.revenue_source_url ? item.claim_quote : '';
     const result = await validateSourceUrl(ref.url, {
-      expectedTerms: [productTerm],
+      expectedTerms: [target.productTerm],
       quote,
       timeoutMs: 20_000,
     });
@@ -130,7 +157,7 @@ async function main() {
   }
   for (const target of TARGETS) {
     const row = originals.find(item => item.id === target.id);
-    if (!row || row.title !== target.oldTitle) {
+    if (!row || ![target.oldTitle, target.replacement.title].includes(row.title)) {
       throw new Error(`Safety check failed for ${target.id}: unexpected title`);
     }
   }
