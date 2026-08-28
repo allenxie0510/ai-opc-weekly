@@ -9,6 +9,8 @@ const root = resolve(here, '../..');
 const aiSource = readFileSync(resolve(root, 'modules/explore/lib/ai.ts'), 'utf8');
 const generateSource = readFileSync(resolve(root, 'modules/explore/components/StepGenerate.tsx'), 'utf8');
 const appSource = readFileSync(resolve(root, 'modules/explore/ExploreApp.tsx'), 'utf8');
+const authSource = readFileSync(resolve(root, 'modules/explore/lib/auth.ts'), 'utf8');
+const loginSource = readFileSync(resolve(root, 'modules/explore/components/LoginModal.tsx'), 'utf8');
 
 test('用户选定的方向会进入模型画像并成为硬范围', () => {
   assert.match(aiSource, /本次探索主题\/方向（最高优先级范围边界）：\$\{p\.direction/);
@@ -28,4 +30,13 @@ test('每次海量生成都替换旧候选池', () => {
   assert.match(generateSource, /if \(firstBatch\) \{\s*onReplace\(p\.batch\)/);
   assert.match(appSource, /function replaceOpps\(list: Opportunity\[\]\)/);
   assert.match(appSource, /setOpportunities\(list\);\s*setPlans\(\{\}\)/);
+});
+
+test('方向探测器只展示已配置的邮箱登录方式', () => {
+  assert.match(authSource, /sendMagicLink/);
+  assert.doesNotMatch(authSource, /phone:/);
+  assert.doesNotMatch(authSource, /type: 'sms'/);
+  assert.match(loginSource, /当前仅支持邮箱登录/);
+  assert.match(loginSource, /type="email"/);
+  assert.doesNotMatch(loginSource, /手机号|短信验证码|6 位验证码/);
 });

@@ -286,7 +286,7 @@ export function ExploreApp() {
         </>
       )}
 
-      <LoginModal open={loginOpen} user={user} onClose={() => setLoginOpen(false)} />
+      {loginOpen && <LoginModal open user={user} onClose={() => setLoginOpen(false)} />}
       <SessionsModal
         open={sessionsOpen}
         sessions={sessions}
