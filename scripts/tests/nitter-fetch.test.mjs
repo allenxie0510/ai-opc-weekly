@@ -102,9 +102,12 @@ test('生产写入仅在抓到媒体时覆盖已有推文', () => {
   const workflow = readFileSync(new URL('../../.github/workflows/fetch-tweets.yml', import.meta.url), 'utf8');
   assert.match(script, /ignoreDuplicates: t\.media_urls\.length === 0/);
   assert.match(script, /SUPABASE_SERVICE_ROLE_KEY \|\| process\.env\.NEXT_PUBLIC_SUPABASE_ANON_KEY/);
+  assert.match(script, /process\.env\.FETCH_ACCOUNT/);
   assert.match(refresh, /ignoreDuplicates: t\.media_urls\.length === 0/);
   assert.match(refresh, /createServerSupabase\(true\)/);
   assert.match(workflow, /SUPABASE_SERVICE_ROLE_KEY: \$\{\{ secrets\.SUPABASE_SERVICE_ROLE_KEY \}\}/);
+  assert.match(workflow, /target_account:/);
+  assert.match(workflow, /FETCH_ACCOUNT: \$\{\{ inputs\.target_account \|\| '' \}\}/);
 });
 
 test('状态 API 只选健康公开 HTTPS 源，并优先 RSS', () => {

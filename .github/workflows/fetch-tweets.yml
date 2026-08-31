@@ -3,7 +3,12 @@ name: Fetch X Tweets (Nitter → Supabase)
 on:
   schedule:
     - cron: '0 */2 * * *'  # 每2小时
-  workflow_dispatch:  # 手动触发
+  workflow_dispatch:
+    inputs:
+      target_account:
+        description: '可选：只抓取一个已追踪的 X 用户名（不含 @），用于媒体回填/诊断'
+        required: false
+        type: string
 
 jobs:
   fetch:
@@ -36,3 +41,4 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           FETCH_DEBUG: ${{ vars.FETCH_DEBUG || '0' }}
+          FETCH_ACCOUNT: ${{ inputs.target_account || '' }}

@@ -29,18 +29,20 @@ async function main() {
   console.log('🔄 开始从免费 X 公共源拉取推文...\n');
 
   // 读取所有账号（不再依赖 rss_url，nitter 实例只需 username）
-  const { data: accounts, error: acctErr } = await supabase
-    .from('twitter_accounts')
-    .select('*');
+  let accountQuery = supabase.from('twitter_accounts').select('*');
+  const targetAccount = String(process.env.FETCH_ACCOUNT || '').trim().replace(/^@/, '');
+  if (targetAccount) accountQuery = accountQuery.ilike('username', targetAccount);
+  const { data: accounts, error: acctErr } = await accountQuery;
 
   if (acctErr) {
     console.error('❌ 读取账号列表失败:', acctErr.message);
     process.exit(1);
   }
   if (!accounts?.length) {
-    console.log('⚠️ 没有追踪账号');
+    console.log(targetAccount ? `⚠️ 未找到追踪账号 @${targetAccount}` : '⚠️ 没有追踪账号');
     process.exit(0);
   }
+  if (targetAccount) console.log(`🎯 单账号媒体回填: @${accounts[0].username}\n`);
 
   const sources = await discoverSources({ forceRefresh: true });
   console.log(`📡 ${accounts.length} 个账号，${sources.length} 个免费候选源`);
