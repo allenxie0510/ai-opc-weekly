@@ -49,14 +49,15 @@ export async function GET(request: Request) {
     .order('published_at', { ascending: false });
   if (wErr) return Response.json({ error: wErr.message }, { status: 500 });
 
-  // 每期草稿的条目标题
+  // 每期草稿的条目（id 用于管理员单条删除）
   const weekly = [];
   for (const iss of weeklyDrafts || []) {
-    const { data: items } = await supabase
+    const { data: items, error: itemErr } = await supabase
       .from('news_items')
-      .select('title, section, rank')
+      .select('id, title, section, rank')
       .eq('weekly_issue_id', iss.id)
       .order('rank', { ascending: true });
+    if (itemErr) return Response.json({ error: itemErr.message }, { status: 500 });
     weekly.push({ ...iss, items: items || [] });
   }
 

@@ -159,9 +159,14 @@ export default function AdminPage() {
     }
   }
 
-  async function act(action: 'publish' | 'discard' | 'unpublish' | 'feature' | 'unfeature', type: 'radar' | 'weekly' | 'opportunity', ids: string[]) {
+  async function act(
+    action: 'publish' | 'discard' | 'unpublish' | 'feature' | 'unfeature',
+    type: 'radar' | 'weekly' | 'news_item' | 'opportunity',
+    ids: string[],
+    discardConfirm?: string,
+  ) {
     if (ids.length === 0 || busy) return;
-    if (action === 'discard' && !window.confirm(`确认删除 ${ids.length} 条？此操作不可恢复。`)) return;
+    if (action === 'discard' && !window.confirm(discardConfirm || `确认删除 ${ids.length} 条？此操作不可恢复。`)) return;
     if (action === 'unpublish' && !window.confirm(`确认下架 ${ids.length} 条？前台将不可见，可在草稿区编辑后重新发布。`)) return;
     setBusy(true);
     setMessage('');
@@ -184,7 +189,9 @@ export default function AdminPage() {
                 ? `已设为首页推荐 ✓`
                 : action === 'unfeature'
                   ? `已取消首页推荐`
-                  : `已删除 ${data.affected} 条`,
+                  : type === 'news_item'
+                    ? `已删除 ${data.affected} 条周报资讯，整期已保留；需要替换时可点「生成周报」自动补齐`
+                    : `已删除 ${data.affected} 条`,
         );
         await revalidateSite();
         await load(token);
@@ -647,7 +654,24 @@ export default function AdminPage() {
                                 <ol className="admin-weekly-items">
                                   {w.items.map((it) => (
                                     <li key={it.id}>
-                                      <em>{it.section}</em> {it.title}
+                                      <span className="admin-weekly-item-text">
+                                        <em>{it.section}</em> {it.title}
+                                      </span>
+                                      <button
+                                        type="button"
+                                        className="admin-weekly-item-delete"
+                                        disabled={busy}
+                                        aria-label={`删除周报条目：${it.title}`}
+                                        title="只删除本条，保留整期周报"
+                                        onClick={() => void act(
+                                          'discard',
+                                          'news_item',
+                                          [it.id],
+                                          `确认删除「${it.title}」？\n\n只会删除这一条，整期周报会保留。此操作不可恢复。`,
+                                        )}
+                                      >
+                                        删除本条
+                                      </button>
                                     </li>
                                   ))}
                                 </ol>

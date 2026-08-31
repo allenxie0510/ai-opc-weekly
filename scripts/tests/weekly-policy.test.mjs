@@ -10,6 +10,10 @@ import {
   productIdentity,
   weeklyIssuePlan,
 } from '../lib/weekly-policy.mjs';
+import {
+  buildWeeklyRankUpdates,
+  updateGeneratedWeeklySummaryCount,
+} from '../../lib/weekly-admin.ts';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = resolve(here, '../..');
@@ -56,4 +60,32 @@ test('weekly workflow refreshes sources and serializes retries', () => {
   assert.match(generator, /totalAfterRun < MIN_WEEKLY_ITEMS/);
   assert.match(generator, /filterGroundedRefs/);
   assert.match(generator, /selectCandidateMaterials/);
+});
+
+test('single weekly item deletion keeps ranks contiguous and updates only generated summaries', () => {
+  assert.deepEqual(
+    buildWeeklyRankUpdates([
+      { id: 'a', rank: 1 },
+      { id: 'c', rank: 3 },
+      { id: 'd', rank: 4 },
+    ]),
+    [
+      { id: 'c', rank: 2 },
+      { id: 'd', rank: 3 },
+    ],
+  );
+  assert.equal(
+    updateGeneratedWeeklySummaryCount('本周 5 个深度拆解：AI × 一人公司创业。', 4),
+    '本周 4 个深度拆解：AI × 一人公司创业。',
+  );
+  assert.equal(updateGeneratedWeeklySummaryCount('管理员自定义摘要', 4), '管理员自定义摘要');
+});
+
+test('admin review and action routes expose item ids and single-item discard', () => {
+  const review = readFileSync(resolve(root, 'app/api/admin/review/route.ts'), 'utf8');
+  const publish = readFileSync(resolve(root, 'app/api/admin/publish/route.ts'), 'utf8');
+  const admin = readFileSync(resolve(root, 'app/admin/page.tsx'), 'utf8');
+  assert.match(review, /select\('id, title, section, rank'\)/);
+  assert.match(publish, /type === 'news_item'/);
+  assert.match(admin, /删除本条/);
 });
