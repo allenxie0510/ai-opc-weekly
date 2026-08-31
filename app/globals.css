@@ -487,6 +487,15 @@ footer p + p { margin-top: 4px; }
   display: block;
 }
 .x-card-media a { display: block; overflow: hidden; line-height: 0; }
+.x-card-media-link { position: relative; }
+.x-card-video-badge {
+  position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  width: 46px; height: 46px; border-radius: 9999px;
+  display: flex; align-items: center; justify-content: center;
+  padding-left: 3px; color: #fff; background: rgba(15, 23, 42, 0.72);
+  font-size: 18px; line-height: 1; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25);
+  pointer-events: none;
+}
 
 @media (max-width: 768px) {
   .x-card { padding: 12px 0; gap: 10px; }

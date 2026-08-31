@@ -23,6 +23,14 @@ function fmtDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' });
 }
 
+function isVideoPreview(url: string): boolean {
+  try {
+    return /(?:amplify_video|ext_tw_video|video_thumb)/i.test(decodeURIComponent(url));
+  } catch {
+    return /(?:amplify_video|ext_tw_video|video_thumb)/i.test(url);
+  }
+}
+
 export default async function XTimelinePage() {
   const tweets = await getTweets({ limit: 50 });
   const accounts = await getTwitterAccounts();
@@ -117,8 +125,18 @@ export default async function XTimelinePage() {
                       {t.media_urls && t.media_urls.length > 0 && (
                         <div className="x-card-media" data-count={Math.min(t.media_urls.length, 4)}>
                           {t.media_urls.slice(0, 4).map((url, i) => (
-                            <a key={i} href={t.url} target="_blank" rel="noopener noreferrer">
+                            <a
+                              key={i}
+                              href={t.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="x-card-media-link"
+                              aria-label={isVideoPreview(url) ? '在 X 查看完整视频' : '在 X 查看原图'}
+                            >
                               <SafeImg src={url} alt="" className="x-card-img" />
+                              {isVideoPreview(url) && (
+                                <span className="x-card-video-badge" aria-hidden="true">▶</span>
+                              )}
                             </a>
                           ))}
                         </div>

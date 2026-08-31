@@ -39,6 +39,7 @@ type RefreshResult = {
   username: string;
   status: number;
   count: number;
+  mediaCount?: number;
   source?: string;
   transport?: string;
   error?: string;
@@ -54,7 +55,7 @@ export async function POST(req: NextRequest) {
   if (!isAdmin(req)) {
     return Response.json({ error: '未授权' }, { status: 401 });
   }
-  const db = createServerSupabase();
+  const db = createServerSupabase(true);
   if (!db) return Response.json({ error: '服务端未配置 Supabase' }, { status: 503 });
   const supabaseClient = db;
 
@@ -97,10 +98,20 @@ export async function POST(req: NextRequest) {
             published_at: t.published_at,
             url: t.url,
             media_urls: t.media_urls,
-          }, { onConflict: 'tweet_id', ignoreDuplicates: true });
+          }, {
+            onConflict: 'tweet_id',
+            ignoreDuplicates: t.media_urls.length === 0,
+          });
           if (!error) count++;
         }
-        results.push({ username: acc.username, status: 200, count, source: r.source, transport: r.transport });
+        results.push({
+          username: acc.username,
+          status: 200,
+          count,
+          mediaCount: r.tweets.filter((tweet) => tweet.media_urls.length > 0).length,
+          source: r.source,
+          transport: r.transport,
+        });
         total += count;
       } catch (e: unknown) {
         results.push({
@@ -155,6 +166,7 @@ export async function POST(req: NextRequest) {
       username: r.username,
       status: r.status,
       count: r.count,
+      mediaCount: r.mediaCount || 0,
       source: r.source,
       error: r.error,
     })),

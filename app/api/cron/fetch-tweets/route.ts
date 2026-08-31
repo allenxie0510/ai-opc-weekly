@@ -71,7 +71,7 @@ function parseRSSFeed(xml: string): {
 
 export async function GET() {
   try {
-    const supabase = createServerSupabase();
+    const supabase = createServerSupabase(true);
     if (!supabase) return Response.json({ status: 'unavailable', error: '服务端未配置 Supabase' }, { status: 503 });
     // 读取所有有 rss_url 的账号 — 去重（免费版可能共用同一 URL）
     const { data: accounts } = await supabase
@@ -120,7 +120,10 @@ export async function GET() {
             published_at: t.published_at,
             url: t.url,
             media_urls: t.media_urls,
-          }, { onConflict: 'tweet_id', ignoreDuplicates: true });
+          }, {
+            onConflict: 'tweet_id',
+            ignoreDuplicates: t.media_urls.length === 0,
+          });
           synced++;
         }
       } catch { errors++; }

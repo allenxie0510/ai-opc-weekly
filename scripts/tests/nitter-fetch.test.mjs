@@ -1,9 +1,11 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import http from 'node:http';
 import test from 'node:test';
 
 import {
   candidatesFor,
+  extractMediaPreviews,
   fetchFeedCurl,
   parseNitterTimelineHtml,
   parseRSSFeed,
@@ -31,6 +33,36 @@ test('RSS 解析只接受有真实 ID 和时间的推文', () => {
   assert.match(tweets[0].media_urls[0], /pbs\.twimg\.com/);
 });
 
+test('RSS 视频只保存静态 poster，不把 mp4 当图片', () => {
+  const xml = `<?xml version="1.0"?><rss><channel>
+    <item>
+      <title>Video demo</title>
+      <guid>2091041945162510437</guid>
+      <pubDate>Sun, 24 Aug 2026 09:00:00 GMT</pubDate>
+      <description><![CDATA[
+        <video poster='/pic/amplify_video_thumb%2F2091041945162510437%2Fimg%2Fcover.jpg'></video>
+      ]]></description>
+      <media:content url='https://video.twimg.com/demo.mp4' type='video/mp4'/>
+      <media:thumbnail url='/pic/amplify_video_thumb%2F2091041945162510437%2Fimg%2Fcover.jpg'/>
+    </item>
+  </channel></rss>`;
+
+  const tweets = parseRSSFeed(xml, account, 'https://rss.xcancel.com/levelsio/rss');
+  assert.equal(tweets.length, 1);
+  assert.equal(tweets[0].media_urls.length, 1);
+  assert.match(decodeURIComponent(tweets[0].media_urls[0]), /pbs\.twimg\.com\/amplify_video_thumb/);
+  assert.doesNotMatch(tweets[0].media_urls[0], /\.mp4/);
+});
+
+test('媒体预览兼容单引号、相对地址并跳过头像', () => {
+  const previews = extractMediaPreviews(`
+    <img src='/pic/profile_images%2Favatar.jpg'>
+    <img src='/pic/orig/media%2Fphoto.jpg'>
+  `, 'https://rss.xcancel.com/user/rss');
+  assert.equal(previews.length, 1);
+  assert.match(decodeURIComponent(previews[0]), /pbs\.twimg\.com\/media\/photo\.jpg/);
+});
+
 test('RSS 不可用时可从 Nitter HTML 时间线提取真实推文', () => {
   const html = `<!doctype html><div class="timeline">
     <div class="timeline-item" data-username="levelsio">
@@ -50,6 +82,29 @@ test('RSS 不可用时可从 Nitter HTML 时间线提取真实推文', () => {
   assert.equal(tweets[0].content, 'Built a product\ntoday');
   assert.equal(tweets[0].published_at, '2026-08-24T08:00:00.000Z');
   assert.match(tweets[0].media_urls[0], /pbs\.twimg\.com/);
+});
+
+test('Nitter HTML 视频卡片提取 poster 作为静态截图', () => {
+  const html = `<div class="timeline-item">
+    <a class="tweet-link" href="/levelsio/status/2091041945162510438#m"></a>
+    <span class="tweet-date"><a title="Aug 24, 2026 · 10:00 AM UTC">now</a></span>
+    <div class="tweet-content">Video launch</div>
+    <video poster="/pic/ext_tw_video_thumb%2F2091041945162510438%2Fpu%2Fimg%2Fstill.jpg"></video>
+  </div>`;
+  const tweets = parseNitterTimelineHtml(html, account, 'https://nitter.example/levelsio');
+  assert.equal(tweets.length, 1);
+  assert.match(decodeURIComponent(tweets[0].media_urls[0]), /pbs\.twimg\.com\/ext_tw_video_thumb/);
+});
+
+test('生产写入仅在抓到媒体时覆盖已有推文', () => {
+  const script = readFileSync(new URL('../fetch-tweets.mjs', import.meta.url), 'utf8');
+  const refresh = readFileSync(new URL('../../app/api/admin/refresh/route.ts', import.meta.url), 'utf8');
+  const workflow = readFileSync(new URL('../../.github/workflows/fetch-tweets.yml', import.meta.url), 'utf8');
+  assert.match(script, /ignoreDuplicates: t\.media_urls\.length === 0/);
+  assert.match(script, /SUPABASE_SERVICE_ROLE_KEY \|\| process\.env\.NEXT_PUBLIC_SUPABASE_ANON_KEY/);
+  assert.match(refresh, /ignoreDuplicates: t\.media_urls\.length === 0/);
+  assert.match(refresh, /createServerSupabase\(true\)/);
+  assert.match(workflow, /SUPABASE_SERVICE_ROLE_KEY: \$\{\{ secrets\.SUPABASE_SERVICE_ROLE_KEY \}\}/);
 });
 
 test('状态 API 只选健康公开 HTTPS 源，并优先 RSS', () => {

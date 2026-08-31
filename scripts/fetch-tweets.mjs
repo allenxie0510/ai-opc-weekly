@@ -11,7 +11,8 @@ import { createClient } from '@supabase/supabase-js';
 import { discoverSources, fetchAccountTweets } from '../lib/nitter-fetch.mjs';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+// 后台同步优先使用 service role，确保冲突行可以更新媒体字段；本地兼容 anon key。
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 if (!SUPABASE_URL || !SUPABASE_KEY) {
   console.error('❌ 缺少 SUPABASE 环境变量');
@@ -48,7 +49,7 @@ async function main() {
   const debug = process.env.FETCH_DEBUG === '1';
   // 同一轮中某源出现网络错误/403/429/5xx 后立即熔断，避免 18 个账号重复等待已故障源。
   const sourceState = new Map();
-  let synced = 0, okAccounts = 0;
+  let synced = 0, mediaTweets = 0, okAccounts = 0;
   const failed = [];
 
   for (let i = 0; i < accounts.length; i++) {
@@ -77,23 +78,30 @@ async function main() {
           published_at: t.published_at,
           url: t.url,
           media_urls: t.media_urls,
-        }, { onConflict: 'tweet_id', ignoreDuplicates: true });
+        }, {
+          onConflict: 'tweet_id',
+          // 有媒体时允许更新冲突行，给历史空记录回填图片/视频封面；
+          // 没媒体时忽略冲突，避免临时源降级把已有预览覆盖为空。
+          ignoreDuplicates: t.media_urls.length === 0,
+        });
 
         if (error) {
           console.warn(`  ⚠️ @${t.author_username} 写入失败: ${error.message}`);
         } else {
           wrote++;
+          if (t.media_urls.length > 0) mediaTweets++;
         }
       }
       synced += wrote;
-      console.log(`  ✅ @${acc.username} → ${r.source}（${r.transport}），解析 ${r.tweets.length} 条，写入 ${wrote} 条`);
+      const accountMedia = r.tweets.filter(t => t.media_urls.length > 0).length;
+      console.log(`  ✅ @${acc.username} → ${r.source}（${r.transport}），解析 ${r.tweets.length} 条（媒体 ${accountMedia}），写入 ${wrote} 条`);
     }
 
     // 账号间礼貌延时（最后一个不用等）
     if (i < accounts.length - 1) await sleep(SLEEP_MS);
   }
 
-  console.log(`\n📊 同步完成: ${synced} 条写入, ${okAccounts}/${accounts.length} 个账号成功, ${failed.length} 个失败`);
+  console.log(`\n📊 同步完成: ${synced} 条写入，其中 ${mediaTweets} 条含媒体；${okAccounts}/${accounts.length} 个账号成功, ${failed.length} 个失败`);
   if (okAccounts > 0 && failed.length > 0) {
     console.warn(`⚠️ 部分账号失败（${failed.length}/${accounts.length}）: ${failed.map(u => '@' + u).join(', ')}，暂不阻塞，但请检查上面的警告`);
   }
