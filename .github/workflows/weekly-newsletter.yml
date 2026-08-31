@@ -11,45 +11,28 @@ on:
     - cron: '5 4 * * 1'
   workflow_dispatch:
 
+concurrency:
+  group: weekly-newsletter
+  cancel-in-progress: false
+
 jobs:
   generate:
     runs-on: ubuntu-latest
-    # 如果本周已生成过（slug 已存在），跳过备用触发
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Check if already published this week
-        id: check
+          cache: npm
+      - run: npm ci
+      - name: Refresh source pool
         env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: |
-          YEAR=$(date +%Y)
-          WEEK=$(date -u +%V)
-          SLUG="${YEAR}-w${WEEK,,}"
-          STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
-            "https://lamkpavsvuhqhkknkaxc.supabase.co/rest/v1/weekly_issues?slug=eq.${SLUG}&select=id" \
-            -H "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" \
-            -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}")
-          if [ "$STATUS" = "200" ]; then
-            BODY=$(curl -s \
-              "https://lamkpavsvuhqhkknkaxc.supabase.co/rest/v1/weekly_issues?slug=eq.${SLUG}&select=id" \
-              -H "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" \
-              -H "Authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}")
-            if [ "$BODY" = "[]" ]; then
-              echo "skip=false" >> $GITHUB_OUTPUT
-              echo "本周尚未生成，继续执行"
-            else
-              echo "skip=true" >> $GITHUB_OUTPUT
-              echo "本周已生成，跳过"
-            fi
-          else
-            echo "skip=false" >> $GITHUB_OUTPUT
-            echo "查询失败($STATUS)，继续执行"
-          fi
-      - name: Generate & Publish
-        if: steps.check.outputs.skip != 'true'
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PRODUCTHUNT_TOKEN: ${{ secrets.PRODUCTHUNT_TOKEN }}
+        run: node scripts/fetch-sources.mjs
+      - name: Generate or supplement weekly draft
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

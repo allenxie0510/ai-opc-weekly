@@ -14,7 +14,8 @@
     "test:explore": "node --test scripts/tests/explore-scope-policy.test.mjs",
     "test:tweets": "node --test scripts/tests/nitter-fetch.test.mjs",
     "test:sources": "node --test scripts/tests/source-validation.test.mjs",
-    "test:all": "npm run test:radar && npm run test:explore && npm run test:tweets && npm run test:sources && npm run test:product-radar"
+    "test:weekly": "node --test scripts/tests/weekly-policy.test.mjs",
+    "test:all": "npm run test:radar && npm run test:explore && npm run test:tweets && npm run test:sources && npm run test:weekly && npm run test:product-radar"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.108.2",
