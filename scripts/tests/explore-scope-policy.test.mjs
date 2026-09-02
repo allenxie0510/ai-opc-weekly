@@ -35,12 +35,18 @@ test('每次海量生成都替换旧候选池', () => {
 });
 
 test('方向探测器只展示已配置的邮箱登录方式', () => {
-  assert.match(authSource, /sendMagicLink/);
+  assert.match(authSource, /sendEmailOtp/);
+  assert.match(authSource, /verifyEmailOtp/);
+  assert.match(authSource, /type: 'email'/);
   assert.doesNotMatch(authSource, /phone:/);
   assert.doesNotMatch(authSource, /type: 'sms'/);
   assert.match(loginSource, /当前仅支持邮箱登录/);
   assert.match(loginSource, /type="email"/);
-  assert.doesNotMatch(loginSource, /手机号|短信验证码|6 位验证码/);
+  assert.match(loginSource, /6 位一次性验证码/);
+  assert.match(loginSource, /autoComplete="one-time-code"/);
+  assert.match(loginSource, /RESEND_SECONDS = 60/);
+  assert.match(loginSource, /over_email_send_rate_limit/);
+  assert.doesNotMatch(loginSource, /手机号|短信验证码/);
 });
 
 test('未登录用户不会获得方向探测器功能界面', () => {

@@ -100,6 +100,7 @@
 .xpl-input:focus, .xpl-textarea:focus, .xpl-select:focus, .xpl-search:focus {
   outline: none; border-color: var(--color-blue); box-shadow: 0 0 0 2px rgba(20,86,240,0.12);
 }
+.xpl-otp-input { font-size: 22px; font-weight: 700; letter-spacing: 0.3em; text-align: center; font-variant-numeric: tabular-nums; }
 .xpl-range { width: 100%; accent-color: var(--color-blue); }
 .xpl-select { cursor: pointer; }
 .xpl-search { max-width: 260px; }
