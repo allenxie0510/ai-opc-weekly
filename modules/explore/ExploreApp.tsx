@@ -45,6 +45,7 @@ function normalizeSession(raw: any): ExploreSession {
 
 export function ExploreApp() {
   const [mounted, setMounted] = useState(false);
+  const [authReady, setAuthReady] = useState(false);
   const [view, setView] = useState<'method' | 'engine'>('engine');
   const [step, setStep] = useState(0);
   const [config, setConfig] = useState<AIConfig>(DEFAULT_CONFIG);
@@ -73,13 +74,27 @@ export function ExploreApp() {
 
   // 本地兜底存储
   useEffect(() => {
-    if (mounted) saveState({ config, profile, weights, opportunities });
-  }, [mounted, config, profile, weights, opportunities]);
+    if (mounted && user) saveState({ config, profile, weights, opportunities });
+  }, [mounted, user, config, profile, weights, opportunities]);
 
   // 登录态监听
   useEffect(() => {
-    getSession().then((s) => setUser(s?.user ?? null));
-    return onAuthChange((s) => setUser(s?.user ?? null));
+    let active = true;
+    getSession()
+      .then((s) => {
+        if (active) setUser(s?.user ?? null);
+      })
+      .finally(() => {
+        if (active) setAuthReady(true);
+      });
+    const unsubscribe = onAuthChange((s) => {
+      setUser(s?.user ?? null);
+      setAuthReady(true);
+    });
+    return () => {
+      active = false;
+      unsubscribe();
+    };
   }, []);
 
   // 登录成功后自动关闭登录弹窗
@@ -221,10 +236,37 @@ export function ExploreApp() {
     return pick.length ? pick : fallback;
   }, [opportunities]);
 
-  if (!mounted) {
+  if (!mounted || !authReady) {
     return (
       <div className="xpl-spinner-wrap">
         <div className="xpl-spinner" />
+        <span>正在确认登录状态…</span>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="xpl-wrap">
+        <section className="xpl-auth-gate" aria-labelledby="xpl-auth-gate-title">
+          <div className="xpl-auth-gate-icon" aria-hidden="true">↗</div>
+          <div className="xpl-auth-gate-copy">
+            <span className="xpl-kicker">登录后使用</span>
+            <h2 id="xpl-auth-gate-title">方向探测器需要邮箱登录</h2>
+            <p>
+              方向建议、机会生成、系统筛选和逆向规划都会调用 AI，并保存你的探索记录。
+              为控制调用成本并保护个人数据，完整工具仅向已登录用户开放；浏览网站资讯仍无需登录。
+            </p>
+            <div className="xpl-auth-gate-points" aria-label="登录后可使用的功能">
+              <span>定方向</span>
+              <span>海量生成</span>
+              <span>系统筛选</span>
+              <span>逆向规划</span>
+            </div>
+            <Button onClick={() => setLoginOpen(true)}>使用邮箱登录</Button>
+          </div>
+        </section>
+        {loginOpen && <LoginModal open user={null} onClose={() => setLoginOpen(false)} />}
       </div>
     );
   }

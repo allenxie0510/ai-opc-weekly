@@ -2,6 +2,7 @@ import type { AIConfig, BackcastPlan, Opportunity, ThemeProfile } from './types'
 import { EMPTY_PROFILE } from './types';
 import { DEFAULT_CONFIG, isMockName } from './ai';
 import { CRITERIA } from './criteria';
+import { getToken } from './auth';
 
 export interface PersistState {
   config: AIConfig;
@@ -89,7 +90,12 @@ export interface CloudState {
 
 export async function fetchCloudState(uid: string): Promise<CloudState | null> {
   try {
-    const res = await fetch(`/api/explore/storage?user_id=${encodeURIComponent(uid)}`);
+    void uid; // 兼容旧调用签名；服务端只信任登录 token 中的 user id
+    const token = await getToken();
+    if (!token) return null;
+    const res = await fetch('/api/explore/storage', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
     if (!res.ok) return null;
     const data = await res.json();
     return (data && data.state) || null;
@@ -100,10 +106,16 @@ export async function fetchCloudState(uid: string): Promise<CloudState | null> {
 
 export async function saveCloudState(uid: string, state: CloudState): Promise<void> {
   try {
+    void uid; // 兼容旧调用签名；服务端只信任登录 token 中的 user id
+    const token = await getToken();
+    if (!token) return;
     await fetch('/api/explore/storage', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ user_id: uid, state }),
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ state }),
     });
   } catch {
     /* 网络失败静默忽略，本地 localStorage 仍是兜底 */

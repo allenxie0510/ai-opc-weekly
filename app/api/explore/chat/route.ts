@@ -1,18 +1,25 @@
 /**
  * POST /api/explore/chat — 方向探测器 AI 服务端代理
- * 访客无需自带 Key；DeepSeek 密钥由站长配置在 Vercel 环境变量 DEEPSEEK_API_KEY
+ * 仅登录用户可调用；DeepSeek 密钥由站长配置在 Vercel 环境变量 DEEPSEEK_API_KEY
  */
+import { requireUser } from '@/lib/explore-auth';
+
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const ENDPOINT = (process.env.DEEPSEEK_API_ENDPOINT || 'https://api.deepseek.com').replace(/\/$/, '');
 
 // 简单内存限流（Vercel serverless 单实例内有效，MVP 够用）
-const RATE_LIMIT = 30; // 每 IP 每分钟最多请求数
+const RATE_LIMIT = 30; // 每个登录用户每分钟最多请求数
 const WINDOW_MS = 60_000;
 const hits = new Map<string, { count: number; reset: number }>();
 
 export async function POST(request: Request) {
+  const auth = await requireUser(request);
+  if ('error' in auth) {
+    return Response.json({ error: auth.error }, { status: auth.status });
+  }
+
   const apiKey = process.env.DEEPSEEK_API_KEY;
   if (!apiKey) {
     return Response.json(
@@ -22,16 +29,16 @@ export async function POST(request: Request) {
   }
 
   // 限流
-  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown';
+  const rateLimitKey = auth.userId;
   const now = Date.now();
-  const rec = hits.get(ip);
+  const rec = hits.get(rateLimitKey);
   if (rec && now < rec.reset) {
     if (rec.count >= RATE_LIMIT) {
       return Response.json({ error: '请求过于频繁，请稍后再试' }, { status: 429 });
     }
     rec.count++;
   } else {
-    hits.set(ip, { count: 1, reset: now + WINDOW_MS });
+    hits.set(rateLimitKey, { count: 1, reset: now + WINDOW_MS });
     if (hits.size > 5000) {
       for (const [k, v] of hits) if (now > v.reset) hits.delete(k);
     }

@@ -7,6 +7,7 @@ import type {
 } from './types';
 import { CRITERIA } from './criteria';
 import { newId } from './scoring';
+import { getToken } from './auth';
 
 export const DEFAULT_CONFIG: AIConfig = {
   provider: 'server',
@@ -65,11 +66,16 @@ async function callLLM(
   user: string,
   opts: { json?: boolean; temperature?: number } = {}
 ): Promise<string> {
-  // 服务端代理：访客无需自带 Key，密钥由站长在 Vercel 环境变量中配置
+  // 服务端代理：登录用户无需自带 Key，密钥由站长在 Vercel 环境变量中配置
   if (cfg.provider === 'server') {
+    const token = await getToken();
+    if (!token) throw new Error('请先登录后再使用方向探测器');
     const res = await fetch('/api/explore/chat', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
       body: JSON.stringify({
         model: cfg.model,
         temperature: opts.temperature ?? 0.85,

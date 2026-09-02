@@ -6,6 +6,35 @@
 
 .xpl-wrap { display: flex; flex-direction: column; gap: 24px; margin-bottom: 56px; }
 
+/* ── 未登录门禁 ── */
+.xpl-auth-gate {
+  min-height: 360px; display: grid; grid-template-columns: auto minmax(0, 620px);
+  justify-content: center; align-items: center; gap: 24px;
+  background: var(--color-canvas); border: 1px solid var(--color-hairline);
+  border-radius: 16px; padding: 48px 32px;
+}
+.xpl-auth-gate-icon {
+  width: 64px; height: 64px; display: grid; place-items: center;
+  border-radius: 18px; background: var(--color-ink); color: #fff;
+  font-family: var(--font-brand); font-size: 32px; line-height: 1;
+}
+.xpl-auth-gate-copy h2 {
+  margin: 2px 0 10px; color: var(--color-ink);
+  font-family: var(--font-brand); font-size: 28px; letter-spacing: 0.02em;
+}
+.xpl-auth-gate-copy p { margin: 0; color: var(--color-slate); font-size: 15px; line-height: 1.7; }
+.xpl-auth-gate-points { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0 22px; }
+.xpl-auth-gate-points span {
+  border: 1px solid var(--color-hairline); border-radius: 9999px;
+  background: var(--color-surface-soft); color: var(--color-steel);
+  padding: 6px 11px; font-size: 12px; font-weight: 600;
+}
+@media (max-width: 640px) {
+  .xpl-auth-gate { min-height: 0; grid-template-columns: 1fr; padding: 30px 22px; }
+  .xpl-auth-gate-icon { width: 52px; height: 52px; border-radius: 15px; font-size: 26px; }
+  .xpl-auth-gate-copy h2 { font-size: 24px; }
+}
+
 /* ── 顶部切换 tabs ── */
 /* 2026-08-20 移动端修复：单颗胶囊内文字绝不竖断（nowrap），
    一行放不下时整颗胶囊换行（flex-wrap），不再挤压变形 */
