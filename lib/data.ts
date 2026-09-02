@@ -75,10 +75,12 @@ export function formatShortLabel(issue: WeeklyIssue): string {
 
 // ═══ X 推文 ═══
 
-export async function getTweets(options?: { limit?: number; before?: string }): Promise<Tweet[]> {
+export async function getTweets(options?: { limit?: number; before?: string; authors?: string[] }): Promise<Tweet[]> {
   if (!isConfigured() || !supabase) return [];
+  if (options?.authors && options.authors.length === 0) return [];
   let q = supabase.from('tweets').select('*').order('published_at', { ascending: false }).limit(options?.limit || 30);
   if (options?.before) q = q.lt('published_at', options.before);
+  if (options?.authors) q = q.in('author_username', options.authors);
   const { data, error } = await q;
   if (error) { console.error('getTweets:', error.message); return []; }
   return data || [];

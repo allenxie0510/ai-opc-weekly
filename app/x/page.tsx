@@ -5,7 +5,10 @@ import { SafeImg } from '@/components/safe-img';
 import { PageViewCounter } from '@/components/page-view-counter';
 import Link from 'next/link';
 
-export const revalidate = 300;
+// 账号删除必须立即反映在时间轴上。这里不能使用 ISR，否则 Vercel 会在
+// revalidate 窗口内继续返回包含已删除账号推文的旧 HTML。
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -32,8 +35,12 @@ function isVideoPreview(url: string): boolean {
 }
 
 export default async function XTimelinePage() {
-  const tweets = await getTweets({ limit: 50 });
   const accounts = await getTwitterAccounts();
+  // 即使数据库迁移尚未执行或有旧的孤儿行，也绝不把未追踪账号渲染到页面。
+  const tweets = await getTweets({
+    limit: 50,
+    authors: accounts.map((account) => account.username),
+  });
   const accountCount = accounts.length;
 
   // 按日期分组

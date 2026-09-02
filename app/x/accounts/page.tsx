@@ -148,9 +148,10 @@ export default function XAccountsPage() {
         headers: { 'x-admin-token': getToken() },
       });
       if (res.ok) {
+        const data = await res.json();
         // 本地移除，列表即时更新
         setAccounts(prev => prev.filter(a => a.username !== username));
-        setDeleteMsg(`✅ 已删除 @${username} 及其全部推文`);
+        setDeleteMsg(`✅ 已删除 @${username} 及 ${data.deleted_tweets ?? 0} 条历史推文`);
       } else if (res.status === 401) {
         setToken('');
         setAuthed(false);
