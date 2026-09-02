@@ -115,6 +115,7 @@
 
 /* ── 按钮 ── */
 .xpl-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 7px;
   border: 1px solid var(--color-hairline); cursor: pointer; font-weight: 600; font-size: 14px;
   border-radius: 9999px; padding: 10px 20px; color: #fff; transition: all 0.2s ease;
   background: var(--color-blue); border-color: var(--color-blue);
@@ -130,7 +131,7 @@
 .xpl-btn-ink { background: var(--color-ink); border-color: var(--color-ink); color: #fff; }
 
 /* ── pill / grade ── */
-.xpl-pill { display: inline-block; font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 9999px; background: var(--color-surface-soft); color: var(--color-slate); }
+.xpl-pill { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 9999px; background: var(--color-surface-soft); color: var(--color-slate); }
 .xpl-pill-good { color: #0a7d4f; background: rgba(10,125,79,0.09); }
 .xpl-pill-warn { color: #b45309; background: rgba(180,83,9,0.09); }
 .xpl-pill-bad { color: #b91c1c; background: rgba(185,28,28,0.08); }

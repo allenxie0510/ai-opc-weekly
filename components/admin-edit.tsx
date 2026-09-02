@@ -3,13 +3,14 @@
 /**
  * Notion 式就地编辑按钮（仅管理员可见）
  * - 普通访客 localStorage 无 token → 渲染 null，页面零变化
- * - 管理员（曾在 /admin 登录，localStorage 有 ai_opc_admin_token）→ 卡片右上角出现 ✎
+ * - 管理员（曾在 /admin 登录，localStorage 有 ai_opc_admin_token）→ 卡片右上角出现编辑按钮
  * - 点击弹出编辑浮层，保存后 router.refresh() 刷新服务端数据
  * - 401 时浮层内直接重新输入密码，不用跳页
  * - radar / weekly 类型附带「下架」（退回草稿区，前台不可见）
  */
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { LineIcon } from '@/components/icons';
 
 type FieldType = 'text' | 'textarea' | 'number' | 'select';
 
@@ -176,7 +177,7 @@ export function AdminEditButton({
           setOpen(true);
         }}
       >
-        ✎
+        <LineIcon name="pen" />
       </button>
 
       {open && (
@@ -188,8 +189,8 @@ export function AdminEditButton({
           <div className="admin-modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal>
             <div className="admin-modal-head">
               <strong>编辑内容</strong>
-              <button type="button" className="admin-modal-close" onClick={() => setOpen(false)}>
-                ×
+              <button type="button" className="admin-modal-close" onClick={() => setOpen(false)} aria-label="关闭">
+                <LineIcon name="x" />
               </button>
             </div>
 

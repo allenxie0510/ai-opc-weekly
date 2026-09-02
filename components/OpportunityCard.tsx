@@ -3,6 +3,7 @@ import { CATEGORY_MAP, RECOMMENDATION_MAP } from '@/lib/types';
 import type { Category, Opportunity } from '@/lib/types';
 import { CoverImg } from './opportunity-cover-img';
 import { ScoreBadge } from './score-badge';
+import { LineIcon } from './icons';
 
 /**
  * 机会卡片 v2 · MicroConf 式封面卡
@@ -93,7 +94,7 @@ export function FeaturedOpportunity({ opportunity: o }: { opportunity: Opportuni
         <div className="home-hero-meta">{[cat?.label, date].filter(Boolean).join(' · ')}</div>
         <h2 className="home-hero-title">{o.title}</h2>
         {o.thesis && <p className="home-hero-thesis">{o.thesis}</p>}
-        {o.editor_take && <blockquote className="home-hero-take">🖊 {o.editor_take}</blockquote>}
+        {o.editor_take && <blockquote className="home-hero-take"><LineIcon name="pen" /> {o.editor_take}</blockquote>}
         <div className="home-hero-badges">
           <span className={`opp-rec ${rec.cssClass}`}>{rec.label}</span>
           <ScoreBadge score={o.score_total} variant="inline" trend={o.score_trend} />

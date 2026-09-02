@@ -16,6 +16,7 @@ import { StepPlan } from './components/StepPlan';
 import { LoginModal } from './components/LoginModal';
 import { SessionsModal } from './components/SessionsModal';
 import { Button, Field, Modal, Stepper } from './components/ui';
+import { LineIcon } from '@/components/icons';
 
 const STEPS = [
   { id: 0, label: '定方向', sub: '愿景与主题' },
@@ -249,7 +250,7 @@ export function ExploreApp() {
     return (
       <div className="xpl-wrap">
         <section className="xpl-auth-gate" aria-labelledby="xpl-auth-gate-title">
-          <div className="xpl-auth-gate-icon" aria-hidden="true">↗</div>
+          <div className="xpl-auth-gate-icon" aria-hidden="true"><LineIcon name="external-link" /></div>
           <div className="xpl-auth-gate-copy">
             <span className="xpl-kicker">登录后使用</span>
             <h2 id="xpl-auth-gate-title">方向探测器需要邮箱登录</h2>
@@ -281,7 +282,7 @@ export function ExploreApp() {
           方法论
         </button>
         <button className="xpl-tab" onClick={() => (user ? setSessionsOpen(true) : setLoginOpen(true))}>
-          📁 我的探索
+          <LineIcon name="folder" /> 我的探索
         </button>
         <button className="xpl-tab xpl-tab-ghost" onClick={resetAll}>
           清空

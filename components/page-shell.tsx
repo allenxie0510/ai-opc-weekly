@@ -6,8 +6,9 @@ import type { User } from '@supabase/supabase-js';
 import { WeeklyNav } from './weekly-nav';
 import { getSession, onAuthChange, signOut } from '@/modules/explore/lib/auth';
 import { isProductRadarEnabled } from '@/lib/product-radar/config';
+import { LineIcon } from '@/components/icons';
 
-/** 关注数量徽章：读 localStorage，供 AuthSlot 菜单内「⭐ 关注」项使用 */
+/** 关注数量徽章：读 localStorage，供 AuthSlot 菜单内「关注」项使用 */
 function FavBadge() {
   const [count, setCount] = useState(0);
 
@@ -88,13 +89,13 @@ function AuthSlot() {
         <div className="nav-auth-menu" style={{ top: menuPos.top, right: menuPos.right }}>
           <div className="nav-auth-email">{label}</div>
           <Link href="/explore" className="nav-auth-item" onClick={() => setMenuPos(null)}>
-            <span className="nav-auth-ico" aria-hidden="true">📁</span>我的探索
+            <span className="nav-auth-ico" aria-hidden="true"><LineIcon name="folder" /></span>我的探索
           </Link>
           <Link href="/archive" className="nav-auth-item" onClick={() => setMenuPos(null)}>
-            <span className="nav-auth-ico" aria-hidden="true">📥</span>归档
+            <span className="nav-auth-ico" aria-hidden="true"><LineIcon name="archive" /></span>归档
           </Link>
           <Link href="/favorites" className="nav-auth-item" onClick={() => setMenuPos(null)}>
-            <span className="nav-auth-ico" aria-hidden="true">⭐</span>关注
+            <span className="nav-auth-ico" aria-hidden="true"><LineIcon name="star" /></span>关注
             <FavBadge />
           </Link>
           <div className="nav-auth-divider" role="separator" />

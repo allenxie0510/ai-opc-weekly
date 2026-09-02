@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { LineIcon } from '@/components/icons';
 
 export function Button({
   children,
@@ -63,7 +64,7 @@ export function ScoreBar({
   max = 10,
   accent,
 }: {
-  label: string;
+  label: ReactNode;
   value: number;
   max?: number;
   accent?: boolean;
@@ -99,8 +100,8 @@ export function Modal({
       <div className="xpl-modal" onClick={(e) => e.stopPropagation()}>
         <div className="xpl-modal-head">
           <h3>{title}</h3>
-          <button className="xpl-modal-close" onClick={onClose}>
-            ×
+          <button className="xpl-modal-close" onClick={onClose} aria-label="关闭">
+            <LineIcon name="x" />
           </button>
         </div>
         <div className="xpl-modal-body">{children}</div>
@@ -144,7 +145,7 @@ export function Stepper({
           className={`xpl-step ${i === current ? 'active' : ''} ${i < current ? 'done' : ''}`}
           onClick={() => onGo(i)}
         >
-          <span className="xpl-step-dot">{i < current ? '✓' : i + 1}</span>
+          <span className="xpl-step-dot">{i < current ? <LineIcon name="check" /> : i + 1}</span>
           <span className="xpl-step-text">
             <strong>{s.label}</strong>
             <small>{s.sub}</small>

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import type { NewsItem } from '@/lib/types';
 import { AdminEditButton } from '@/components/admin-edit';
+import { LineIcon } from '@/components/icons';
 
 const CAT_CSS: Record<string, string> = {
   'micro-saas': 'cat-microsaas',
@@ -143,12 +144,12 @@ export function ArticleCard({ item, index }: { item: NewsItem; index: number }) 
                   rel="noopener noreferrer"
                   title={item.claim_quote ? `原文：${item.claim_quote}` : '创始人/官方披露，点击查看来源'}
                 >
-                  ✓ 创始人披露
+                  <LineIcon name="check" /> 创始人披露
                 </a>
               )}
               {item.revenue_type === 'ai_estimate' && (
                 <span className="provenance-badge estimate" title="有公开依据的间接估算，非官方披露">
-                  ⚠ 估算
+                  <LineIcon name="warning" /> 估算
                 </span>
               )}
             </span>

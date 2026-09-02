@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Header } from '@/components/page-shell';
 import Link from 'next/link';
+import { LineIcon } from '@/components/icons';
 
 interface FavItem {
   id: string;
@@ -83,8 +84,8 @@ ${metrics ? `【关键指标】${metrics}` : ''}
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={e => e.stopPropagation()}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <h3 style={{ fontSize: 18, fontWeight: 600 }}>🔍 深度拆解</h3>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: 'var(--color-stone)' }}>✕</button>
+          <h3 style={{ fontSize: 18, fontWeight: 600 }}><LineIcon name="search" /> 深度拆解</h3>
+          <button aria-label="关闭" onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: 'var(--color-stone)' }}><LineIcon name="x" /></button>
         </div>
         <p style={{ fontSize: 13, color: 'var(--color-steel)', marginBottom: 12 }}>
           复制下方提示词到 <strong>ChatGPT / Claude / DeepSeek</strong> 获取完整分析报告
@@ -101,7 +102,7 @@ ${metrics ? `【关键指标】${metrics}` : ''}
           color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer',
           transition: 'background 0.2s',
         }}>
-          {copied ? '✓ 已复制' : '📋 复制提示词'}
+          {copied ? <><LineIcon name="check" /> 已复制</> : <><LineIcon name="clipboard" /> 复制提示词</>}
         </button>
       </div>
     </div>
@@ -158,7 +159,7 @@ export default function FavoritesPage() {
                       className="pill insight-tgl"
                       style={{ marginLeft: 'auto', border: '1px solid var(--color-hairline)', background: 'transparent', color: 'var(--color-blue)', flexShrink: 0 }}
                     >
-                      🔍 深度拆解
+                      <LineIcon name="search" /> 深度拆解
                     </button>
                   </div>
 

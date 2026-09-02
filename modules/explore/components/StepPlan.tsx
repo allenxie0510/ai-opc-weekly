@@ -3,6 +3,7 @@ import type { AIConfig, BackcastPlan, Opportunity, PlansMap, ThemeProfile } from
 import { ai, isMock } from '../lib/ai';
 import { exportPlanPdf } from '../lib/pdf';
 import { Button, Head, Pill, Spinner } from './ui';
+import { LineIcon } from '@/components/icons';
 
 export function StepPlan({
   config,
@@ -83,11 +84,11 @@ export function StepPlan({
           ))}
         </select>
         <Button onClick={generate} disabled={!selected || loading}>
-          {loading ? '逆向规划中…' : plan ? '🔄 重新生成' : '🧭 生成逆向规划'}
+          {loading ? '逆向规划中…' : plan ? <><LineIcon name="refresh" /> 重新生成</> : <><LineIcon name="compass" /> 生成逆向规划</>}
         </Button>
         {plan && (
           <>
-            <Button variant="accent" onClick={() => exportPlanPdf(selected!, plan, profile)}>📄 导出 PDF</Button>
+            <Button variant="accent" onClick={() => exportPlanPdf(selected!, plan, profile)}><LineIcon name="file-text" /> 导出 PDF</Button>
             <Button variant="outline" onClick={copyMarkdown}>复制 Markdown</Button>
           </>
         )}
@@ -109,7 +110,7 @@ export function StepPlan({
             {plan.milestones.map((m, i) => (
               <div key={i} className="xpl-tl-item">
                 <div className="xpl-tl-marker">
-                  <span>{i === 0 ? '🏁' : '▲'}</span>
+                  <span>{i === 0 ? <LineIcon name="flag" /> : <LineIcon name="trending-up" />}</span>
                 </div>
                 <div className="xpl-tl-card">
                   <div className="xpl-tl-head">

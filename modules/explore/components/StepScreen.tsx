@@ -4,6 +4,7 @@ import { CRITERIA } from '../lib/criteria';
 import { ai } from '../lib/ai';
 import { effScore, grade, rankOpportunities } from '../lib/scoring';
 import { Button, Head, Modal, Pill, ScoreBar, Spinner } from './ui';
+import { LineIcon } from '@/components/icons';
 
 export function StepScreen({
   config,
@@ -150,7 +151,7 @@ export function StepScreen({
                         <Pill tone={o.capitalNeed === '低' ? 'good' : o.capitalNeed === '中' ? 'warn' : 'bad'}>资金{o.capitalNeed}</Pill>
                         <Pill tone={o.competition === '低' ? 'good' : o.competition === '中' ? 'warn' : 'bad'}>竞争{o.competition}</Pill>
                         {o.status === 'shortlist' && <Pill tone="blue">已入短名单</Pill>}
-                        {plans[o.id] && <Pill tone="accent">📋 已规划</Pill>}
+                        {plans[o.id] && <Pill tone="accent"><LineIcon name="clipboard" /> 已规划</Pill>}
                       </div>
                     </div>
                     <span className="xpl-chev">{isOpen ? '▴' : '▾'}</span>
@@ -165,7 +166,7 @@ export function StepScreen({
                           return (
                             <div key={c.id} className="xpl-score-edit">
                               <div style={{ flex: 1 }}>
-                                <ScoreBar label={`${c.short}${isHuman ? ' ✎' : ''}`} value={raw} accent={isHuman} />
+                                <ScoreBar label={<>{c.short}{isHuman && <> <LineIcon name="pen" /></>}</>} value={raw} accent={isHuman} />
                               </div>
                               <div className="xpl-stepper-btns">
                                 <button onClick={() => adjust(o.id, c.id, -1)}>−</button>
@@ -186,15 +187,15 @@ export function StepScreen({
                       </div>
                       <div className="xpl-detail-actions">
                         <Button small onClick={() => onPatch(o.id, { status: o.status === 'shortlist' ? 'pool' : 'shortlist' })}>
-                          {o.status === 'shortlist' ? '移出短名单' : '☑ 加入短名单'}
+                          {o.status === 'shortlist' ? '移出短名单' : <><LineIcon name="check-square" /> 加入短名单</>}
                         </Button>
                         <Button small variant="ghost" onClick={() => onPatch(o.id, { status: o.status === 'favorite' ? 'pool' : 'favorite' })}>
-                          {o.status === 'favorite' ? '取消收藏' : '⭐ 收藏'}
+                          {o.status === 'favorite' ? '取消收藏' : <><LineIcon name="star" /> 收藏</>}
                         </Button>
                         <Button small variant="danger" onClick={() => onPatch(o.id, { status: o.status === 'rejected' ? 'pool' : 'rejected' })}>
-                          {o.status === 'rejected' ? '取消否决' : '✕ 否决'}
+                          {o.status === 'rejected' ? '取消否决' : <><LineIcon name="x" /> 否决</>}
                         </Button>
-                        <Button small variant="accent" onClick={() => deepDive(o)}>🔍 深度研判</Button>
+                        <Button small variant="accent" onClick={() => deepDive(o)}><LineIcon name="search" /> 深度研判</Button>
                       </div>
                     </div>
                   )}

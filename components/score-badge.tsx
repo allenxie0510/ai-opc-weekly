@@ -9,6 +9,7 @@
  *   text   — 纯文字小字（雷达卡片标题行尾）
  * 图例：所有分数 title 属性统一带 SCORE_SCALE_TEXT 口径说明。
  */
+import { LineIcon } from '@/components/icons';
 
 export type ScoreBand = 'excellent' | 'good' | 'fair' | 'weak';
 
@@ -43,8 +44,8 @@ export function ScoreBadge({
     <span className={`score-badge ${variant} sb-${band}`} title={SCORE_SCALE_TEXT}>
       <em>OPC</em>
       <span className="sb-num">{score}{variant === 'text' ? (suffix ?? '分') : ''}</span>
-      {trend === 'up' && <span className="opcard-trend up" title="评分轨迹上行">↗</span>}
-      {trend === 'down' && <span className="opcard-trend down" title="评分轨迹下行">↘</span>}
+      {trend === 'up' && <span className="opcard-trend up" title="评分轨迹上行"><LineIcon name="trending-up" /></span>}
+      {trend === 'down' && <span className="opcard-trend down" title="评分轨迹下行"><LineIcon name="trending-down" /></span>}
     </span>
   );
 }

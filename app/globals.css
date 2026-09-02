@@ -142,7 +142,7 @@ a { color: inherit; text-decoration: none; }
   color: var(--color-ink); text-decoration: none; font-size: 13px; cursor: pointer; font-family: var(--font-body);
 }
 .nav-auth-item:hover { background: var(--color-surface); }
-.nav-auth-ico { width: 18px; margin-right: 8px; text-align: center; flex-shrink: 0; }
+.nav-auth-ico { width: 18px; margin-right: 8px; text-align: center; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; }
 .nav-auth-divider { border-top: 1px solid var(--color-hairline-soft); margin: 4px 0; }
 .nav-auth-signout { color: var(--color-danger); }
 
@@ -772,7 +772,7 @@ footer p + p { margin-top: 4px; }
 .admin-btn {
   padding: 8px 14px; border: 1px solid var(--color-mist); border-radius: 9px;
   background: var(--color-canvas); color: var(--color-slate); font-size: 13px; font-weight: 600; cursor: pointer;
-  font-family: var(--font-body);
+  font-family: var(--font-body); align-items: center; gap: 6px;
 }
 .admin-btn:hover { border-color: var(--color-blue); color: var(--color-blue); }
 .admin-btn.primary { background: var(--color-blue); border-color: var(--color-blue); color: #fff; }
@@ -929,7 +929,7 @@ a.admin-item-title:hover { color: var(--color-blue); }
 
 /* ═══ 数字可信度标注（P0 provenance）═══ */
 .provenance-badge {
-  display: inline-block; margin-left: 6px; padding: 1px 10px;
+  margin-left: 6px; padding: 1px 10px;
   font-size: 11px; font-weight: 600; border-radius: 9999px;
   text-decoration: none; vertical-align: 1px; white-space: nowrap;
 }
@@ -1312,3 +1312,44 @@ a.opp-case-name:hover { color: var(--color-blue); }
 .opp-scorebar-fill.sb-good { background: var(--color-score-good); }
 .opp-scorebar-fill.sb-fair { background: var(--color-score-fair); }
 .opp-scorebar-fill.sb-weak { background: var(--color-score-weak); }
+/* Shared monochrome line icons: lightweight, theme-aware and aligned with text. */
+.ui-line-icon {
+  display: inline-block;
+  width: 1em;
+  height: 1em;
+  flex: 0 0 auto;
+  vertical-align: -0.14em;
+}
+
+button:has(> .ui-line-icon),
+a:has(> .ui-line-icon),
+.provenance-badge,
+.pulse-delta,
+.opp-verdict,
+.opp-vp-pass,
+.opp-vp-kill,
+.opp-vp-niche,
+.home-hero-take,
+.admin-item-reason,
+.xpl-scorebar-label > span {
+  align-items: center;
+  gap: 0.4em;
+}
+
+button:has(> .ui-line-icon),
+a:has(> .ui-line-icon),
+.provenance-badge,
+.pulse-delta,
+.opp-verdict,
+.opp-vp-pass,
+.opp-vp-kill,
+.opp-vp-niche,
+.home-hero-take,
+.admin-item-reason,
+.xpl-scorebar-label > span {
+  display: inline-flex;
+}
+
+button:has(> .ui-line-icon) {
+  justify-content: center;
+}

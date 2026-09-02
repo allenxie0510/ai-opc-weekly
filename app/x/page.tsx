@@ -4,6 +4,7 @@ import { TranslateButton } from '@/components/translate-button';
 import { SafeImg } from '@/components/safe-img';
 import { PageViewCounter } from '@/components/page-view-counter';
 import Link from 'next/link';
+import { LineIcon } from '@/components/icons';
 
 // 账号删除必须立即反映在时间轴上。这里不能使用 ISR，否则 Vercel 会在
 // revalidate 窗口内继续返回包含已删除账号推文的旧 HTML。
@@ -142,7 +143,7 @@ export default async function XTimelinePage() {
                             >
                               <SafeImg src={url} alt="" className="x-card-img" />
                               {isVideoPreview(url) && (
-                                <span className="x-card-video-badge" aria-hidden="true">▶</span>
+                                <span className="x-card-video-badge" aria-hidden="true"><LineIcon name="play" /></span>
                               )}
                             </a>
                           ))}

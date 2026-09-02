@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { AIConfig, ThemeProfile } from '../lib/types';
 import { ai, isMock } from '../lib/ai';
 import { Button, Field, Head, Pill } from './ui';
+import { LineIcon } from '@/components/icons';
 
 const RISK: ThemeProfile['riskTolerance'][] = ['保守', '平衡', '激进'];
 
@@ -139,7 +140,7 @@ export function StepVision({
 
       <div className="xpl-action-row">
         <Button variant="accent" onClick={suggest} disabled={suggesting}>
-          {suggesting ? '生成中…' : '✨ 让 AI 给我方向建议'}
+          {suggesting ? '生成中…' : <><LineIcon name="sparkles" /> 让 AI 给我方向建议</>}
         </Button>
         {!isMock(config) && <span className="xpl-muted">当前用真实模型：{config.model}</span>}
       </div>

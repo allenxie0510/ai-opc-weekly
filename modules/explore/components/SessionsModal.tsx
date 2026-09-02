@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { ExploreSession } from '../lib/types';
 import { Button, Modal } from './ui';
+import { LineIcon } from '@/components/icons';
 
 export function SessionsModal({
   open,
@@ -48,10 +49,10 @@ export function SessionsModal({
             placeholder={`给这次探索起个名字（如：${new Date().toLocaleDateString('zh-CN')} 出海方向）`}
           />
           <div className="xpl-detail-actions" style={{ marginTop: 8 }}>
-            <Button small onClick={() => onSave(title)}>💾 保存当前探索</Button>
-            <Button small variant="ghost" onClick={onNew}>＋ 新建空白探索</Button>
+            <Button small onClick={() => onSave(title)}><LineIcon name="save" /> 保存当前探索</Button>
+            <Button small variant="ghost" onClick={onNew}><LineIcon name="plus" /> 新建空白探索</Button>
             {onOpenConfig && (
-              <Button small variant="ghost" onClick={onOpenConfig}>⚙️ AI 设置</Button>
+              <Button small variant="ghost" onClick={onOpenConfig}><LineIcon name="settings" /> AI 设置</Button>
             )}
           </div>
         </div>

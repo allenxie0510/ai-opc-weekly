@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Header } from '@/components/page-shell';
 import { RECOMMENDATION_MAP, CONVICTION_MAP, CATEGORY_MAP } from '@/lib/types';
+import { LineIcon } from '@/components/icons';
 
 type RadarDraft = {
   id: string;
@@ -182,11 +183,11 @@ export default function AdminPage() {
       } else {
         setMessage(
           action === 'publish'
-            ? `已发布 ${data.affected} 条 ✓（前台即时生效）`
+            ? `已发布 ${data.affected} 条（前台即时生效）`
             : action === 'unpublish'
               ? `已下架 ${data.affected} 条（已退回草稿区）`
               : action === 'feature'
-                ? `已设为首页推荐 ✓`
+                ? `已设为首页推荐`
                 : action === 'unfeature'
                   ? `已取消首页推荐`
                   : type === 'news_item'
@@ -219,12 +220,12 @@ export default function AdminPage() {
       } else {
         setMessage(
           workflow === 'daily-radar'
-            ? '已触发雷达抓取 + 生成 ⚡ 约 2–3 分钟后点「刷新」查看新草稿'
+            ? '已触发雷达抓取 + 生成，约 2–3 分钟后点「刷新」查看新草稿'
             : workflow === 'weekly-newsletter'
-              ? '已触发周报生成 ⚡ 约 3–5 分钟后点「刷新」查看草稿'
+              ? '已触发周报生成，约 3–5 分钟后点「刷新」查看草稿'
               : opts?.rescoreOnly
-                ? '已触发评分复评 🔁 约 1–2 分钟完成，结果见机会详情页「评分轨迹」'
-                : '已触发机会生产线 ⚡ 约 3–5 分钟后点「刷新」查看机会草稿',
+                ? '已触发评分复评，约 1–2 分钟完成，结果见机会详情页「评分轨迹」'
+                : '已触发机会生产线，约 3–5 分钟后点「刷新」查看机会草稿',
         );
       }
     } catch {
@@ -250,7 +251,7 @@ export default function AdminPage() {
       if (!res.ok) {
         setMessage(data.error || '触发失败');
       } else {
-        setMessage(`已触发封面生成 🎨（${slug}）约 1–2 分钟后点「刷新」查看`);
+        setMessage(`已触发封面生成（${slug}），约 1–2 分钟后点「刷新」查看`);
       }
     } catch {
       setMessage('网络错误');
@@ -291,7 +292,7 @@ export default function AdminPage() {
       if (thenPublish) {
         await act('publish', editType, [editId]); // act 内部会 reload
       } else {
-        setMessage('已保存 ✓');
+        setMessage('已保存');
         await load(token);
       }
     } catch {
@@ -351,35 +352,35 @@ export default function AdminPage() {
               <h1>审核台</h1>
               <div className="admin-actions">
                 <Link className="admin-btn" href="/tools">
-                  🧰 工具预览
+                  <LineIcon name="wrench" /> 工具预览
                 </Link>
                 <button
                   className="admin-btn primary"
                   onClick={() => void trigger('daily-radar')}
                   disabled={busy}
                 >
-                  ⚡ 拉取雷达
+                  <LineIcon name="zap" /> 拉取雷达
                 </button>
                 <button
                   className="admin-btn"
                   onClick={() => void trigger('weekly-newsletter')}
                   disabled={busy}
                 >
-                  ⚡ 生成周报
+                  <LineIcon name="zap" /> 生成周报
                 </button>
                 <button
                   className="admin-btn"
                   onClick={() => void trigger('weekly-opportunities')}
                   disabled={busy}
                 >
-                  ⚡ 生成机会
+                  <LineIcon name="zap" /> 生成机会
                 </button>
                 <button
                   className="admin-btn"
                   onClick={() => void trigger('weekly-opportunities', { rescoreOnly: true })}
                   disabled={busy}
                 >
-                  🔁 复评评分
+                  <LineIcon name="refresh" /> 复评评分
                 </button>
                 <button className="admin-btn" onClick={() => void load(token)} disabled={loading}>
                   {loading ? '刷新中…' : '刷新'}
@@ -528,7 +529,7 @@ export default function AdminPage() {
                                 {d.source_name} · {d.category} · {d.published_at}
                               </span>
                               {d.pick_reason && (
-                                <span className="admin-item-reason">✦ {d.pick_reason}</span>
+                                <span className="admin-item-reason"><LineIcon name="sparkles" /> {d.pick_reason}</span>
                               )}
                               <span className="admin-item-summary">{d.summary}</span>
                               {d.editor_note && (
@@ -728,7 +729,7 @@ export default function AdminPage() {
                 )}
               </div>
               {opportunityDrafts.length === 0 ? (
-                <p className="admin-empty">没有待审核的机会（点上方「⚡ 生成机会」手动跑一轮）</p>
+                <p className="admin-empty">没有待审核的机会（点上方「生成机会」手动跑一轮）</p>
               ) : (
                 <div className="admin-list">
                   {opportunityDrafts.map((o) => (
@@ -816,7 +817,7 @@ export default function AdminPage() {
                                 {o.editor_conviction ? ` · 信心 ${CONVICTION_MAP[o.editor_conviction as keyof typeof CONVICTION_MAP] || o.editor_conviction}` : ''}
                                 {o.category ? ` · ${CATEGORY_MAP[o.category as keyof typeof CATEGORY_MAP]?.label || o.category}` : ''} · {o.created_at?.slice(0, 10)}
                               </span>
-                              {o.thesis && <span className="admin-item-reason">✦ {o.thesis}</span>}
+                              {o.thesis && <span className="admin-item-reason"><LineIcon name="sparkles" /> {o.thesis}</span>}
                               <button
                                 type="button"
                                 className="admin-note-toggle"
@@ -826,7 +827,7 @@ export default function AdminPage() {
                               </button>
                               {expandedOpp.has(o.id) && (
                                 <span className="admin-item-note">
-                                  {o.editor_take && <span style={{ display: 'block', marginBottom: 8 }}>🖊 {o.editor_take}</span>}
+                                  {o.editor_take && <span style={{ display: 'block', marginBottom: 8 }}><LineIcon name="pen" /> {o.editor_take}</span>}
                                   {(o.evidence || []).map((ev, i) => (
                                     <span key={i} style={{ display: 'block', marginBottom: 4 }}>
                                       [{ev.tier || '?'}] <a href={ev.source_url} target="_blank" rel="noopener noreferrer">{ev.source_name || ev.source_url}</a>
@@ -844,7 +845,7 @@ export default function AdminPage() {
                               title={o.cover_url ? '清空现有封面并重新生成' : '封面缺失，点击生成'}
                               onClick={() => void recoverCover(o.slug)}
                             >
-                              {o.cover_url ? '🎨 重生成封面' : '🎨 补封面'}
+                              <LineIcon name="palette" /> {o.cover_url ? '重生成封面' : '补封面'}
                             </button>
                             <button
                               className="admin-btn sm"
@@ -973,7 +974,7 @@ export default function AdminPage() {
                                 <span className="admin-item-title">{o.title}</span>
                                 {o.featured && (
                                   <span className="admin-score" style={{ color: 'var(--color-brand)', borderColor: 'var(--color-brand)' }}>
-                                    ★ 首页推荐
+                                    <LineIcon name="star" fill="currentColor" /> 首页推荐
                                   </span>
                                 )}
                               </span>
@@ -982,7 +983,7 @@ export default function AdminPage() {
                                 {o.editor_conviction ? ` · 信心 ${CONVICTION_MAP[o.editor_conviction as keyof typeof CONVICTION_MAP] || o.editor_conviction}` : ''}
                                 {o.category ? ` · ${CATEGORY_MAP[o.category as keyof typeof CATEGORY_MAP]?.label || o.category}` : ''} · 发布 {o.published_at?.slice(0, 10)}
                               </span>
-                              {o.thesis && <span className="admin-item-reason">✦ {o.thesis}</span>}
+                              {o.thesis && <span className="admin-item-reason"><LineIcon name="sparkles" /> {o.thesis}</span>}
                             </div>
                           </div>
                           <div className="admin-item-btns">
@@ -992,7 +993,7 @@ export default function AdminPage() {
                               title={o.cover_url ? '清空现有封面并重新生成' : '封面缺失，点击生成'}
                               onClick={() => void recoverCover(o.slug)}
                             >
-                              {o.cover_url ? '🎨 重生成封面' : '🎨 补封面'}
+                              <LineIcon name="palette" /> {o.cover_url ? '重生成封面' : '补封面'}
                             </button>
                             <button
                               className="admin-btn sm"
@@ -1092,7 +1093,7 @@ export default function AdminPage() {
                             {r.source_name} · {r.published_at}
                           </span>
                           {r.reject_reason && (
-                            <span className="admin-item-reason">✕ {r.reject_reason}</span>
+                            <span className="admin-item-reason"><LineIcon name="x" /> {r.reject_reason}</span>
                           )}
                         </div>
                       </div>

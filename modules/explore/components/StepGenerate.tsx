@@ -3,6 +3,7 @@ import type { AIConfig, Opportunity, PlansMap, ThemeProfile } from '../lib/types
 import { ai, isMock } from '../lib/ai';
 import { computeTotal, grade } from '../lib/scoring';
 import { Button, Head, Modal, Pill } from './ui';
+import { LineIcon } from '@/components/icons';
 
 const PRESETS = [50, 100, 200];
 type StatusFilter = 'all' | 'favorite' | 'rejected';
@@ -102,7 +103,7 @@ export function StepGenerate({
   }
   function deleteAll() {
     const ids = opportunities.map((o) => o.id);
-    if (!confirm(`⚠️ 确定清空全部 ${ids.length} 个候选？真实数据与演示数据会一起删除，不可撤销。`)) return;
+    if (!confirm(`确定清空全部 ${ids.length} 个候选？真实数据与演示数据会一起删除，不可撤销。`)) return;
     onDelete(ids);
     setSelected(new Set());
     setBulkOpen(false);
@@ -125,7 +126,7 @@ export function StepGenerate({
           ))}
         </div>
         <Button onClick={generate} disabled={running}>
-          {running ? '正在生成…' : '🚀 开始海量生成'}
+          {running ? '正在生成…' : <><LineIcon name="rocket" /> 开始海量生成</>}
         </Button>
         {running && (
           <div className="xpl-progress">
@@ -153,10 +154,10 @@ export function StepGenerate({
                 全部 ({opportunities.length})
               </button>
               <button className={filter === 'favorite' ? 'xpl-on' : ''} onClick={() => setFilter('favorite')}>
-                ⭐ 收藏 ({statusCount('favorite')})
+                <LineIcon name="star" /> 收藏 ({statusCount('favorite')})
               </button>
               <button className={filter === 'rejected' ? 'xpl-on' : ''} onClick={() => setFilter('rejected')}>
-                ✕ 否决 ({statusCount('rejected')})
+                <LineIcon name="x" /> 否决 ({statusCount('rejected')})
               </button>
             </div>
             <select className="xpl-select xpl-search" value={sourceFilter} onChange={(e) => setSourceFilter(e.target.value as SourceFilter)}>
@@ -165,7 +166,7 @@ export function StepGenerate({
               <option value="ai">来源：真实 AI ({aiCount})</option>
             </select>
             <Button small variant="danger" onClick={() => setBulkOpen(true)}>
-              🗑 批量删除…
+              <LineIcon name="trash" /> 批量删除…
             </Button>
           </div>
 
@@ -196,7 +197,7 @@ export function StepGenerate({
                     <Pill tone={o.source === 'mock' ? 'warn' : 'blue'}>{o.source === 'mock' ? '演示数据' : '真实 AI'}</Pill>
                     <Pill tone={o.capitalNeed === '低' ? 'good' : o.capitalNeed === '中' ? 'warn' : 'bad'}>资金{o.capitalNeed}</Pill>
                     <Pill tone={o.competition === '低' ? 'good' : o.competition === '中' ? 'warn' : 'bad'}>竞争{o.competition}</Pill>
-                    {plans[o.id] && <Pill tone="accent">📋 已规划</Pill>}
+                    {plans[o.id] && <Pill tone="accent"><LineIcon name="clipboard" /> 已规划</Pill>}
                   </div>
                   <div className="xpl-card-meta">
                     <div><strong>痛点</strong>{o.painPoint}</div>
@@ -207,13 +208,13 @@ export function StepGenerate({
                       className={o.status === 'favorite' ? 'xpl-minibtn on' : 'xpl-minibtn'}
                       onClick={() => onPatch(o.id, { status: o.status === 'favorite' ? 'pool' : 'favorite' })}
                     >
-                      ⭐ {o.status === 'favorite' ? '已收藏' : '收藏'}
+                      <LineIcon name="star" /> {o.status === 'favorite' ? '已收藏' : '收藏'}
                     </button>
                     <button
                       className={o.status === 'rejected' ? 'xpl-minibtn reject on' : 'xpl-minibtn reject'}
                       onClick={() => onPatch(o.id, { status: o.status === 'rejected' ? 'pool' : 'rejected' })}
                     >
-                      ✕ {o.status === 'rejected' ? '已否决' : '否决'}
+                      <LineIcon name="x" /> {o.status === 'rejected' ? '已否决' : '否决'}
                     </button>
                   </div>
                 </div>

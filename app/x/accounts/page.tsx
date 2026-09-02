@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Header } from '@/components/page-shell';
 import Link from 'next/link';
+import { LineIcon } from '@/components/icons';
 
 interface Acct {
   id: string;
@@ -15,6 +16,7 @@ interface Acct {
 }
 
 const STORAGE_KEY = 'ai_opc_admin_token';
+type Notice = { text: string; tone: 'success' | 'warning' | 'error' };
 
 function getToken() {
   if (typeof window === 'undefined') return '';
@@ -34,12 +36,12 @@ export default function XAccountsPage() {
   const [newRssUrl, setNewRssUrl] = useState('');
   const [adding, setAdding] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [refreshMsg, setRefreshMsg] = useState<string | null>(null);
+  const [refreshMsg, setRefreshMsg] = useState<Notice | null>(null);
   const [refreshFails, setRefreshFails] = useState<string[]>([]);
   const [swipedId, setSwipedId] = useState<string | null>(null);
   const [touchStartX, setTouchStartX] = useState(0);
   const [deletingUser, setDeletingUser] = useState<string | null>(null);
-  const [deleteMsg, setDeleteMsg] = useState<string | null>(null);
+  const [deleteMsg, setDeleteMsg] = useState<Notice | null>(null);
 
   const fetchAccounts = useCallback(async () => {
     try {
@@ -151,16 +153,16 @@ export default function XAccountsPage() {
         const data = await res.json();
         // 本地移除，列表即时更新
         setAccounts(prev => prev.filter(a => a.username !== username));
-        setDeleteMsg(`✅ 已删除 @${username} 及 ${data.deleted_tweets ?? 0} 条历史推文`);
+        setDeleteMsg({ text: `已删除 @${username} 及 ${data.deleted_tweets ?? 0} 条历史推文`, tone: 'success' });
       } else if (res.status === 401) {
         setToken('');
         setAuthed(false);
       } else {
         const err = await res.json().catch(() => ({ error: '删除失败' }));
-        setDeleteMsg('❌ ' + (err.error || '删除失败'));
+        setDeleteMsg({ text: err.error || '删除失败', tone: 'error' });
       }
     } catch {
-      setDeleteMsg('❌ 网络错误');
+      setDeleteMsg({ text: '网络错误', tone: 'error' });
     } finally {
       setDeletingUser(null);
       setSwipedId(null);
@@ -179,22 +181,22 @@ export default function XAccountsPage() {
       if (res.status === 401) { setToken(''); setAuthed(false); return; }
       const data = await res.json();
       if (data.error) {
-        setRefreshMsg('❌ ' + data.error);
+        setRefreshMsg({ text: data.error, tone: 'error' });
       } else {
         const fails: any[] = data.results?.filter((r: any) => r.status !== 200) || [];
         // 透传每账号失败原因（HTTP 码/超时/实例名），后台直接可见根因
         setRefreshFails(fails.map((f) => `@${f.username}：${f.error || `HTTP ${f.status}`}`));
         if (data.fallback === 'dispatched') {
-          setRefreshMsg('⚠️ Vercel 直连抓取全灭（实例拦截机房 IP），已自动改为触发 GitHub Actions 抓取——约 2–3 分钟后生效，请稍后刷新 /x 查看');
+          setRefreshMsg({ text: 'Vercel 直连抓取全灭（实例拦截机房 IP），已自动改为触发 GitHub Actions 抓取——约 2–3 分钟后生效，请稍后刷新 /x 查看', tone: 'warning' });
         } else if (data.fallback) {
-          setRefreshMsg(`❌ Vercel 直连全灭且 Actions 兜底失败（${data.fallback}），请检查 GITHUB_PAT 配置`);
+          setRefreshMsg({ text: `Vercel 直连全灭且 Actions 兜底失败（${data.fallback}），请检查 GITHUB_PAT 配置`, tone: 'error' });
         } else {
-          setRefreshMsg(`✅ 写入 ${data.total} 条推文` + (fails.length ? `，${fails.length} 个 feed 失败` : ''));
+          setRefreshMsg({ text: `写入 ${data.total} 条推文` + (fails.length ? `，${fails.length} 个 feed 失败` : ''), tone: 'success' });
         }
         await fetchAccounts();
       }
     } catch {
-      setRefreshMsg('❌ 网络错误');
+      setRefreshMsg({ text: '网络错误', tone: 'error' });
     } finally { setRefreshing(false); }
   };
 
@@ -280,7 +282,7 @@ export default function XAccountsPage() {
                 whiteSpace: 'nowrap', fontFamily: 'inherit', opacity: refreshing ? 0.5 : 1,
               }}
             >
-              {refreshing ? '更新中...' : '🔄 手动更新'}
+              {refreshing ? '更新中...' : <><LineIcon name="refresh" /> 手动更新</>}
             </button>
             <Link href="/x" className="x-manage-link">← 返回时间轴</Link>
           </div>
@@ -288,11 +290,11 @@ export default function XAccountsPage() {
         {refreshMsg && (
           <div style={{
             marginBottom: 16, padding: '8px 16px', borderRadius: 10,
-            background: refreshMsg.startsWith('✅') ? 'var(--color-success-bg)' : 'var(--color-surface)',
-            color: refreshMsg.startsWith('✅') ? 'var(--color-up)' : refreshMsg.startsWith('⚠️') ? 'var(--color-warn)' : 'var(--color-danger)',
+            background: refreshMsg.tone === 'success' ? 'var(--color-success-bg)' : 'var(--color-surface)',
+            color: refreshMsg.tone === 'success' ? 'var(--color-up)' : refreshMsg.tone === 'warning' ? 'var(--color-warn)' : 'var(--color-danger)',
             fontSize: 13, fontWeight: 500,
           }}>
-            {refreshMsg}
+            <LineIcon name={refreshMsg.tone === 'success' ? 'check' : 'warning'} /> {refreshMsg.text}
             {refreshFails.length > 0 && (
               <details style={{ marginTop: 6, fontWeight: 400 }}>
                 <summary style={{ cursor: 'pointer' }}>查看 {refreshFails.length} 个失败账号的原因</summary>
@@ -307,10 +309,10 @@ export default function XAccountsPage() {
         {deleteMsg && (
           <div style={{
             marginBottom: 16, padding: '8px 16px', borderRadius: 10,
-            background: deleteMsg.startsWith('✅') ? 'var(--color-success-bg)' : 'var(--color-surface)',
-            color: deleteMsg.startsWith('✅') ? 'var(--color-up)' : 'var(--color-danger)',
+            background: deleteMsg.tone === 'success' ? 'var(--color-success-bg)' : 'var(--color-surface)',
+            color: deleteMsg.tone === 'success' ? 'var(--color-up)' : 'var(--color-danger)',
             fontSize: 13, fontWeight: 500,
-          }}>{deleteMsg}</div>
+          }}><LineIcon name={deleteMsg.tone === 'success' ? 'check' : 'warning'} /> {deleteMsg.text}</div>
         )}
 
         {/* 添加账号 */}
@@ -339,7 +341,7 @@ export default function XAccountsPage() {
                 whiteSpace: 'nowrap', fontFamily: 'inherit',
               }}
             >
-              {adding ? '添加中...' : '+ 添加'}
+              {adding ? '添加中...' : <><LineIcon name="plus" /> 添加</>}
             </button>
           </div>
           <input
@@ -373,11 +375,7 @@ export default function XAccountsPage() {
                   disabled={deletingUser === a.username}
                   onClick={(e) => { e.stopPropagation(); handleDelete(a.username); }}
                 >
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                    <path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
-                    <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
-                    <line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/>
-                  </svg>
+                  <LineIcon name="trash" />
                 </button>
                 <button
                   onClick={() => handleDelete(a.username)}
@@ -429,9 +427,9 @@ export default function XAccountsPage() {
                       </a>
                     </div>
                     {a.rss_url ? (
-                      <span style={{ fontSize: 12, color: 'var(--color-success-text)' }}>✓ 定时抓取中（含自定义兜底源）</span>
+                      <span style={{ fontSize: 12, color: 'var(--color-success-text)' }}><LineIcon name="check" /> 定时抓取中（含自定义兜底源）</span>
                     ) : (
-                      <span style={{ fontSize: 12, color: 'var(--color-success-text)' }}>✓ 定时抓取中（公共实例）</span>
+                      <span style={{ fontSize: 12, color: 'var(--color-success-text)' }}><LineIcon name="check" /> 定时抓取中（公共实例）</span>
                     )}
                   </div>
                 </article>

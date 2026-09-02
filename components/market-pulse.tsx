@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type { MarketPulseItem } from '@/lib/types';
+import { LineIcon } from '@/components/icons';
 
 /**
  * 赛道脉搏（P3.2）：首页全局视角区块，近 7 天 vs 前 7 天信号动量。
@@ -30,10 +31,10 @@ function PulseSparkline({ daily, trend }: { daily: number[]; trend: MarketPulseI
 
 function DeltaPill({ p }: { p: MarketPulseItem }) {
   if (p.trend === 'up') {
-    return <span className="pulse-delta up">{p.deltaPct === null ? '↗ 新热点' : `↗ +${p.deltaPct}%`}</span>;
+    return <span className="pulse-delta up"><LineIcon name="trending-up" /> {p.deltaPct === null ? '新热点' : `+${p.deltaPct}%`}</span>;
   }
   if (p.trend === 'down') {
-    return <span className="pulse-delta down">↘ {p.deltaPct}%</span>;
+    return <span className="pulse-delta down"><LineIcon name="trending-down" /> {p.deltaPct}%</span>;
   }
   return <span className="pulse-delta flat">→ 持平</span>;
 }

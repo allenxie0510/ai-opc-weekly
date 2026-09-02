@@ -8,6 +8,8 @@ import { CATEGORY_MAP, RECOMMENDATION_MAP, SCORE_DIMENSIONS, CONVICTION_MAP } fr
 import type { Opportunity, OpportunityScoreHistory } from '@/lib/types';
 import { OpportunityCoverVisual } from '@/components/OpportunityCard';
 import { scoreBand, toDisplayScore } from '@/components/score-badge';
+import { LineIcon } from '@/components/icons';
+import type { LineIconName } from '@/components/icons';
 
 export const revalidate = 300;
 
@@ -62,12 +64,12 @@ const SCORE_SOURCE_MAP: Record<string, string> = {
   manual: '手动复评',
 };
 
-/** P3.3 校准判定胶囊：✓ 已验证 绿 / ◐ 部分验证 蓝 / ✗ 被证伪 橙 / ⏳ 待观察 灰 */
-const VERDICT_MAP: Record<string, { label: string; cssClass: string }> = {
-  confirmed: { label: '✓ 已验证', cssClass: 'vd-confirmed' },
-  partially: { label: '◐ 部分验证', cssClass: 'vd-partially' },
-  refuted: { label: '✗ 被证伪', cssClass: 'vd-refuted' },
-  'too-early': { label: '⏳ 待观察', cssClass: 'vd-too-early' },
+/** P3.3 校准判定胶囊：图标、文案与语义色相互独立。 */
+const VERDICT_MAP: Record<string, { label: string; cssClass: string; icon: LineIconName }> = {
+  confirmed: { label: '已验证', cssClass: 'vd-confirmed', icon: 'check' },
+  partially: { label: '部分验证', cssClass: 'vd-partially', icon: 'circle-dot' },
+  refuted: { label: '被证伪', cssClass: 'vd-refuted', icon: 'x' },
+  'too-early': { label: '待观察', cssClass: 'vd-too-early', icon: 'clock' },
 };
 
 /**
@@ -178,7 +180,7 @@ export default async function OpportunityPage({ params }: { params: Promise<{ sl
                   <div className="opp-scorehist-head">
                     <span className={`opp-scorehist-score sb-${scoreBand(dispScore)}`}>{dispScore}</span>
                     <span className="opp-scorehist-source">{SCORE_SOURCE_MAP[h.source] || h.source}</span>
-                    {vd && <span className={`opp-verdict ${vd.cssClass}`}>{vd.label}</span>}
+                    {vd && <span className={`opp-verdict ${vd.cssClass}`}><LineIcon name={vd.icon} /> {vd.label}</span>}
                     <span className="opp-scorehist-date">{h.created_at.slice(0, 10)}</span>
                     {h.signal_count > 0 && <span className="opp-scorehist-signals">{h.source === 'initial' ? `证据 ${h.signal_count} 条` : `新信号 ${h.signal_count} 条`}</span>}
                   </div>
@@ -233,10 +235,10 @@ export default async function OpportunityPage({ params }: { params: Promise<{ sl
               </ol>
             )}
             <div className="opp-vp-thresholds">
-              {vp.success_threshold && <span className="opp-vp-pass">✓ 成功阈值：{vp.success_threshold}</span>}
-              {vp.kill_condition && <span className="opp-vp-kill">✕ 止损条件：{vp.kill_condition}</span>}
+              {vp.success_threshold && <span className="opp-vp-pass"><LineIcon name="check" /> 成功阈值：{vp.success_threshold}</span>}
+              {vp.kill_condition && <span className="opp-vp-kill"><LineIcon name="x" /> 止损条件：{vp.kill_condition}</span>}
             </div>
-            {vp.niche_hint && <p className="opp-vp-niche">◈ 垂直切入建议：{vp.niche_hint}</p>}
+            {vp.niche_hint && <p className="opp-vp-niche"><LineIcon name="compass" /> 垂直切入建议：{vp.niche_hint}</p>}
           </section>
         )}
 
@@ -256,9 +258,9 @@ export default async function OpportunityPage({ params }: { params: Promise<{ sl
                     {[c.founder, c.team_size, c.pricing !== '未披露' ? c.pricing : ''].filter(Boolean).join(' · ')}
                   </div>
                   {c.revenue_type === 'founder_disclosed' && c.revenue_source_url ? (
-                    <a href={c.revenue_source_url} target="_blank" rel="noopener noreferrer" className="provenance-badge verified" title={c.claim_quote || '创始人公开披露'}>✓ 创始人披露 · {c.source_name}</a>
+                    <a href={c.revenue_source_url} target="_blank" rel="noopener noreferrer" className="provenance-badge verified" title={c.claim_quote || '创始人公开披露'}><LineIcon name="check" /> 创始人披露 · {c.source_name}</a>
                   ) : c.revenue_type === 'ai_estimate' ? (
-                    <span className="provenance-badge estimate" title="有公开依据的间接估算，非官方披露">⚠ 估算 · {c.source_name}</span>
+                    <span className="provenance-badge estimate" title="有公开依据的间接估算，非官方披露"><LineIcon name="warning" /> 估算 · {c.source_name}</span>
                   ) : (
                     <span className="provenance-badge estimate" title="未找到公开收入披露">— 收入未披露 · {c.source_name}</span>
                   )}
