@@ -3,7 +3,7 @@ run-name: X sync / ${{ inputs.target_account || 'all' }}
 
 on:
   schedule:
-    - cron: '17 * * * *'  # 每小时错峰；GitHub schedule 仍可能延迟
+    - cron: '17 */4 * * *'  # 每 4 小时错峰，降低免费共享来源负载；GitHub schedule 仍可能延迟
   workflow_dispatch:
     inputs:
       target_account:
@@ -21,7 +21,7 @@ concurrency:
 jobs:
   fetch:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 

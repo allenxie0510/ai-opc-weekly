@@ -12,7 +12,7 @@ const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_P
 if (!SUPABASE_URL || !SUPABASE_KEY) throw new Error('缺少 Supabase 环境变量');
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-const INTERVAL_MS = 10_000;
+const INTERVAL_MS = 30_000;
 
 async function main() {
   const startedAt = new Date().toISOString();
@@ -104,7 +104,10 @@ async function main() {
   console.log('同步结果 ' + JSON.stringify(summary));
   if (process.env.GITHUB_STEP_SUMMARY) {
     const lines = ['## X 同步结果', '', '开始：' + startedAt, '完成：' + new Date().toISOString(),
-      '账号覆盖：' + summary.succeeded + '/' + summary.total, '',
+      '抓取与写入成功：' + summary.succeeded + '/' + summary.total,
+      '实际新增：' + summary.newTweets + ' 条（来自 ' + summary.accountsWithNewTweets + ' 个账号）', '',
+      '成功只表示本轮读取与写入完成，不代表有新推文，也不保证第三方来源已追平 X。',
+      ...(summary.newTweets === 0 ? ['本轮未发现新增：可能没有新发布，也可能来源存在延迟，不能仅凭此报告区分。'] : []), '',
       '| 账号 | 状态 | 实际新增 | 源内最新发布时间 |', '| --- | --- | --- | --- |',
       ...[...results.values()].map((row) => '| @' + row.username + ' | ' + (row.ok ? '成功' : '失败') +
         ' | ' + (row.newTweets || 0) + ' | ' + (row.latest || '未知') + ' |')];

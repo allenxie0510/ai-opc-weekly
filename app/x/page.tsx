@@ -64,13 +64,13 @@ export default async function XTimelinePage() {
             </p>
             <p className="product-note" role="status">
               {sync.state === 'running' ? '后台正在同步'
-                : sync.state === 'success' ? '最近同步完成：'
+                : sync.state === 'success' ? '最近抓取完成：'
                 : sync.state === 'failed' ? '最近同步异常，部分账号可能未更新：'
                 : sync.state === 'legacy' ? '最近任务结束（旧版未确认完整覆盖）：'
                 : '暂时无法获取后台同步状态'}
               {sync.checkedAt && <time dateTime={sync.checkedAt}>{new Date(sync.checkedAt).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false })}（北京时间）</time>}
-              {sync.checkedAt && Date.now() - Date.parse(sync.checkedAt) > 3 * 3600000 && ' · 已超过 3 小时，请留意同步延迟'}
-              <br />计划每小时同步，免费任务可能延迟；下方时间是推文发布时间，不是抓取时间。
+              {sync.checkedAt && Date.now() - Date.parse(sync.checkedAt) > 6 * 3600000 && ' · 已超过 6 小时，请留意同步延迟'}
+              <br />计划每 4 小时抓取一次，免费来源与定时任务均可能延迟。抓取成功不代表有新增；下方时间是推文发布时间。
             </p>
           </div>
           <Link href="/x/accounts" className="x-manage-link">管理账号 →</Link>

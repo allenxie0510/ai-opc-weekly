@@ -42,6 +42,23 @@ test('部分成功和写入失败不能被标为整轮成功', () => {
   assert.equal(summarizeSync([{ ok: true }, { ok: true }]).status, 'success');
 });
 
+test('抓取成功与实际新增分开报告，零新增不能推断来源已追平 X', () => {
+  const unchanged = summarizeSync([{ ok: true, newTweets: 0 }, { ok: true }]);
+  assert.equal(unchanged.status, 'success');
+  assert.equal(unchanged.newTweets, 0);
+  assert.equal(unchanged.accountsWithNewTweets, 0);
+  const partial = summarizeSync([{ ok: true, newTweets: 1 }, { ok: false, newTweets: 2 }]);
+  assert.equal(partial.status, 'partial');
+  assert.equal(partial.newTweets, 3);
+  assert.equal(partial.accountsWithNewTweets, 2);
+  const script = readFileSync(new URL('../fetch-tweets.mjs', import.meta.url), 'utf8');
+  const workflow = readFileSync(new URL('../../.github/workflows/fetch-tweets.yml', import.meta.url), 'utf8');
+  const page = readFileSync(new URL('../../app/x/page.tsx', import.meta.url), 'utf8');
+  assert.match(script, /INTERVAL_MS = 30_000/);
+  assert.match(workflow, /cron: '17 \*\/4 \* \* \*'/);
+  assert.match(page, /每 4 小时抓取一次/);
+});
+
 test('仅同步启用账号、轮换优先级，单账号运行不执行孤儿删除', () => {
   const accounts = [{ username: 'a', enabled: true }, { username: 'b', enabled: true }, { username: 'c', enabled: false }];
   assert.deepEqual(selectSyncAccounts(accounts, '', 3_600_000).map(a => a.username), ['b', 'a']);
