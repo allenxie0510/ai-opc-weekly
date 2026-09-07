@@ -12,10 +12,29 @@ import {
   parseNitterTimelineHtml,
   parseRSSFeed,
   parseStatusSources,
+  sourceCooldownDelay,
 } from '../../lib/nitter-fetch.mjs';
 import { selectSyncAccounts, summarizeSync } from '../../lib/x-sync-policy.mjs';
 
 const account = { username: 'levelsio' };
+
+test('所有候选源不可用时等待最早冷却期限，不浪费后续账号的重试', () => {
+  const sources = [
+    { name: 'main', baseUrl: 'https://rss.xcancel.com', kind: 'rss' },
+    { name: 'backup', baseUrl: 'https://backup.example', kind: 'rss' },
+    { name: 'down', baseUrl: 'https://down.example', kind: 'rss' },
+  ];
+  const states = new Map([
+    ['xcancel.com', { retryAt: 120_000 }],
+    ['https://backup.example', { retryAt: 240_000 }],
+    ['https://down.example', { blocked: true }],
+  ]);
+  assert.equal(sourceCooldownDelay(account, sources, states, 30_000), 90_000);
+  assert.equal(sourceCooldownDelay(account, sources, states, 120_000), 0);
+  assert.equal(sourceCooldownDelay({ ...account, rss_url: 'https://custom.example/feed' }, sources, states, 30_000), 0);
+  assert.equal(sourceCooldownDelay(account, sources, new Map(), 30_000), 0);
+  assert.equal(sourceCooldownDelay(account, sources, new Map([...states.keys()].map(key => [key, { blocked: true }])), 30_000), 0);
+});
 
 test('部分成功和写入失败不能被标为整轮成功', () => {
   assert.equal(summarizeSync([{ ok: true }, ...Array.from({ length: 17 }, () => ({ ok: false }))]).status, 'partial');

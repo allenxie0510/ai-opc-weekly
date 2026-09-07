@@ -4,7 +4,7 @@
  */
 import { appendFileSync } from 'node:fs';
 import { createClient } from '@supabase/supabase-js';
-import { discoverSources, fetchAccountTweets } from '../lib/nitter-fetch.mjs';
+import { discoverSources, fetchAccountTweets, sourceCooldownDelay } from '../lib/nitter-fetch.mjs';
 import { selectSyncAccounts, summarizeSync } from '../lib/x-sync-policy.mjs';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -30,13 +30,21 @@ async function main() {
   const sourceState = new Map();
   const results = new Map();
   async function syncAccount(acc) {
+    const delay = sourceCooldownDelay(acc, sources, sourceState);
+    if (delay > 0) {
+      if (delay > 300_000 || Date.now() + delay > Date.parse(startedAt) + 16 * 60_000) {
+        throw new Error('来源仍需冷却，超出本轮等待预算；留待下轮，不提前请求');
+      }
+      console.log('@' + acc.username + ' 等待来源冷却 ' + Math.ceil(delay / 1000) + ' 秒，再继续同步');
+      await sleep(delay);
+    }
     const r = await fetchAccountTweets(acc, {
       timeoutSec: 12, debug: process.env.FETCH_DEBUG === '1',
       sources, sourceState, failureThreshold: 2,
     });
     if (!r.ok) {
       console.warn('@' + acc.username + ' 抓取失败: ' + r.attempts.join(' | '));
-      results.set(acc.username, { username: acc.username, ok: false, newTweets: 0, processed: 0 });
+      results.set(acc.username, { ...results.get(acc.username), username: acc.username, ok: false });
       return;
     }
     const { data: existing, error: lookupError } = await supabase.from('tweets')
