@@ -12,7 +12,7 @@ function getUid(): string {
   return uid;
 }
 
-export function PageViewCounter({ label }: { label?: string }) {
+export function PageViewCounter({ label, variant = 'inline' }: { label?: string; variant?: 'inline' | 'statistic' }) {
   const [count, setCount] = useState<number | null>(null);
 
   useEffect(() => {
@@ -38,6 +38,13 @@ export function PageViewCounter({ label }: { label?: string }) {
       }
     })();
   }, []);
+
+  if (variant === 'statistic') {
+    return <div className="footer-visit-stat" aria-live="polite">
+      <span className="footer-visit-number">{count === null ? '—' : count.toLocaleString('zh-CN')}</span>
+      <span className="footer-visit-label">{label || '累计访问数'}</span>
+    </div>;
+  }
 
   if (count === null) return null;
 
