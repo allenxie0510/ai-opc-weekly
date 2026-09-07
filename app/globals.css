@@ -556,7 +556,8 @@ footer p + p { margin-top: 4px; }
   .hero h1 { font-size: 48px; letter-spacing: -1px; }
 }
 @media (max-width: 768px) {
-  .container { padding: 0 20px; }
+  /* Only narrow the gutters; preserve page-wrap's vertical spacing above the footer. */
+  .container { padding-left: 20px; padding-right: 20px; }
   /* 导航：单行不挤压、超出可左右横滑（方案 A，2026-08-20）——
      真 390px 实测 logo 挤成两行、双字标签竖排；nowrap + flex-shrink:0 保住形状。
      2026-08-21：归档/关注收进头像菜单后 390px 已不再溢出，
