@@ -28,7 +28,7 @@ export default async function ProductRadarPage() {
       </section>
       {feed.stale && <div className="pr-stale" role="status">数据已超过 48 小时未更新，请把结果视为历史参考。</div>}
       <RadarFeed items={feed.items} categories={feed.categories} />
-      <footer className="pr-footer"><p>机会分由确定性规则计算，AI 只负责语义解释与测试方案。所有结论都需买样验证。</p><p>© 2026 AI OPC. 不构成投资或库存建议。</p></footer>
+        <div className="pr-footer"><p>机会分由确定性规则计算，AI 只负责语义解释与测试方案。所有结论都需买样验证。</p><p>不构成投资或库存建议。</p></div>
     </main></>
   );
 }

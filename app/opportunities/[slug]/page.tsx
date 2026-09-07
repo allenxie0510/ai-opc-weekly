@@ -3,7 +3,6 @@ import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import { getOpportunities, getOpportunityBySlug, getOpportunityCases, getOpportunitySignals, getOpportunityScoreHistory } from '@/lib/data';
 import { Header } from '@/components/page-shell';
-import { PageViewCounter } from '@/components/page-view-counter';
 import { CATEGORY_MAP, RECOMMENDATION_MAP, SCORE_DIMENSIONS, CONVICTION_MAP } from '@/lib/types';
 import type { Opportunity, OpportunityScoreHistory } from '@/lib/types';
 import { OpportunityCoverVisual } from '@/components/OpportunityCard';
@@ -11,7 +10,6 @@ import { scoreBand, toDisplayScore } from '@/components/score-badge';
 import { LineIcon } from '@/components/icons';
 import type { LineIconName } from '@/components/icons';
 import { sourceTier, sourceCoverageGrade } from '@/lib/evidence-policy.mjs';
-import { EditorialLinks } from '@/components/editorial-links';
 
 export const revalidate = 300;
 
@@ -315,12 +313,9 @@ export default async function OpportunityPage({ params }: { params: Promise<{ sl
           </section>
         )}
 
-        <footer style={{ textAlign: 'center', padding: '48px 0', color: 'var(--color-stone)', fontSize: '0.8rem', marginTop: 'auto' }}>
-          <EditorialLinks />
-          <p style={{ marginBottom: 6 }}><PageViewCounter /></p>
+        <div className="page-disclaimer">
           <p>机会判断由 AI 深研生成、主编拍板。不构成投资建议。</p>
-          <p>© 2026 AI OPC. All rights reserved.</p>
-        </footer>
+        </div>
       </div>
     </>
   );

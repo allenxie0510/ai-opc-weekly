@@ -53,7 +53,7 @@ export default async function ProductOpportunityPage({ params }: { params: Promi
       <section className="pr-section"><div className="pr-section-head"><span>07</span><div><h2>风险门</h2><p>当前总体风险：{RISK_LABELS[item.riskLevel]}</p></div></div><div className="pr-risk-grid">{item.risks.map((risk) => <article key={risk.id} className={`risk-${risk.level}`}><span>{RISK_LABELS[risk.level]}</span><h3>{risk.title}</h3><p>{risk.detail}</p><strong>应对：{risk.mitigation}</strong></article>)}</div></section>
       <section className="pr-section pr-test-plan" id="test-plan"><div className="pr-section-head"><span>08</span><div><h2>最低成本测试方案</h2><p>先买证据，再买库存</p></div></div><div className="pr-test-meta"><div><span>预算</span><strong>{item.testPlan.budget}</strong></div><div><span>周期</span><strong>{item.testPlan.duration}</strong></div></div><ol>{item.testPlan.steps.map((step) => <li key={step}>{step}</li>)}</ol><div className="pr-threshold"><p><strong>通过阈值</strong>{item.testPlan.successThreshold}</p><p><strong>止损条件</strong>{item.testPlan.killCondition}</p></div></section>
       <section className="pr-section pr-provenance"><div className="pr-section-head"><span>09</span><div><h2>来源与限制</h2><p>对不知道的事保持明确</p></div></div><ul>{item.limitations.map((limitation) => <li key={limitation}>{limitation}</li>)}</ul><p>数据 Provider：{item.providers.join(' · ')}。本产品不会绕过小红书登录、验证码、反爬或风控机制。</p></section>
-      <footer className="pr-footer"><Link href="/tools/xhs-product-radar">← 返回今日机会</Link><p>© 2026 AI OPC. 不构成投资或库存建议。</p></footer>
+        <div className="pr-footer"><Link href="/tools/xhs-product-radar">← 返回今日机会</Link><p>不构成投资或库存建议。</p></div>
     </main></>
   );
 }

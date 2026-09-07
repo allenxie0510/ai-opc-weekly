@@ -42,7 +42,7 @@ export function PageViewCounter({ label }: { label?: string }) {
   if (count === null) return null;
 
   return (
-    <span style={{ color: 'var(--color-steel)', fontSize: 13 }}>
+    <span className="page-view-counter">
       {label || '累计'} {count.toLocaleString()} 次访问
     </span>
   );

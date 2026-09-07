@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { SiteFooter } from '@/components/site-footer';
 import './globals.css';
 import '../modules/explore/explore.css';
 
@@ -29,13 +30,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               name: 'AI OPC',
               url: 'https://www.aiopcnews.com',
               description: 'AI × 一人公司创业机会情报系统：机会判断 + 每日信号雷达 + 每周精选。',
-              sameAs: ['https://github.com/allenxie0510/ai-opc-weekly'],
             }),
           }}
         />
       </head>
       <body>
         {children}
+        <SiteFooter />
       </body>
     </html>
   );

@@ -1,11 +1,9 @@
 import Link from 'next/link';
 import { getRadarItems, getLatestIssue, getOpportunities, getMarketPulse, formatShortLabel } from '@/lib/data';
 import { Header } from '@/components/page-shell';
-import { PageViewCounter } from '@/components/page-view-counter';
 import { RadarCard, dayKey, dayLabel } from '@/components/radar-card';
 import { OpportunityCard, FeaturedOpportunity } from '@/components/OpportunityCard';
 import { MarketPulse } from '@/components/market-pulse';
-import { EditorialLinks } from '@/components/editorial-links';
 
 export const revalidate = 300;
 
@@ -117,12 +115,9 @@ export default async function Home() {
           )}
         </section>
 
-        <footer style={{ textAlign: 'center', padding: '48px 0', color: 'var(--color-stone)', fontSize: '0.8rem', marginTop: 'auto' }}>
-          <EditorialLinks />
-          <p style={{ marginBottom: 6 }}><PageViewCounter /></p>
+        <div className="page-disclaimer">
           <p>AI × 一人公司创业机会情报 · 机会判断 + 每日信号 + 每周精选</p>
-          <p>© 2026 AI OPC. All rights reserved.</p>
-        </footer>
+        </div>
       </div>
     </>
   );

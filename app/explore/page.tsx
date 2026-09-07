@@ -1,9 +1,7 @@
 import type { Metadata } from 'next';
 import { Header } from '@/components/page-shell';
-import { PageViewCounter } from '@/components/page-view-counter';
 import { ExploreApp } from '@/modules/explore/ExploreApp';
 import { getLatestOpportunity, getOpportunityBySlug } from '@/lib/data';
-import { EditorialLinks } from '@/components/editorial-links';
 
 export const metadata: Metadata = {
   title: '方向探测器 · AI OPC',
@@ -30,22 +28,9 @@ export default async function ExplorePage({ searchParams }: { searchParams: Prom
 
         <ExploreApp example={example ? { title: example.title, slug: example.slug, customer: example.customer, thesis: example.thesis, risk: example.bear_case, firstStep: example.validation_plan?.steps?.[0] || '' } : null} initialDirection={imported?.title || ''} />
 
-        <footer
-          style={{
-            textAlign: 'center',
-            padding: '48px 0',
-            color: 'var(--color-stone)',
-            fontSize: '0.8rem',
-            marginTop: 'auto',
-          }}
-        >
-          <EditorialLinks />
-          <p style={{ marginBottom: 6 }}>
-            <PageViewCounter />
-          </p>
+        <div className="page-disclaimer">
           <p>方向与规划由 AI 生成，仅供参考，不构成投资建议。</p>
-          <p>© 2026 AI OPC. All rights reserved.</p>
-        </footer>
+        </div>
       </div>
     </>
   );

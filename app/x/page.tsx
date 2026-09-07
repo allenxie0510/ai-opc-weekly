@@ -2,7 +2,6 @@ import { getTweets, getTwitterAccounts } from '@/lib/data';
 import { Header } from '@/components/page-shell';
 import { TranslateButton } from '@/components/translate-button';
 import { SafeImg } from '@/components/safe-img';
-import { PageViewCounter } from '@/components/page-view-counter';
 import Link from 'next/link';
 import { LineIcon } from '@/components/icons';
 
@@ -157,11 +156,9 @@ export default async function XTimelinePage() {
           ))
         )}
 
-        <footer style={{ textAlign: 'center', padding: '48px 0', color: 'var(--color-stone)', fontSize: '0.8rem', marginTop: 'auto' }}>
-          <p style={{ marginBottom: 6 }}><PageViewCounter /></p>
+        <div className="page-disclaimer">
           <p>推文来自 X/Twitter，版权归原作者所有。点击正文跳转原始链接。</p>
-          <p>© 2026 AI OPC. All rights reserved.</p>
-        </footer>
+        </div>
       </div>
     </>
   );

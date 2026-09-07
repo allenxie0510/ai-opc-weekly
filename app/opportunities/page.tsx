@@ -1,9 +1,7 @@
 import type { Metadata } from 'next';
 import { getOpportunities } from '@/lib/data';
 import { Header } from '@/components/page-shell';
-import { PageViewCounter } from '@/components/page-view-counter';
 import { OpportunityExplorer } from '@/components/opportunity-explorer';
-import { EditorialLinks } from '@/components/editorial-links';
 
 export const revalidate = 300;
 
@@ -35,12 +33,9 @@ export default async function OpportunitiesPage() {
           <OpportunityExplorer opportunities={opps} />
         )}
 
-        <footer style={{ textAlign: 'center', padding: '48px 0', color: 'var(--color-stone)', fontSize: '0.8rem', marginTop: 'auto' }}>
-          <EditorialLinks />
-          <p style={{ marginBottom: 6 }}><PageViewCounter /></p>
+        <div className="page-disclaimer">
           <p>机会判断由 AI 深研生成、主编拍板；分数与证据链见详情页。不构成投资建议。</p>
-          <p>© 2026 AI OPC. All rights reserved.</p>
-        </footer>
+        </div>
       </div>
     </>
   );

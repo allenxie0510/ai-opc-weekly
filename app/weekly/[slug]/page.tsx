@@ -3,7 +3,6 @@ import type { Metadata } from 'next';
 import { getIssueBySlug, getNewsItems, getWeeklyIssues } from '@/lib/data';
 import { PageShell } from '@/components/page-shell';
 import { ArticleCard } from '@/components/article-card';
-import { PageViewCounter } from '@/components/page-view-counter';
 import { ShareBar } from './share-bar';
 import { FilterBar } from './filter-bar';
 import { HeroSection } from './hero-section';
@@ -112,14 +111,10 @@ export default async function WeeklyPage({ params }: { params: Promise<{ slug: s
         );
       })()}
 
-      <footer>
+        <div className="page-disclaimer">
         <p>数据来源：OPC Radar 每日信源（HN / GitHub / RSS / X）· 智谱 GLM 联网检索</p>
         <p>本分析仅供方向参考。原创创造价值，不做搬运工。每周一自动更新。</p>
-        <p>© 2026 AI OPC. All rights reserved.</p>
-        <div className="visitor-count">
-          <PageViewCounter label="用户数" />
-        </div>
-      </footer>
+      </div>
 
       {/* GEO: JSON-LD structured data for AI search engines */}
       <script
