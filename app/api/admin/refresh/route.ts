@@ -55,13 +55,26 @@ export async function POST(req: NextRequest) {
   if (!isAdmin(req)) {
     return Response.json({ error: '未授权' }, { status: 401 });
   }
+  // Public sources often reject serverless egress; queue the same bounded Actions
+  // pipeline instead of exhausting the 60-second request before falling back.
+  if (process.env.GITHUB_PAT) {
+    try {
+      const response = await fetch('https://api.github.com/repos/allenxie0510/ai-opc-weekly/actions/workflows/fetch-tweets.yml/dispatches', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${process.env.GITHUB_PAT}`, Accept: 'application/vnd.github+json', 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ref: 'main' }), signal: AbortSignal.timeout(10_000),
+      });
+      if (response.status !== 204) return Response.json({ error: `后台同步启动失败（${response.status}），请检查 GitHub 配置` }, { status: 502 });
+      return Response.json({ status: 'queued', fallback: 'dispatched', total: 0, results: [] });
+    } catch { return Response.json({ error: '后台任务启动结果未确认，请先查看任务状态，避免重复提交' }, { status: 502 }); }
+  }
   const db = createServerSupabase(true);
   if (!db) return Response.json({ error: '服务端未配置 Supabase' }, { status: 503 });
   const supabaseClient = db;
 
   const { data: accounts, error: acctErr } = await supabaseClient
     .from('twitter_accounts')
-    .select('*');
+    .select('*').eq('enabled', true);
 
   if (acctErr || !accounts?.length) {
     return Response.json({ error: acctErr?.message || '无账号' }, { status: 500 });
@@ -87,7 +100,7 @@ export async function POST(req: NextRequest) {
           results.push({ username: acc.username, status: -1, count: 0, error: r.attempts.join(' | ') });
           continue;
         }
-        let count = 0;
+        let count = 0, writeErrors = 0;
         for (const t of r.tweets) {
           const { error } = await supabaseClient.from('tweets').upsert({
             tweet_id: t.tweet_id,
@@ -103,10 +116,12 @@ export async function POST(req: NextRequest) {
             ignoreDuplicates: t.media_urls.length === 0,
           });
           if (!error) count++;
+          else writeErrors++;
         }
         results.push({
           username: acc.username,
-          status: 200,
+          status: writeErrors ? 500 : 200,
+          error: writeErrors ? `${writeErrors} 条写入失败` : undefined,
           count,
           mediaCount: r.tweets.filter((tweet) => tweet.media_urls.length > 0).length,
           source: r.source,
@@ -158,7 +173,7 @@ export async function POST(req: NextRequest) {
   }
 
   return Response.json({
-    status: 'ok',
+    status: results.some((r) => r.status !== 200) ? 'partial' : 'ok',
     total,
     fallback,
     transport: (await hasCurl()) ? 'curl' : 'node-fetch',

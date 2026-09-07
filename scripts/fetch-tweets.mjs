@@ -1,180 +1,118 @@
 /**
- * 推文抓取 — 从 Nitter 公共实例拉取 X 推文写入 Supabase
- * 用法：node scripts/fetch-tweets.mjs
- *
- * 由 GitHub Actions 每 2 小时自动执行
- *
- * 抓取核心（多实例降级 / curl 抓取 / 解析器）在 lib/nitter-fetch.mjs，
- * 与 app/api/admin/refresh/route.ts 共享，改逻辑只改那一处。
+ * Free public X sources → Supabase. GitHub Actions owns scheduling.
+ * Rate limits are respected; failed accounts are retried once after cooldown.
  */
+import { appendFileSync } from 'node:fs';
 import { createClient } from '@supabase/supabase-js';
 import { discoverSources, fetchAccountTweets } from '../lib/nitter-fetch.mjs';
+import { selectSyncAccounts, summarizeSync } from '../lib/x-sync-policy.mjs';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-// 后台同步优先使用 service role，确保冲突行可以更新媒体字段；本地兼容 anon key。
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-if (!SUPABASE_URL || !SUPABASE_KEY) {
-  console.error('❌ 缺少 SUPABASE 环境变量');
-  process.exit(1);
-}
-
+if (!SUPABASE_URL || !SUPABASE_KEY) throw new Error('缺少 Supabase 环境变量');
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-
-// 账号间礼貌延时，减少免费公共实例的瞬时压力。
-const SLEEP_MS = 2500;
-const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+const INTERVAL_MS = 10_000;
 
 async function main() {
-  console.log('🔄 开始从免费 X 公共源拉取推文...\n');
-
-  // 读取所有账号（不再依赖 rss_url，nitter 实例只需 username）
-  let accountQuery = supabase.from('twitter_accounts').select('*');
-  const targetAccount = String(process.env.FETCH_ACCOUNT || '').trim().replace(/^@/, '');
-  if (targetAccount) accountQuery = accountQuery.ilike('username', targetAccount);
-  const { data: accounts, error: acctErr } = await accountQuery;
-
-  if (acctErr) {
-    console.error('❌ 读取账号列表失败:', acctErr.message);
-    process.exit(1);
+  const startedAt = new Date().toISOString();
+  const { data: tracked, error } = await supabase.from('twitter_accounts').select('*').order('created_at');
+  if (error) throw error;
+  const target = String(process.env.FETCH_ACCOUNT || '').trim().replace(/^@/, '');
+  const accounts = selectSyncAccounts(tracked || [], target);
+  if (!accounts.length) {
+    if (target) throw new Error('未找到启用中的目标账号');
+    console.log('没有启用的追踪账号，本轮无需同步');
+    return;
   }
-  if (!accounts?.length) {
-    console.log(targetAccount ? `⚠️ 未找到追踪账号 @${targetAccount}` : '⚠️ 没有追踪账号');
-    process.exit(0);
-  }
-  if (targetAccount) console.log(`🎯 单账号媒体回填: @${accounts[0].username}\n`);
-
   const sources = await discoverSources({ forceRefresh: true });
-  console.log(`📡 ${accounts.length} 个账号，${sources.length} 个免费候选源`);
-  console.log(`   ${sources.map((source) => source.name).join(' → ')}\n`);
-
-  const debug = process.env.FETCH_DEBUG === '1';
-  // 同一轮中某源出现网络错误/403/429/5xx 后立即熔断，避免 18 个账号重复等待已故障源。
+  console.log('开始同步 ' + startedAt + '；' + accounts.length + ' 个账号，' + sources.length + ' 个免费源');
   const sourceState = new Map();
-  let synced = 0, mediaTweets = 0, okAccounts = 0;
-  const failed = [];
-
-  for (let i = 0; i < accounts.length; i++) {
-    const acc = accounts[i];
+  const results = new Map();
+  async function syncAccount(acc) {
     const r = await fetchAccountTweets(acc, {
-      timeoutSec: 12,
-      debug,
-      sources,
-      sourceState,
-      failureThreshold: 1,
+      timeoutSec: 12, debug: process.env.FETCH_DEBUG === '1',
+      sources, sourceState, failureThreshold: 2,
     });
-
     if (!r.ok) {
-      failed.push(acc.username);
-      console.warn(`  ⚠️ @${acc.username} 全部源失败: ${r.attempts.join(' | ')}`);
-    } else {
-      okAccounts++;
-      let wrote = 0;
-      for (const t of r.tweets) {
-        const { error } = await supabase.from('tweets').upsert({
-          tweet_id: t.tweet_id,
-          author_username: t.author_username,
-          author_display_name: acc.display_name || t.author_username,
-          author_avatar_url: acc.avatar_url || `https://unavatar.io/x/${t.author_username}`,
-          content: t.content,
-          published_at: t.published_at,
-          url: t.url,
-          media_urls: t.media_urls,
-        }, {
-          onConflict: 'tweet_id',
-          // 有媒体时允许更新冲突行，给历史空记录回填图片/视频封面；
-          // 没媒体时忽略冲突，避免临时源降级把已有预览覆盖为空。
-          ignoreDuplicates: t.media_urls.length === 0,
-        });
-
-        if (error) {
-          console.warn(`  ⚠️ @${t.author_username} 写入失败: ${error.message}`);
-        } else {
-          wrote++;
-          if (t.media_urls.length > 0) mediaTweets++;
-        }
-      }
-      synced += wrote;
-      const accountMedia = r.tweets.filter(t => t.media_urls.length > 0).length;
-      console.log(`  ✅ @${acc.username} → ${r.source}（${r.transport}），解析 ${r.tweets.length} 条（媒体 ${accountMedia}），写入 ${wrote} 条`);
+      console.warn('@' + acc.username + ' 抓取失败: ' + r.attempts.join(' | '));
+      results.set(acc.username, { username: acc.username, ok: false, newTweets: 0, processed: 0 });
+      return;
     }
-
-    // 账号间礼貌延时（最后一个不用等）
-    if (i < accounts.length - 1) await sleep(SLEEP_MS);
-  }
-
-  console.log(`\n📊 同步完成: ${synced} 条写入，其中 ${mediaTweets} 条含媒体；${okAccounts}/${accounts.length} 个账号成功, ${failed.length} 个失败`);
-  if (okAccounts > 0 && failed.length > 0) {
-    console.warn(`⚠️ 部分账号失败（${failed.length}/${accounts.length}）: ${failed.map(u => '@' + u).join(', ')}，暂不阻塞，但请检查上面的警告`);
-  }
-
-  // 清理孤儿推文：删除不属于任何追踪账号的推文
-  try {
-    const trackedSet = new Set(accounts.map(a => a.username));
-    const { data: allTweets, error: orphanFetchErr } = await supabase
-      .from('tweets')
-      .select('author_username');
-    if (orphanFetchErr) {
-      console.warn('⚠️ 孤儿查询失败:', orphanFetchErr.message);
-    } else if (allTweets) {
-      const orphanAuthors = [...new Set(allTweets.map(t => t.author_username))]
-        .filter(u => !trackedSet.has(u));
-      for (const orphan of orphanAuthors) {
-        const { count: c, error: orphanDelErr } = await supabase
-          .from('tweets')
-          .delete({ count: 'exact' })
-          .eq('author_username', orphan);
-        if (orphanDelErr) {
-          console.warn(`⚠️ 清理孤儿 @${orphan} 失败:`, orphanDelErr.message);
-        } else if (c) {
-          console.log(`🧹 清理孤儿 @${orphan}: ${c} 条推文`);
+    const { data: existing, error: lookupError } = await supabase.from('tweets')
+      .select('tweet_id').in('tweet_id', r.tweets.map((tweet) => tweet.tweet_id));
+    if (lookupError) throw lookupError;
+    const existingIds = new Set(existing.map((tweet) => tweet.tweet_id));
+    let processed = 0, newTweets = 0, writeErrors = 0;
+    for (const t of r.tweets) {
+      const { error: writeError, data: written } = await supabase.from('tweets').upsert({
+        tweet_id: t.tweet_id, author_username: t.author_username,
+        author_display_name: acc.display_name || t.author_username,
+        author_avatar_url: acc.avatar_url || 'https://unavatar.io/x/' + t.author_username,
+        content: t.content, published_at: t.published_at, url: t.url, media_urls: t.media_urls,
+      }, {
+        onConflict: 'tweet_id',
+        ignoreDuplicates: t.media_urls.length === 0,
+      }).select('tweet_id');
+      if (writeError) { writeErrors++; console.warn('@' + acc.username + ' 写入失败: ' + writeError.message); }
+      else {
+        processed++;
+        if (written?.length && !existingIds.has(t.tweet_id)) {
+          newTweets++;
+          existingIds.add(t.tweet_id);
         }
       }
     }
-  } catch (e) {
-    console.warn('⚠️ 孤儿清理异常:', e.message);
+    const previous = results.get(acc.username);
+    results.set(acc.username, { username: acc.username, ok: writeErrors === 0,
+      newTweets: newTweets + (previous?.newTweets || 0), processed,
+      source: r.source, latest: r.tweets.map((tweet) => tweet.published_at).sort().at(-1) });
+    console.log('@' + acc.username + ' → ' + r.source + '；解析 ' + r.tweets.length +
+      '，处理成功 ' + processed + '，实际新增 ' + newTweets + '，写入失败 ' + writeErrors +
+      '；源内最新发布时间 ' + results.get(acc.username).latest);
   }
-
-  // 按作者统计
-  try {
-    const { data: counts } = await supabase.from('tweets')
-      .select('author_username');
-    if (counts) {
-      const tally = {};
-      counts.forEach(t => { tally[t.author_username] = (tally[t.author_username] || 0) + 1; });
-      Object.entries(tally).sort((a, b) => b[1] - a[1]).forEach(([u, c]) => {
-        console.log(`  @${u}: ${c} 条`);
-      });
+  for (let pass = 0; pass < 2; pass++) {
+    const pending = accounts.filter((account) => !results.get(account.username)?.ok);
+    if (!pending.length) break;
+    if (pass > 0) {
+      const cooldowns = [...sourceState.values()].filter((state) => !state.blocked && state.retryAt > Date.now());
+      const delay = Math.max(60_000, ...cooldowns.map((state) => state.retryAt - Date.now()));
+      // Long Retry-After is deferred to a later run, never shortened to bypass the limit.
+      if (delay > 300_000) { console.warn('服务端要求长时间冷却；留待下轮，不提前重试'); break; }
+      console.log('等待 ' + Math.ceil(delay / 1000) + ' 秒后，仅重试失败的 ' + pending.length + ' 个账号');
+      await sleep(delay);
     }
-  } catch { /* ignore */ }
-
-  // 14天自动清理（非致命，失败仅警告）
-  try {
-    const cutoff = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
-    const { error: delErr, count: delCount } = await supabase
-      .from('tweets')
-      .delete({ count: 'exact' })
-      .lt('created_at', cutoff);
-    if (delErr) {
-      console.warn('⚠️ 14天清理失败:', delErr.message);
-    } else if (delCount) {
-      console.log(`🧹 清理 ${delCount} 条超过14天的推文`);
+    for (let i = 0; i < pending.length; i++) {
+      try { await syncAccount(pending[i]); }
+      catch (error) {
+        const previous = results.get(pending[i].username);
+        results.set(pending[i].username, { ...previous, username: pending[i].username, ok: false });
+        console.warn('@' + pending[i].username + ' 同步异常: ' + error.message);
+      }
+      if (i < pending.length - 1) await sleep(INTERVAL_MS);
     }
-  } catch (e) {
-    console.warn('⚠️ 14天清理异常:', e.message);
   }
-
-  // 全灭报警：0 个账号成功说明是系统性故障（公共实例全挂/网络全断），
-  // exit 1 让 Actions 标红——只 log 警告会让故障被掩盖（RSS.app 402 曾静默失败两天）
-  if (okAccounts === 0 && accounts.length > 0) {
-    console.error(`\n❌ 全部账号失败（0/${accounts.length}），本轮免费 RSS/HTML 公共源均不可用`);
-    process.exit(1);
+  const summary = summarizeSync([...results.values()]);
+  console.log('同步结果 ' + JSON.stringify(summary));
+  if (process.env.GITHUB_STEP_SUMMARY) {
+    const lines = ['## X 同步结果', '', '开始：' + startedAt, '完成：' + new Date().toISOString(),
+      '账号覆盖：' + summary.succeeded + '/' + summary.total, '',
+      '| 账号 | 状态 | 实际新增 | 源内最新发布时间 |', '| --- | --- | --- | --- |',
+      ...[...results.values()].map((row) => '| @' + row.username + ' | ' + (row.ok ? '成功' : '失败') +
+        ' | ' + (row.newTweets || 0) + ' | ' + (row.latest || '未知') + ' |')];
+    appendFileSync(process.env.GITHUB_STEP_SUMMARY, lines.join('\n') + '\n');
   }
-
-  console.log('✅ 推文拉取完成');
+  // Account deletion is enforced by the database cascade trigger. Do not infer
+  // orphanhood from a target-account subset (that previously deleted other accounts).
+  // Avoid destructive retention cleanup during a degraded or targeted run.
+  if (!target && summary.status === 'success') {
+    const { error: cleanupError } = await supabase.from('tweets').delete()
+      .lt('created_at', new Date(Date.now() - 14 * 86400000).toISOString());
+    if (cleanupError) console.warn('14天清理失败: ' + cleanupError.message);
+  }
+  if (summary.failed > 0) {
+    console.error('::error::X 同步不完整：' + summary.failed + '/' + summary.total + ' 个账号失败。已成功写入的推文保留。');
+    process.exitCode = 1;
+  }
 }
-
-main().catch(err => {
-  console.error('❌ 未捕获异常:', err);
-  process.exit(1);
-});
+main().catch((error) => { console.error('同步失败:', error.message); process.exitCode = 1; });

@@ -187,11 +187,11 @@ export default function XAccountsPage() {
         // 透传每账号失败原因（HTTP 码/超时/实例名），后台直接可见根因
         setRefreshFails(fails.map((f) => `@${f.username}：${f.error || `HTTP ${f.status}`}`));
         if (data.fallback === 'dispatched') {
-          setRefreshMsg({ text: 'Vercel 直连抓取全灭（实例拦截机房 IP），已自动改为触发 GitHub Actions 抓取——约 2–3 分钟后生效，请稍后刷新 /x 查看', tone: 'warning' });
+          setRefreshMsg({ text: '已提交后台同步任务。通常数分钟完成；遇到免费源限流会冷却重试，请在 X 时间轴顶部查看任务状态。', tone: 'warning' });
         } else if (data.fallback) {
           setRefreshMsg({ text: `Vercel 直连全灭且 Actions 兜底失败（${data.fallback}），请检查 GITHUB_PAT 配置`, tone: 'error' });
         } else {
-          setRefreshMsg({ text: `写入 ${data.total} 条推文` + (fails.length ? `，${fails.length} 个 feed 失败` : ''), tone: 'success' });
+          setRefreshMsg({ text: `处理 ${data.total} 条推文（含已有条目）` + (fails.length ? `，${fails.length} 个账号失败` : ''), tone: fails.length ? 'warning' : 'success' });
         }
         await fetchAccounts();
       }

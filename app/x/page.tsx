@@ -4,6 +4,7 @@ import { TranslateButton } from '@/components/translate-button';
 import { SafeImg } from '@/components/safe-img';
 import Link from 'next/link';
 import { LineIcon } from '@/components/icons';
+import { getXSyncStatus } from '@/lib/x-sync-status';
 
 // 账号删除必须立即反映在时间轴上。这里不能使用 ISR，否则 Vercel 会在
 // revalidate 窗口内继续返回包含已删除账号推文的旧 HTML。
@@ -35,7 +36,7 @@ function isVideoPreview(url: string): boolean {
 }
 
 export default async function XTimelinePage() {
-  const accounts = await getTwitterAccounts();
+  const [accounts, sync] = await Promise.all([getTwitterAccounts(), getXSyncStatus()]);
   // 即使数据库迁移尚未执行或有旧的孤儿行，也绝不把未追踪账号渲染到页面。
   const tweets = await getTweets({
     limit: 50,
@@ -60,6 +61,16 @@ export default async function XTimelinePage() {
             <h1 className="x-pagehead-title">X 时间轴</h1>
             <p className="x-pagehead-meta">
               追踪 {accountCount} 位 AI 圈大佬 · 共 {tweets.length} 条推文
+            </p>
+            <p className="product-note" role="status">
+              {sync.state === 'running' ? '后台正在同步'
+                : sync.state === 'success' ? '最近同步完成：'
+                : sync.state === 'failed' ? '最近同步异常，部分账号可能未更新：'
+                : sync.state === 'legacy' ? '最近任务结束（旧版未确认完整覆盖）：'
+                : '暂时无法获取后台同步状态'}
+              {sync.checkedAt && <time dateTime={sync.checkedAt}>{new Date(sync.checkedAt).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false })}（北京时间）</time>}
+              {sync.checkedAt && Date.now() - Date.parse(sync.checkedAt) > 3 * 3600000 && ' · 已超过 3 小时，请留意同步延迟'}
+              <br />计划每小时同步，免费任务可能延迟；下方时间是推文发布时间，不是抓取时间。
             </p>
           </div>
           <Link href="/x/accounts" className="x-manage-link">管理账号 →</Link>
@@ -115,7 +126,7 @@ export default async function XTimelinePage() {
                           @{t.author_username}
                         </a>
                         <span className="x-card-sep">·</span>
-                        <time className="x-card-time">{timeAgo(t.published_at)}</time>
+                        <time className="x-card-time" dateTime={t.published_at} title="推文发布时间（非抓取时间）">{timeAgo(t.published_at)}</time>
                       </div>
 
                       <a

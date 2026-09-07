@@ -1,8 +1,9 @@
 name: Fetch X Tweets (Nitter → Supabase)
+run-name: X sync / ${{ inputs.target_account || 'all' }}
 
 on:
   schedule:
-    - cron: '0 */2 * * *'  # 每2小时
+    - cron: '17 * * * *'  # 每小时错峰；GitHub schedule 仍可能延迟
   workflow_dispatch:
     inputs:
       target_account:
@@ -10,9 +11,17 @@ on:
         required: false
         type: string
 
+permissions:
+  contents: read
+
+concurrency:
+  group: fetch-x-tweets
+  cancel-in-progress: false
+
 jobs:
   fetch:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 

@@ -7,12 +7,61 @@ import {
   candidatesFor,
   extractMediaPreviews,
   fetchFeedCurl,
+  fetchAccountTweets,
+  parseRetryAfter,
   parseNitterTimelineHtml,
   parseRSSFeed,
   parseStatusSources,
 } from '../../lib/nitter-fetch.mjs';
+import { selectSyncAccounts, summarizeSync } from '../../lib/x-sync-policy.mjs';
 
 const account = { username: 'levelsio' };
+
+test('部分成功和写入失败不能被标为整轮成功', () => {
+  assert.equal(summarizeSync([{ ok: true }, ...Array.from({ length: 17 }, () => ({ ok: false }))]).status, 'partial');
+  assert.equal(summarizeSync([{ ok: false }]).status, 'failed');
+  assert.equal(summarizeSync([{ ok: true }, { ok: true }]).status, 'success');
+});
+
+test('仅同步启用账号、轮换优先级，单账号运行不执行孤儿删除', () => {
+  const accounts = [{ username: 'a', enabled: true }, { username: 'b', enabled: true }, { username: 'c', enabled: false }];
+  assert.deepEqual(selectSyncAccounts(accounts, '', 3_600_000).map(a => a.username), ['b', 'a']);
+  assert.deepEqual(selectSyncAccounts(accounts, 'A').map(a => a.username), ['a']);
+  const source = readFileSync(new URL('../fetch-tweets.mjs', import.meta.url), 'utf8');
+  assert.doesNotMatch(source, /orphanAuthors|trackedSet/);
+  assert.match(source, /!target && summary.status === 'success'/);
+});
+
+test('429 遵守 Retry-After 冷却，别名共享限流状态，冷却后恢复而非整轮封禁', async () => {
+  let clock = 0, calls = 0;
+  const state = new Map();
+  const sources = [{ name: 'main', baseUrl: 'https://xcancel.com', kind: 'rss' }, { name: 'alias', baseUrl: 'https://rss.xcancel.com', kind: 'rss' }];
+  const request = async () => {
+    calls++;
+    if (calls === 1) return { ok: false, status: 429, retryAfterMs: 60_000 };
+    return { ok: true, status: 200, body: '<rss><item><title>Real sample</title><guid>123</guid><pubDate>Mon, 07 Sep 2026 08:00:00 GMT</pubDate></item></rss>', transport: 'test' };
+  };
+  const options = { sources, sourceState: state, request, now: () => clock };
+  assert.equal((await fetchAccountTweets(account, options)).ok, false);
+  assert.equal(calls, 1);
+  clock = 59_999;
+  assert.equal((await fetchAccountTweets({ username: 'other' }, options)).ok, false);
+  assert.equal(calls, 1);
+  clock = 60_001;
+  assert.equal((await fetchAccountTweets(account, options)).ok, true);
+  assert.equal(calls, 2);
+  assert.equal(parseRetryAfter('120'), 120000);
+  assert.equal(parseRetryAfter('Mon, 07 Sep 2026 08:02:00 GMT', Date.parse('2026-09-07T08:00:00Z')), 120000);
+});
+
+test('curl HTTP 000 网络故障可以被熔断，不对所有账号重复等待', async () => {
+  const state = new Map(); let calls = 0;
+  const options = { sources: [{ name: 'down', baseUrl: 'https://down.example', kind: 'rss' }], sourceState: state,
+    request: async () => { calls++; return { ok: false, status: 0 }; } };
+  await fetchAccountTweets(account, options);
+  await fetchAccountTweets({ username: 'other' }, options);
+  assert.equal(calls, 1);
+});
 
 test('RSS 解析只接受有真实 ID 和时间的推文', () => {
   const xml = `<?xml version="1.0"?><rss><channel>
