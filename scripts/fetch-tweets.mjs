@@ -112,12 +112,8 @@ async function main() {
   }
   // Account deletion is enforced by the database cascade trigger. Do not infer
   // orphanhood from a target-account subset (that previously deleted other accounts).
-  // Avoid destructive retention cleanup during a degraded or targeted run.
-  if (!target && summary.status === 'success') {
-    const { error: cleanupError } = await supabase.from('tweets').delete()
-      .lt('created_at', new Date(Date.now() - 14 * 86400000).toISOString());
-    if (cleanupError) console.warn('14天清理失败: ' + cleanupError.message);
-  }
+  // Synchronization never deletes historical data. Any retention policy must be
+  // separately authorized instead of being a side effect of a refresh.
   if (summary.failed > 0) {
     console.error('::error::X 同步不完整：' + summary.failed + '/' + summary.total + ' 个账号失败。已成功写入的推文保留。');
     process.exitCode = 1;

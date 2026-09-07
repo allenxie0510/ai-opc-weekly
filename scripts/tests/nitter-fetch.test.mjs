@@ -48,7 +48,7 @@ test('仅同步启用账号、轮换优先级，单账号运行不执行孤儿�
   assert.deepEqual(selectSyncAccounts(accounts, 'A').map(a => a.username), ['a']);
   const source = readFileSync(new URL('../fetch-tweets.mjs', import.meta.url), 'utf8');
   assert.doesNotMatch(source, /orphanAuthors|trackedSet/);
-  assert.match(source, /!target && summary.status === 'success'/);
+  assert.doesNotMatch(source, /\.delete\(/);
 });
 
 test('429 遵守 Retry-After 冷却，别名共享限流状态，冷却后恢复而非整轮封禁', async () => {
