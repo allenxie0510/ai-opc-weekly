@@ -1,4 +1,4 @@
-import type { AIConfig, BackcastPlan, Opportunity, ThemeProfile } from './types';
+import type { AIConfig, BackcastPlan, Opportunity, ThemeProfile, PlansMap } from './types';
 import { EMPTY_PROFILE } from './types';
 import { DEFAULT_CONFIG, isMockName } from './ai';
 import { CRITERIA } from './criteria';
@@ -9,6 +9,7 @@ export interface PersistState {
   profile: ThemeProfile;
   weights: Record<string, number>;
   opportunities: Opportunity[];
+  plans: PlansMap;
 }
 
 const KEY = 'ai_opc_explore_v1';
@@ -21,6 +22,7 @@ export function loadState(): PersistState {
     profile: { ...EMPTY_PROFILE },
     weights,
     opportunities: [],
+    plans: {},
   };
   try {
     const raw = localStorage.getItem(KEY);
@@ -30,6 +32,7 @@ export function loadState(): PersistState {
       config: { ...base.config, ...(parsed.config || {}) },
       profile: { ...base.profile, ...(parsed.profile || {}) },
       weights: { ...weights, ...(parsed.weights || {}) },
+      plans: parsed.plans && typeof parsed.plans === 'object' && !Array.isArray(parsed.plans) ? parsed.plans : {},
       opportunities: Array.isArray(parsed.opportunities)
         ? parsed.opportunities.map((o: any) => ({
             ...o,

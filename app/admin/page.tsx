@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Header } from '@/components/page-shell';
 import { RECOMMENDATION_MAP, CONVICTION_MAP, CATEGORY_MAP } from '@/lib/types';
 import { LineIcon } from '@/components/icons';
+import { sourceCoverageGrade } from '@/lib/evidence-policy.mjs';
 
 type RadarDraft = {
   id: string;
@@ -49,7 +50,7 @@ type OpportunityDraft = {
   recommendation: string | null;
   editor_conviction: string | null;
   editor_take: string | null;
-  evidence: { claim?: string; source_name?: string; source_url?: string; quote?: string; tier?: string }[] | null;
+  evidence: { claim?: string; source_name?: string; source_url?: string; quote?: string; tier?: string; role?: string; relevance_note?: string; quote_verified_at?: string }[] | null;
   created_at: string;
   featured?: boolean;
   published_at?: string;
@@ -712,6 +713,7 @@ export default function AdminPage() {
 
             {/* ---------- 机会草稿（Opportunities） ---------- */}
             <section className="admin-section">
+              <p className="trust-note">发布前请逐条核对：原文是否支持该判断、客户与应用场景是否一致、跨行业材料是否仅作背景、收入是否有出处、验证步骤是否与时间承诺一致。自动匹配摘录不能代替关联性审核。</p>
               <div className="admin-section-head">
                 <h2>
                   机会草稿 <span className="admin-count">{opportunityDrafts.length}</span>
@@ -813,7 +815,7 @@ export default function AdminPage() {
                                 <span className="admin-item-title">{o.title}</span>
                               </span>
                               <span className="admin-item-meta">
-                                证据 {o.evidence_grade || '–'} 级 · {RECOMMENDATION_MAP[o.recommendation as keyof typeof RECOMMENDATION_MAP]?.label || o.recommendation || '–'}
+                                来源组合 {sourceCoverageGrade(o.evidence)} 级 · {RECOMMENDATION_MAP[o.recommendation as keyof typeof RECOMMENDATION_MAP]?.label || o.recommendation || '–'}
                                 {o.editor_conviction ? ` · 信心 ${CONVICTION_MAP[o.editor_conviction as keyof typeof CONVICTION_MAP] || o.editor_conviction}` : ''}
                                 {o.category ? ` · ${CATEGORY_MAP[o.category as keyof typeof CATEGORY_MAP]?.label || o.category}` : ''} · {o.created_at?.slice(0, 10)}
                               </span>
@@ -832,6 +834,8 @@ export default function AdminPage() {
                                     <span key={i} style={{ display: 'block', marginBottom: 4 }}>
                                       [{ev.tier || '?'}] <a href={ev.source_url} target="_blank" rel="noopener noreferrer">{ev.source_name || ev.source_url}</a>
                                       {ev.claim ? ` — ${ev.claim}` : ''}
+                                      <span style={{ display: 'block' }}>摘录：{ev.quote || '无原文摘录'} · {ev.quote_verified_at ? `自动匹配 ${ev.quote_verified_at.slice(0, 10)}` : '尚无核对记录'}</span>
+                                      <span style={{ display: 'block' }}>用途（模型分类）：{ev.role || '待复核'} · {ev.relevance_note || '尚无关联解释，请核对目标客户和适用场景'}</span>
                                     </span>
                                   ))}
                                 </span>
@@ -979,7 +983,7 @@ export default function AdminPage() {
                                 )}
                               </span>
                               <span className="admin-item-meta">
-                                证据 {o.evidence_grade || '–'} 级 · {RECOMMENDATION_MAP[o.recommendation as keyof typeof RECOMMENDATION_MAP]?.label || o.recommendation || '–'}
+                                来源组合 {sourceCoverageGrade(o.evidence)} 级 · {RECOMMENDATION_MAP[o.recommendation as keyof typeof RECOMMENDATION_MAP]?.label || o.recommendation || '–'}
                                 {o.editor_conviction ? ` · 信心 ${CONVICTION_MAP[o.editor_conviction as keyof typeof CONVICTION_MAP] || o.editor_conviction}` : ''}
                                 {o.category ? ` · ${CATEGORY_MAP[o.category as keyof typeof CATEGORY_MAP]?.label || o.category}` : ''} · 发布 {o.published_at?.slice(0, 10)}
                               </span>

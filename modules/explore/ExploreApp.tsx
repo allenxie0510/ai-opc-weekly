@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import type { User } from '@supabase/supabase-js';
 import type { AIConfig, BackcastPlan, ExploreSession, Opportunity, PlansMap, ThemeProfile } from './lib/types';
 import { EMPTY_PROFILE } from './lib/types';
@@ -20,7 +21,7 @@ import { LineIcon } from '@/components/icons';
 
 const STEPS = [
   { id: 0, label: '定方向', sub: '愿景与主题' },
-  { id: 1, label: '海量生成', sub: '数百候选' },
+  { id: 1, label: '比较候选', sub: '方向内扩展' },
   { id: 2, label: '系统筛选', sub: '多维打分' },
   { id: 3, label: '逆向规划', sub: '倒推里程碑' },
 ];
@@ -44,7 +45,9 @@ function normalizeSession(raw: any): ExploreSession {
   };
 }
 
-export function ExploreApp() {
+type PublicExample = { title: string; slug: string; customer: string; thesis: string; risk: string; firstStep: string };
+
+export function ExploreApp({ example = null, initialDirection = '' }: { example?: PublicExample | null; initialDirection?: string }) {
   const [mounted, setMounted] = useState(false);
   const [authReady, setAuthReady] = useState(false);
   const [view, setView] = useState<'method' | 'engine'>('engine');
@@ -62,6 +65,9 @@ export function ExploreApp() {
   const [sessionsOpen, setSessionsOpen] = useState(false);
   const [sessions, setSessions] = useState<ExploreSession[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [sessionNotice, setSessionNotice] = useState('');
+  const [sessionError, setSessionError] = useState('');
 
   // 客户端挂载：读本地草稿
   useEffect(() => {
@@ -70,13 +76,14 @@ export function ExploreApp() {
     setProfile(s.profile);
     setWeights(s.weights);
     setOpportunities(s.opportunities);
+    setPlans(s.plans);
     setMounted(true);
   }, []);
 
   // 本地兜底存储
   useEffect(() => {
-    if (mounted && user) saveState({ config, profile, weights, opportunities });
-  }, [mounted, user, config, profile, weights, opportunities]);
+    if (mounted && user) saveState({ config, profile, weights, opportunities, plans });
+  }, [mounted, user, config, profile, weights, opportunities, plans]);
 
   // 登录态监听
   useEffect(() => {
@@ -125,21 +132,31 @@ export function ExploreApp() {
   }, [user]);
 
   async function loadSessions() {
-    const t = await getToken();
-    if (!t) return;
-    const res = await fetch('/api/explore/sessions', { headers: { Authorization: `Bearer ${t}` } });
-    if (!res.ok) return;
-    const d = await res.json();
-    setSessions((d.sessions || []).map(normalizeSession));
+    try {
+      const t = await getToken();
+      if (!t) return;
+      const res = await fetch('/api/explore/sessions', { headers: { Authorization: `Bearer ${t}` } });
+      if (!res.ok) throw new Error('探索列表加载失败，请重试。');
+      const d = await res.json();
+      setSessions((d.sessions || []).map(normalizeSession));
+      setSessionError('');
+    } catch {
+      setSessionError('探索列表加载失败。当前草稿仍在，可重新加载列表。');
+    }
   }
 
   async function saveSession(title: string) {
+    if (saving) return;
+    setSaving(true);
+    setSessionNotice('');
+    setSessionError('');
+    try {
     const t = await getToken();
     if (!t) {
       setLoginOpen(true);
       return;
     }
-    const payload = { title: title.trim() || '未命名探索', profile, weights, opportunities, plans };
+    const payload = { title: title.trim() || sessions.find((s) => s.id === currentSessionId)?.title || profile.direction.trim() || '未命名探索', profile, weights, opportunities, plans };
     const res = await fetch(currentSessionId ? `/api/explore/sessions/${currentSessionId}` : '/api/explore/sessions', {
       method: currentSessionId ? 'PUT' : 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
@@ -149,10 +166,14 @@ export function ExploreApp() {
       const d = await res.json();
       if (d.session?.id) setCurrentSessionId(d.session.id);
       await loadSessions();
+      setSessionNotice('已保存到账号，可在其他设备登录后加载。');
     } else {
       const d = await res.json().catch(() => ({}));
-      alert(d.error || '保存失败');
+      throw new Error(d.error || '保存失败，请重试。');
     }
+    } catch (error) {
+      setSessionError(error instanceof Error ? error.message : '保存失败，当前草稿仍在，请重试。');
+    } finally { setSaving(false); }
   }
 
   function loadSession(s: ExploreSession) {
@@ -163,6 +184,8 @@ export function ExploreApp() {
     setPlans(s.plans || {});
     setStep(0);
     setView('engine');
+    setSessionNotice(`已加载「${s.title}」`);
+    setSessionError('');
   }
 
   async function deleteSession(id: string) {
@@ -189,6 +212,8 @@ export function ExploreApp() {
     setPlans({});
     setStep(0);
     setView('engine');
+    setSessionNotice('');
+    setSessionError('');
   }
 
   function patchProfile(p: ThemeProfile) {
@@ -249,22 +274,28 @@ export function ExploreApp() {
   if (!user) {
     return (
       <div className="xpl-wrap">
+        <section className="explore-preview" aria-labelledby="explore-value-title">
+          <h2 id="explore-value-title">把一个方向，研究到可以做取舍。</h2>
+          <p>输入你的技能、每周可用时间、预算和客户资源，AI 会在你选定的方向内部扩展候选，再按你的标准比较。生成结果是待验证假设，需要你继续核对来源与客户需求。</p>
+          <div className="decision-grid"><article><h3>你提供</h3><p>擅长什么、能接触谁、愿意投入多少，以及明确不做的事。</p></article><article><h3>你得到</h3><p>候选对比、适合与不适合的理由、风险和分阶段行动计划。</p></article><article><h3>下一步</h3><p>选少量方向，记录访谈和试用行为，保存结果后继续调整。</p></article></div>
+          {example && <details className="public-example"><summary>查看已发布机会示例：{example.title}</summary><p className="product-note">这是机会库的真实已发布内容示例，不是个性化报告，也不代表假设已经验证。</p><dl><dt>机会假设</dt><dd>{example.thesis}</dd><dt>目标客户</dt><dd>{example.customer || '尚未明确'}</dd><dt>反对理由</dt><dd>{example.risk || '尚需补充'}</dd><dt>第一个动作</dt><dd>{example.firstStep || '先明确需要检验的核心假设'}</dd></dl><Link href={`/opportunities/${example.slug}`}>打开完整分析与来源</Link></details>}
+        </section>
         <section className="xpl-auth-gate" aria-labelledby="xpl-auth-gate-title">
           <div className="xpl-auth-gate-icon" aria-hidden="true"><LineIcon name="external-link" /></div>
           <div className="xpl-auth-gate-copy">
             <span className="xpl-kicker">登录后使用</span>
             <h2 id="xpl-auth-gate-title">方向探测器需要邮箱登录</h2>
             <p>
-              方向建议、机会生成、系统筛选和逆向规划都会调用 AI，并保存你的探索记录。
-              为控制调用成本并保护个人数据，完整工具仅向已登录用户开放；浏览网站资讯仍无需登录。
+              登录后可开始 AI 研究，并手动保存探索以便跨设备继续。请回到当前浏览器输入邮件验证码。
             </p>
             <div className="xpl-auth-gate-points" aria-label="登录后可使用的功能">
               <span>定方向</span>
-              <span>海量生成</span>
+              <span>比较候选</span>
               <span>系统筛选</span>
               <span>逆向规划</span>
             </div>
             <Button onClick={() => setLoginOpen(true)}>使用邮箱登录</Button>
+            <p className="product-note">当前无需付款即可使用；服务繁忙时请稍后重试。{initialDirection && `登录后可将「${initialDirection}」设为研究方向。`}</p>
           </div>
         </section>
         {loginOpen && <LoginModal open user={null} onClose={() => setLoginOpen(false)} />}
@@ -274,6 +305,11 @@ export function ExploreApp() {
 
   return (
     <div className="xpl-wrap">
+      {initialDirection && <div className="reading-cta"><div><strong>从机会库继续：{initialDirection}</strong><p>将其设为研究方向，再填写你的个人条件。应用后会清空当前候选与规划。</p></div><Button small onClick={() => {
+        if ((opportunities.length || profile.direction || Object.keys(plans).length) && !confirm('应用新方向会清空当前候选与规划，请先保存需要保留的探索。继续？')) return;
+        setProfile({ ...profile, direction: initialDirection }); setOpportunities([]); setPlans({}); setCurrentSessionId(null); setStep(0); setView('engine');
+      }}>应用这个方向</Button></div>}
+      {sessionNotice && <p role="status" className="product-note">{sessionNotice}</p>}
       <div className="xpl-tabs">
         <button className={`xpl-tab ${view === 'engine' ? 'on' : ''}`} onClick={() => setView('engine')}>
           探索引擎
@@ -284,6 +320,7 @@ export function ExploreApp() {
         <button className="xpl-tab" onClick={() => (user ? setSessionsOpen(true) : setLoginOpen(true))}>
           <LineIcon name="folder" /> 我的探索
         </button>
+        <button className="xpl-tab" onClick={() => setSessionsOpen(true)}><LineIcon name="save" /> 保存进度</button>
         <button className="xpl-tab xpl-tab-ghost" onClick={resetAll}>
           清空
         </button>
@@ -331,10 +368,14 @@ export function ExploreApp() {
 
       {loginOpen && <LoginModal open user={user} onClose={() => setLoginOpen(false)} />}
       <SessionsModal
+        saving={saving}
+        notice={sessionNotice}
+        error={sessionError}
+        onRetry={() => void loadSessions()}
         open={sessionsOpen}
         sessions={sessions}
         currentSessionId={currentSessionId}
-        onClose={() => setSessionsOpen(false)}
+        onClose={() => { if (!saving) setSessionsOpen(false); }}
         onSave={saveSession}
         onLoad={loadSession}
         onDelete={deleteSession}

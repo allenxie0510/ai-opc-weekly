@@ -5,7 +5,7 @@ import { computeTotal, grade } from '../lib/scoring';
 import { Button, Head, Modal, Pill } from './ui';
 import { LineIcon } from '@/components/icons';
 
-const PRESETS = [50, 100, 200];
+const PRESETS = [12, 24, 50];
 type StatusFilter = 'all' | 'favorite' | 'rejected';
 type SourceFilter = 'all' | 'mock' | 'ai';
 
@@ -30,7 +30,7 @@ export function StepGenerate({
   onDelete: (ids: string[]) => void;
   onNext: () => void;
 }) {
-  const [count, setCount] = useState(100);
+  const [count, setCount] = useState(12);
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number }>({ done: 0, total: 0 });
   const [error, setError] = useState('');
@@ -112,9 +112,9 @@ export function StepGenerate({
   return (
     <div className="xpl-panel">
       <Head
-        kicker="第二步 · 海量生成"
-        title="把候选事业数量拉到孙正义做不到的量级"
-        desc={`孙正义年轻时手抄了 25–40 个候选事业；AI 时代，你可以一次生成 ${count} 个、覆盖数十个大类。量要大、面要广，筛选才有意义。`}
+        kicker="第二步 · 比较候选"
+        title="在选定方向内，寻找不同的切入点"
+        desc={`本次生成 ${count} 个候选，从不同客户、场景、商业模式和工作流比较取舍。建议先看少量候选，找到值得验证的 1–3 个；除非明确要求跨行业，否则不扩展无关领域。`}
       />
 
       <div className="xpl-gen-controls">
@@ -126,7 +126,7 @@ export function StepGenerate({
           ))}
         </div>
         <Button onClick={generate} disabled={running}>
-          {running ? '正在生成…' : <><LineIcon name="rocket" /> 开始海量生成</>}
+          {running ? '正在生成…' : <><LineIcon name="compass" /> 生成候选方向</>}
         </Button>
         {running && (
           <div className="xpl-progress">
@@ -163,7 +163,7 @@ export function StepGenerate({
             <select className="xpl-select xpl-search" value={sourceFilter} onChange={(e) => setSourceFilter(e.target.value as SourceFilter)}>
               <option value="all">来源：全部</option>
               <option value="mock">来源：演示数据 ({mockCount})</option>
-              <option value="ai">来源：真实 AI ({aiCount})</option>
+              <option value="ai">来源：AI 生成待验证 ({aiCount})</option>
             </select>
             <Button small variant="danger" onClick={() => setBulkOpen(true)}>
               <LineIcon name="trash" /> 批量删除…
@@ -194,7 +194,7 @@ export function StepGenerate({
                   <p className="xpl-card-liner">{o.oneLiner}</p>
                   <div className="xpl-card-tags">
                     <Pill>{o.category}</Pill>
-                    <Pill tone={o.source === 'mock' ? 'warn' : 'blue'}>{o.source === 'mock' ? '演示数据' : '真实 AI'}</Pill>
+                    <Pill tone={o.source === 'mock' ? 'warn' : 'blue'}>{o.source === 'mock' ? '演示数据' : 'AI 生成 · 待验证'}</Pill>
                     <Pill tone={o.capitalNeed === '低' ? 'good' : o.capitalNeed === '中' ? 'warn' : 'bad'}>资金{o.capitalNeed}</Pill>
                     <Pill tone={o.competition === '低' ? 'good' : o.competition === '中' ? 'warn' : 'bad'}>竞争{o.competition}</Pill>
                     {plans[o.id] && <Pill tone="accent"><LineIcon name="clipboard" /> 已规划</Pill>}
@@ -223,7 +223,7 @@ export function StepGenerate({
           </div>
 
           <div className="xpl-foot-row">
-            <span className="xpl-muted">已生成 {opportunities.length} 个候选（演示 {mockCount} · 真实 AI {aiCount}）</span>
+            <span className="xpl-muted">已生成 {opportunities.length} 个候选（演示 {mockCount} · AI 生成 {aiCount}）</span>
             <Button onClick={onNext}>进入系统筛选 →</Button>
           </div>
         </>
@@ -233,7 +233,7 @@ export function StepGenerate({
         <div className="xpl-bulk">
           <p className="xpl-small">
             按来源或状态批量清理候选。删除不可撤销，删除前会再次确认。
-            「演示数据」是内置样本模拟生成的结果；「真实 AI」是你接入模型后生成的结果。
+            「演示数据」是内置样本模拟生成的结果；「AI 生成」是模型给出的待验证想法，不是已发生的创业案例。
           </p>
           <div className="xpl-bulk-group">
             <h4>按来源</h4>
@@ -245,7 +245,7 @@ export function StepGenerate({
               </Button>
             </div>
             <div className="xpl-bulk-row">
-              <span>真实 AI 数据</span>
+              <span>AI 生成的候选</span>
               <span className="xpl-muted">{aiCount} 个</span>
               <Button small variant="danger" disabled={aiCount === 0} onClick={() => del(opportunities.filter((o) => o.source === 'ai').map((o) => o.id), '全部真实 AI 数据')}>
                 删除真实数据

@@ -95,6 +95,8 @@ export function FeaturedOpportunity({ opportunity: o }: { opportunity: Opportuni
         <h2 className="home-hero-title">{o.title}</h2>
         {o.thesis && <p className="home-hero-thesis">{o.thesis}</p>}
         {o.editor_take && <blockquote className="home-hero-take"><LineIcon name="pen" /> {o.editor_take}</blockquote>}
+        {o.customer && <p className="card-decision-note"><strong>目标客户</strong>{o.customer}</p>}
+        {o.validation_plan?.steps?.[0] && <p className="card-decision-note"><strong>第一步</strong>{o.validation_plan.steps[0]}</p>}
         <div className="home-hero-badges">
           <span className={`opp-rec ${rec.cssClass}`}>{rec.label}</span>
           <ScoreBadge score={o.score_total} variant="inline" trend={o.score_trend} />
@@ -113,7 +115,7 @@ export function OpportunityCard({ opportunity: o }: { opportunity: Opportunity }
   const date = (o.published_at || '').slice(0, 10);
   // P0 标签瘦身：封面上只保留推荐胶囊 + 分数徽章（含趋势标）；
   // meta 行降级为纯文字「证据 A 级 · 小而美 · 2026-08-11」，无底色无描边；底部 CTA 已删
-  const metaText = [`证据 ${o.evidence_grade} 级`, cat?.label, date].filter(Boolean).join(' · ');
+  const metaText = [`${o.evidence?.length || 0} 条来源 · 支持程度待核对`, cat?.label, date].filter(Boolean).join(' · ');
   return (
     <Link href={`/opportunities/${o.slug}`} className="opcard">
       <div className="opcard-cover">
@@ -126,6 +128,8 @@ export function OpportunityCard({ opportunity: o }: { opportunity: Opportunity }
       <div className="opcard-body">
         <h3 className="opcard-title">{o.title}</h3>
         {o.thesis && <p className="opcard-thesis">{o.thesis}</p>}
+        {o.customer && <p className="card-decision-note"><strong>目标客户</strong>{o.customer}</p>}
+        {o.validation_plan?.steps?.[0] && <p className="card-decision-note"><strong>第一步</strong>{o.validation_plan.steps[0]}</p>}
         <div className="opcard-meta"><span>{metaText}</span></div>
       </div>
     </Link>

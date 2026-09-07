@@ -30,8 +30,11 @@ function PulseSparkline({ daily, trend }: { daily: number[]; trend: MarketPulseI
 }
 
 function DeltaPill({ p }: { p: MarketPulseItem }) {
+  if (p.prevWeekCount < 5 || p.weekCount < 5) {
+    return <span className="pulse-delta flat">{p.prevWeekCount} → {p.weekCount} 条 · 样本较少</span>;
+  }
   if (p.trend === 'up') {
-    return <span className="pulse-delta up"><LineIcon name="trending-up" /> {p.deltaPct === null ? '新热点' : `+${p.deltaPct}%`}</span>;
+    return <span className="pulse-delta up"><LineIcon name="trending-up" /> {p.deltaPct === null ? '新增收录' : `+${p.deltaPct}%`}</span>;
   }
   if (p.trend === 'down') {
     return <span className="pulse-delta down"><LineIcon name="trending-down" /> {p.deltaPct}%</span>;
@@ -45,11 +48,12 @@ export function MarketPulse({ items }: { items: MarketPulseItem[] }) {
     <section className="home-section">
       <div className="home-section-head">
         <h2 className="home-section-title">
-          赛道脉搏
-          <span className="home-section-sub">近 7 天 vs 前 7 天 · 全站信号动量</span>
+          本站信号活跃度
+          <span className="home-section-sub">近 7 天 vs 前 7 天 · 已收录条数</span>
         </h2>
         <Link href="/radar" className="home-more">全部快讯 →</Link>
       </div>
+      <p className="product-note">仅反映本站采集与发布数量，受来源覆盖和更新频率影响，不代表市场规模、增长或衰退。任一周期少于 5 条时只展示条数。</p>
       <div className="pulse-grid">
         {items.map(p => (
           <div key={p.category} className="pulse-card">

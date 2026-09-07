@@ -46,7 +46,7 @@ export function StepVision({
       <Head
         kicker="第一步 · 决策门 ①"
         title="先定方向：你的愿景与探索主题"
-        desc="孙正义 19 岁先写下「人生 50 年计划」，再倒推该做什么。AI 只能放大你的判断，方向与主题必须由你自己定。"
+        desc="先写清希望实现的结果，以及能投入的技能、时间、预算和渠道。越具体，候选之间的比较越有用。"
       />
 
       <div className="xpl-grid2">
@@ -54,7 +54,7 @@ export function StepVision({
           <textarea
             className="xpl-textarea"
             rows={2}
-            placeholder="例：50 岁时，让 1 亿中小企业用上像水电一样便宜的 AI 能力。"
+            placeholder="例：用设计专长验证一个能带来稳定月收入的 AI 服务。"
             value={profile.vision}
             onChange={(e) => set({ vision: e.target.value })}
           />
@@ -63,7 +63,7 @@ export function StepVision({
           <textarea
             className="xpl-textarea"
             rows={2}
-            placeholder="例：AI + 出海合规；银发经济 × 数字陪伴"
+            placeholder="例：AI + 品牌 + 设计 + 平台，仅服务独立品牌的视觉工作流。"
             value={profile.direction}
             onChange={(e) => set({ direction: e.target.value })}
           />
@@ -96,7 +96,7 @@ export function StepVision({
           <textarea
             className="xpl-textarea"
             rows={2}
-            placeholder="例：启动资金 50 万、3 个出海渠道合作方、技术合伙人……"
+            placeholder="例：可测试预算 2000 元、5 个可以访谈的老客户、现有设计工具。"
             value={profile.resources}
             onChange={(e) => set({ resources: e.target.value })}
           />
@@ -163,7 +163,7 @@ export function StepVision({
       <div className="xpl-foot-row">
         <Pill tone="accent">决策门：方向由人定，AI 只做参谋</Pill>
         <Button onClick={onNext} disabled={!canNext}>
-          下一步：海量生成 →
+          下一步：比较候选 →
         </Button>
       </div>
     </div>

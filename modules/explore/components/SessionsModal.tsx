@@ -13,6 +13,10 @@ export function SessionsModal({
   onDelete,
   onNew,
   onOpenConfig,
+  saving,
+  notice,
+  error,
+  onRetry,
 }: {
   open: boolean;
   sessions: ExploreSession[];
@@ -23,6 +27,10 @@ export function SessionsModal({
   onDelete: (id: string) => void;
   onNew: () => void;
   onOpenConfig?: () => void;
+  saving?: boolean;
+  notice?: string;
+  error?: string;
+  onRetry?: () => void;
 }) {
   const [title, setTitle] = useState('');
 
@@ -41,6 +49,8 @@ export function SessionsModal({
   return (
     <Modal open={open} title="我的探索" onClose={onClose}>
       <div className="xpl-sessions">
+        {notice && <p role="status" className="product-note">{notice}</p>}
+        {error && <div role="alert" className="xpl-error">{error} {onRetry && <button type="button" onClick={onRetry}>重新加载列表</button>}</div>}
         <div className="xpl-session-save">
           <input
             className="xpl-input"
@@ -49,8 +59,8 @@ export function SessionsModal({
             placeholder={`给这次探索起个名字（如：${new Date().toLocaleDateString('zh-CN')} 出海方向）`}
           />
           <div className="xpl-detail-actions" style={{ marginTop: 8 }}>
-            <Button small onClick={() => onSave(title)}><LineIcon name="save" /> 保存当前探索</Button>
-            <Button small variant="ghost" onClick={onNew}><LineIcon name="plus" /> 新建空白探索</Button>
+            <Button small disabled={saving} onClick={() => onSave(title)}><LineIcon name="save" /> {saving ? '保存中…' : '保存当前探索'}</Button>
+            <Button small disabled={saving} variant="ghost" onClick={onNew}><LineIcon name="plus" /> 新建空白探索</Button>
             {onOpenConfig && (
               <Button small variant="ghost" onClick={onOpenConfig}><LineIcon name="settings" /> AI 设置</Button>
             )}
@@ -72,8 +82,8 @@ export function SessionsModal({
                   </span>
                 </div>
                 <div className="xpl-detail-actions">
-                  <Button small variant="outline" onClick={() => { onLoad(s); onClose(); }}>加载</Button>
-                  <Button small variant="danger" onClick={() => onDelete(s.id)}>删除</Button>
+                  <Button small disabled={saving} variant="outline" onClick={() => { onLoad(s); onClose(); }}>加载</Button>
+                  <Button small disabled={saving} variant="danger" onClick={() => onDelete(s.id)}>删除</Button>
                 </div>
               </div>
             ))}

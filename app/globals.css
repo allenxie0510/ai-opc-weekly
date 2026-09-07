@@ -1353,3 +1353,76 @@ a:has(> .ui-line-icon),
 button:has(> .ui-line-icon) {
   justify-content: center;
 }
+
+/* Product reading and decision flow */
+.product-intro { padding: 12px 0 44px; max-width: 880px; }
+.product-eyebrow { color: var(--color-steel); font-size: 13px; letter-spacing: .08em; margin-bottom: 16px; }
+.product-intro h1 { font-family: var(--font-body); font-size: clamp(30px, 4vw, 48px); line-height: 1.25; font-weight: 750; letter-spacing: -.035em; color: var(--color-ink); }
+.product-intro > p:not(.product-eyebrow):not(.product-note) { max-width: 680px; font-size: 17px; line-height: 1.9; color: var(--color-slate); margin: 22px 0; }
+.product-actions { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; margin: 20px 0; }
+.product-action { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 10px 20px; border-radius: 8px; border: 1px solid var(--color-ink); background: var(--color-ink); color: white; font-weight: 600; font-size: 14px; text-align: center; }
+.product-action.secondary { background: transparent; border-color: var(--color-hairline); color: var(--color-ink); }
+.product-action:hover { opacity: .8; }
+.product-note { color: var(--color-steel); font-size: 13px; line-height: 1.8; margin: 12px 0 20px; }
+.reading-cta { border-top: 1px solid var(--color-hairline); border-bottom: 1px solid var(--color-hairline); padding: 24px 0; margin: 32px 0; display: flex; justify-content: space-between; align-items: center; gap: 24px; }
+.reading-cta h2 { font-size: 21px; margin-bottom: 8px; }
+.reading-cta p { color: var(--color-slate); line-height: 1.8; font-size: 14px; }
+.reading-cta .product-actions { flex-shrink: 0; }
+.editorial-links { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px 24px; padding: 24px 0; font-size: 13px; color: var(--color-steel); }
+.editorial-links a:hover { color: var(--color-blue); }
+footer .editorial-links { color: #b8b8bc; }
+.editorial-page { max-width: 1000px; }
+.editorial-page section { padding: 30px 0; border-top: 1px solid var(--color-hairline); scroll-margin-top: 80px; }
+.editorial-page section h2 { font-size: 24px; margin-bottom: 16px; }
+.editorial-page section p, .editorial-page li { line-height: 1.95; margin-bottom: 12px; color: var(--color-slate); }
+.editorial-page ol { padding-left: 24px; }
+.editorial-page section a:not(.product-action), .public-example a { color: var(--color-blue); text-decoration: underline; text-underline-offset: 4px; }
+.decision-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; margin: 24px 0; }
+.decision-grid article { border-left: 2px solid var(--color-hairline); padding-left: 16px; }
+.decision-grid h3 { font-size: 16px; margin-bottom: 8px; }
+.decision-grid p { font-size: 14px; line-height: 1.9; color: var(--color-slate); }
+.card-decision-note { font-size: 13px; color: var(--color-slate); line-height: 1.75; margin: 12px 0; overflow-wrap: anywhere; }
+.card-decision-note strong { color: var(--color-ink); margin-right: 8px; }
+.opportunity-filters { display: flex; flex-wrap: wrap; gap: 16px; align-items: end; padding: 20px 0; border-bottom: 1px solid var(--color-hairline); }
+.opportunity-filters label { display: flex; flex-direction: column; gap: 8px; flex: 1; min-width: 140px; font-size: 13px; color: var(--color-steel); }
+.opportunity-filters .filter-query { flex: 2; min-width: 220px; }
+.opportunity-filters input, .opportunity-filters select { min-height: 44px; padding: 10px 12px; border: 1px solid var(--color-hairline); border-radius: 8px; color: var(--color-ink); background: white; width: 100%; font: inherit; }
+.filter-summary { display: flex; justify-content: space-between; gap: 16px; margin: 16px 0 24px; font-size: 13px; color: var(--color-steel); }
+.filter-summary button { color: var(--color-blue); cursor: pointer; min-height: 32px; }
+.trust-note { background: var(--color-surface-soft); border-left: 2px solid var(--color-steel); padding: 18px 22px; font-size: 14px; line-height: 1.85; margin-bottom: 24px; }
+.trust-note p { color: var(--color-slate); margin: 6px 0; }
+.trust-note a { color: var(--color-blue); }
+.explore-preview { padding: 12px 0 24px; }
+.explore-preview h2 { font-size: 26px; line-height: 1.5; margin-bottom: 14px; }
+.explore-preview > p { color: var(--color-slate); max-width: 800px; line-height: 1.9; }
+.public-example { border: 1px solid var(--color-hairline); padding: 20px; border-radius: 10px; margin: 24px 0 0; }
+.public-example summary { cursor: pointer; font-weight: 600; line-height: 1.6; }
+.public-example dt { font-size: 12px; color: var(--color-steel); margin-top: 18px; }
+.public-example dd { font-size: 14px; line-height: 1.85; margin: 6px 0 12px; }
+#validation-plan { scroll-margin-top: 80px; }
+:where(a, button, input, select, textarea, summary):focus-visible { outline: 2px solid var(--color-blue); outline-offset: 4px; }
+@media (max-width: 900px) {
+  .nav-inner { overflow-x: auto; gap: 16px; }
+  .nav-left, .nav-links { flex-shrink: 0; }
+  .nav .x-link { white-space: nowrap; }
+  .reading-cta { align-items: flex-start; flex-direction: column; gap: 8px; }
+}
+@media (max-width: 600px) {
+  .nav-inner { position: relative; height: auto; padding: 48px 12px 8px; display: block; overflow: visible; }
+  .nav-left { flex-wrap: wrap; gap: 4px; }
+  .nav .brand { position: absolute; left: 20px; top: 11px; }
+  .nav .nav-sep { display: none; }
+  .nav .x-link { font-family: var(--font-body); font-size: 13px; min-height: 34px; padding: 7px 8px; }
+  .nav-links { position: absolute; top: 10px; right: 12px; }
+  .decision-grid { grid-template-columns: 1fr; gap: 18px; }
+  .product-intro { padding-bottom: 24px; }
+  .product-intro > p:not(.product-eyebrow):not(.product-note) { font-size: 15px; }
+  .opportunity-filters .filter-query { flex-basis: 100%; min-width: 0; }
+  .public-example { padding: 16px; }
+  .product-actions { gap: 12px; }
+  .product-action { flex: 1 1 auto; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}

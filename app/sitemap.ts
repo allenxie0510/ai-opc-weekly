@@ -30,6 +30,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ] : [];
 
   return [
+    { url: 'https://www.aiopcnews.com/about', changeFrequency: 'monthly', priority: 0.5 },
+    { url: 'https://www.aiopcnews.com/explore', changeFrequency: 'monthly', priority: 0.9 },
     {
       url: 'https://www.aiopcnews.com',
       changeFrequency: 'weekly' as const,

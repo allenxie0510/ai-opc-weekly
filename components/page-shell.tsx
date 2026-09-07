@@ -146,13 +146,15 @@ export function Header() {
         <div className="nav-left">
           <Link href="/" className="brand">AI OPC</Link>
           <span className="nav-sep">|</span>
-          <Link href="/opportunities" className="x-link">机会</Link>
-          <Link href="/explore" className="x-link">方向</Link>
-          <Link href="/radar" className="x-link">雷达</Link>
+          <Link href="/opportunities" className="x-link">机会库</Link>
+          <Link href="/explore" className="x-link">方向探测器</Link>
+          <Link href="/radar" className="x-link">每日信号</Link>
+          <Link href="/archive" className="x-link">周报</Link>
           {showTools && <Link href="/tools" className="x-link">工具</Link>}
-          <Link href="/x" className="x-link">X</Link>
+          <Link href="/x" className="x-link">X 动态</Link>
         </div>
         <div className="nav-links">
+          <Link href="/about" className="nav-auth-link">关于</Link>
           <AuthSlot />
         </div>
       </div>

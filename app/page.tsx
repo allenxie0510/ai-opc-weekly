@@ -5,6 +5,7 @@ import { PageViewCounter } from '@/components/page-view-counter';
 import { RadarCard, dayKey, dayLabel } from '@/components/radar-card';
 import { OpportunityCard, FeaturedOpportunity } from '@/components/OpportunityCard';
 import { MarketPulse } from '@/components/market-pulse';
+import { EditorialLinks } from '@/components/editorial-links';
 
 export const revalidate = 300;
 
@@ -39,18 +40,19 @@ export default async function Home() {
     <>
       <Header />
       <div className="container page-wrap">
-        <header className="x-pagehead">
-          <div>
-            <h1 className="x-pagehead-title">AI OPC</h1>
-            <p className="x-pagehead-meta">AI × 一人公司创业机会情报 · 机会判断 + 每日信号 + 每周精选</p>
-          </div>
+        <header className="product-intro">
+          <p className="product-eyebrow">AI OPC · 一人公司机会情报</p>
+          <h1>从 AI 的新可能，<br />找到你值得验证的下一步。</h1>
+          <p>为设计师、开发者和专业服务者整理真实案例与创业信号。看清客户、证据和风险，再决定是否投入时间。</p>
+          <div className="product-actions"><Link href="/explore" className="product-action">找到适合我的方向</Link><Link href="/opportunities" className="product-action secondary">浏览公开机会</Link></div>
+          <p className="product-note">公开资讯免费阅读 · 方向探测器可先看示例，登录后开始研究</p>
         </header>
 
         {/* ═══ 最新机会（头条大卡 + 副卡） ═══ */}
         {featured && (
           <section className="home-section">
             <div className="home-section-head">
-              <h2 className="home-section-title">最新机会</h2>
+              <h2 className="home-section-title">值得进一步研究的机会</h2>
               <Link href="/opportunities" className="home-more">全部机会 →</Link>
             </div>
 
@@ -64,7 +66,12 @@ export default async function Home() {
           </section>
         )}
 
-        {/* ═══ 赛道脉搏（P3.2：近 7 天 vs 前 7 天信号动量，空数据不渲染） ═══ */}
+        <section className="reading-cta" aria-labelledby="subscribe-title">
+          <div><h2 id="subscribe-title">每周，留一点时间给新的可能。</h2><p>免费阅读已发布周报，用 RSS 跟进新的案例、来源与验证思路。</p></div>
+          <div className="product-actions"><Link className="product-action secondary" href="/feed.xml">订阅 RSS</Link><Link href={latest ? `/weekly/${latest.slug}` : '/archive'}>先读一期周报</Link></div>
+        </section>
+
+        {/* 本站采集量，不能代替市场规模或增长数据。 */}
         <MarketPulse items={pulse} />
 
         {/* ═══ 今日雷达 ═══ */}
@@ -111,6 +118,7 @@ export default async function Home() {
         </section>
 
         <footer style={{ textAlign: 'center', padding: '48px 0', color: 'var(--color-stone)', fontSize: '0.8rem', marginTop: 'auto' }}>
+          <EditorialLinks />
           <p style={{ marginBottom: 6 }}><PageViewCounter /></p>
           <p>AI × 一人公司创业机会情报 · 机会判断 + 每日信号 + 每周精选</p>
           <p>© 2026 AI OPC. All rights reserved.</p>

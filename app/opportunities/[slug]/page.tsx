@@ -10,6 +10,8 @@ import { OpportunityCoverVisual } from '@/components/OpportunityCard';
 import { scoreBand, toDisplayScore } from '@/components/score-badge';
 import { LineIcon } from '@/components/icons';
 import type { LineIconName } from '@/components/icons';
+import { sourceTier, sourceCoverageGrade } from '@/lib/evidence-policy.mjs';
+import { EditorialLinks } from '@/components/editorial-links';
 
 export const revalidate = 300;
 
@@ -146,12 +148,16 @@ export default async function OpportunityPage({ params }: { params: Promise<{ sl
           <h1 className="opp-hero-title">{opp.title}</h1>
           {opp.thesis && <p className="opp-hero-thesis">{opp.thesis}</p>}
           <div className="opp-card-meta">
-            <span className={`opp-evidence grade-${opp.evidence_grade}`}>证据 {opp.evidence_grade} 级</span>
+            <span className="opp-evidence">来源组合 {sourceCoverageGrade(opp.evidence)} 级</span>
+            <span>核心假设待验证</span>
             {cat && <span className={`art-cat-pill ${cat.cssClass}`}>{cat.label}</span>}
             <span>{TIMING_MAP[opp.timing] || opp.timing}</span>
             <span>{date}</span>
           </div>
         </header>
+
+        <aside className="trust-note"><strong>先看证据边界，再看评分</strong><p>下面的分析与评分属于研究判断。来源组合等级按来源覆盖保守计算，不代表核心假设已被验证；旧内容的摘录与支持程度仍需逐条核对。</p><Link href="/about#method">了解编辑方法</Link></aside>
+        <div className="product-actions"><Link className="product-action" href={`/explore?from=${encodeURIComponent(opp.slug)}`}>结合我的条件研究这个方向</Link><a className="product-action secondary" href="#validation-plan">先看验证动作</a><Link href="/about#corrections">反馈内容问题</Link></div>
 
         {/* ═══ Hero 封面（AI 概念图，无图用程序化兜底） ═══ */}
         <OpportunityCoverVisual opportunity={opp} className="opp-hero-cover" />
@@ -169,8 +175,8 @@ export default async function OpportunityPage({ params }: { params: Promise<{ sl
         {/* ═══ 评分轨迹（P3 飞轮：评分的时间维度证据链；内部 0–10 制，展示统一换算 0–100） ═══ */}
         {scoreHistory.length > 0 && (
           <section className="opp-section">
-            <h2 className="opp-section-title">评分轨迹 <span className="opp-section-sub">{scoreHistory.length} 次评分 · 0–100 制 · 复评依据为上周评分后的新雷达信号</span></h2>
-            <ScoreSparkline history={scoreHistory} />
+            <h2 className="opp-section-title">{scoreHistory.length === 1 ? '首次评分记录' : '评分轨迹'} <span className="opp-section-sub">{scoreHistory.length === 1 ? '仅有一次评分，尚不能判断趋势' : `${scoreHistory.length} 次评分 · 0–100 制`}</span></h2>
+            {scoreHistory.length > 1 && <ScoreSparkline history={scoreHistory} />}
             <ul className="opp-scorehist">
               {[...scoreHistory].reverse().map(h => {
                 const vd = h.source !== 'initial' && h.verdict ? VERDICT_MAP[h.verdict] : null;
@@ -196,14 +202,14 @@ export default async function OpportunityPage({ params }: { params: Promise<{ sl
         {/* ═══ 主编判断 ═══ */}
         {opp.editor_take && (
           <section className="opp-section opp-editor">
-            <h2 className="opp-section-title">主编判断 {opp.editor_conviction && <span className="opp-conviction">信心 {CONVICTION_MAP[opp.editor_conviction] || opp.editor_conviction}</span>}</h2>
+            <h2 className="opp-section-title">编辑判断 · 推断 {opp.editor_conviction && <span className="opp-conviction">信心 {CONVICTION_MAP[opp.editor_conviction] || opp.editor_conviction}</span>}</h2>
             <p className="opp-editor-take">{opp.editor_take}</p>
           </section>
         )}
 
         {/* ═══ 机会分析 ═══ */}
         <section className="opp-section">
-          <h2 className="opp-section-title">机会分析</h2>
+          <h2 className="opp-section-title">机会分析 <span className="opp-section-sub">以下为研究假设与推断</span></h2>
           <div className="opp-fields">
             <Field label="为什么是现在">{opp.why_now}</Field>
             <Field label="目标客户">{opp.customer}</Field>
@@ -225,15 +231,18 @@ export default async function OpportunityPage({ params }: { params: Promise<{ sl
         </section>
 
         {/* ═══ Validation Plan ═══ */}
+        <div id="validation-plan" />
         {(vp.hypothesis || vp.steps.length > 0) && (
           <section className="opp-section">
-            <h2 className="opp-section-title">验证计划 <span className="opp-section-sub">48–72h 内可执行</span></h2>
+            <h2 className="opp-section-title">验证计划 <span className="opp-section-sub">按步骤标注的时间执行，先验证需求再投入开发</span></h2>
             {vp.hypothesis && <p className="opp-vp-hypothesis">待验证假设：{vp.hypothesis}</p>}
             {vp.steps.length > 0 && (
               <ol className="opp-vp-steps">
                 {vp.steps.map((s, i) => <li key={i}>{s}</li>)}
               </ol>
             )}
+            {!!vp.prototype_steps?.length && <><h3>后续原型实验</h3><ol className="opp-vp-steps">{vp.prototype_steps.map((step, i) => <li key={i}>{step}</li>)}</ol></>}
+            <p className="product-note">记录证据的强弱：口头认可 → 预约或试用 → 持续使用 → 真实付款。愿意付费的表态不能当成已经成交；以下门槛是实验建议。</p>
             <div className="opp-vp-thresholds">
               {vp.success_threshold && <span className="opp-vp-pass"><LineIcon name="check" /> 成功阈值：{vp.success_threshold}</span>}
               {vp.kill_condition && <span className="opp-vp-kill"><LineIcon name="x" /> 止损条件：{vp.kill_condition}</span>}
@@ -252,7 +261,7 @@ export default async function OpportunityPage({ params }: { params: Promise<{ sl
                   <div className="opp-case-head">
                     {c.url ? <a href={c.url} target="_blank" rel="noopener noreferrer" className="opp-case-name">{c.name}</a>
                            : <span className="opp-case-name">{c.name}</span>}
-                    <span className="opp-case-mrr">{c.mrr}</span>
+                    <span className="opp-case-mrr">{!c.revenue_type || c.revenue_type === 'undisclosed' || (c.revenue_type === 'founder_disclosed' && !c.revenue_source_url) ? '收入未核实' : c.mrr}</span>
                   </div>
                   <div className="opp-case-meta">
                     {[c.founder, c.team_size, c.pricing !== '未披露' ? c.pricing : ''].filter(Boolean).join(' · ')}
@@ -273,16 +282,18 @@ export default async function OpportunityPage({ params }: { params: Promise<{ sl
         {/* ═══ 证据链 ═══ */}
         {opp.evidence && opp.evidence.length > 0 && (
           <section className="opp-section">
-            <h2 className="opp-section-title">证据链 <span className="opp-section-sub">{opp.evidence.length} 条，URL 已经可达性校验</span></h2>
+            <h2 className="opp-section-title">来源与判断对照 <span className="opp-section-sub">{opp.evidence.length} 条来源 · 支持程度未人工复核</span></h2>
             <div className="opp-evidences">
               {opp.evidence.map((ev, i) => (
                 <div key={i} className="opp-evi">
                   <div className="opp-evi-head">
-                    <span className={`opp-tier tier-${ev.tier}`}>{ev.tier}</span>
+                    <span className={`opp-tier tier-${sourceTier(ev.source_url)}`}>来源 {sourceTier(ev.source_url)}</span>
                     <a href={ev.source_url} target="_blank" rel="noopener noreferrer" className="opp-evi-source">{ev.source_name}</a>
                   </div>
-                  {ev.claim && <p className="opp-evi-claim">{ev.claim}</p>}
+                  <p className="product-note">{ev.role === 'background' ? '背景阅读（模型分类）' : ev.role === 'counter' ? '反向材料（模型分类）' : ev.role === 'direct' ? '相关材料（模型分类）' : '用途待复核'} · {ev.quote_verified_at ? `摘录自动匹配于 ${ev.quote_verified_at.slice(0, 10)}` : '历史摘录尚无核对记录'}</p>
+                  {ev.claim && <p className="opp-evi-claim"><strong>拟支持的判断：</strong>{ev.claim}</p>}
                   {ev.quote && <blockquote className="opp-evi-quote">{ev.quote}</blockquote>}
+                  {ev.relevance_note && <p className="product-note">关联解释（模型推断）：{ev.relevance_note}</p>}
                 </div>
               ))}
             </div>
@@ -305,6 +316,7 @@ export default async function OpportunityPage({ params }: { params: Promise<{ sl
         )}
 
         <footer style={{ textAlign: 'center', padding: '48px 0', color: 'var(--color-stone)', fontSize: '0.8rem', marginTop: 'auto' }}>
+          <EditorialLinks />
           <p style={{ marginBottom: 6 }}><PageViewCounter /></p>
           <p>机会判断由 AI 深研生成、主编拍板。不构成投资建议。</p>
           <p>© 2026 AI OPC. All rights reserved.</p>

@@ -133,9 +133,10 @@ export function ArticleCard({ item, index }: { item: NewsItem; index: number }) 
       <div className="art-meta">
         {item.mrr_range && (
           <div className="mi">
-            <span className="ml">单人 MRR</span>
+            <span className="ml">月收入参考</span>
             <span className="mv">
               {item.mrr_range}
+              {(!item.revenue_type || item.revenue_type === 'undisclosed' || (item.revenue_type === 'founder_disclosed' && !item.revenue_source_url)) && <span className="provenance-badge estimate">来源待核实 · 非已验证收入</span>}
               {item.revenue_type === 'founder_disclosed' && item.revenue_source_url && (
                 <a
                   className="provenance-badge verified"

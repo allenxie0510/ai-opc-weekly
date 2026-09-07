@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useEffect, useId, useRef, type ReactNode } from 'react';
 import { LineIcon } from '@/components/icons';
 
 export function Button({
@@ -20,6 +20,7 @@ export function Button({
 }) {
   return (
     <button
+      type="button"
       className={`xpl-btn xpl-btn-${variant} ${small ? 'xpl-btn-sm' : ''} ${className}`}
       onClick={onClick}
       disabled={disabled}
@@ -94,12 +95,37 @@ export function Modal({
   onClose: () => void;
   children: ReactNode;
 }) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const titleId = useId();
+  const closeRef = useRef(onClose);
+  useEffect(() => { closeRef.current = onClose; }, [onClose]);
+  useEffect(() => {
+    if (!open) return;
+    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const dialog = dialogRef.current;
+    const selector = 'button:not(:disabled), a[href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex="0"]';
+    const focusable = () => Array.from(dialog?.querySelectorAll<HTMLElement>(selector) || []).filter((node) => node.getClientRects().length);
+    (dialog?.querySelector<HTMLElement>('input, textarea') || dialog)?.focus();
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') { event.preventDefault(); closeRef.current(); }
+      if (event.key !== 'Tab') return;
+      const items = focusable();
+      if (!items.length) { event.preventDefault(); dialog?.focus(); return; }
+      const first = items[0], last = items[items.length - 1];
+      if (event.shiftKey && (document.activeElement === first || document.activeElement === dialog)) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && (document.activeElement === last || document.activeElement === dialog)) { event.preventDefault(); first.focus(); }
+    };
+    document.addEventListener('keydown', handleKey);
+    return () => { document.removeEventListener('keydown', handleKey); document.body.style.overflow = previousOverflow; previous?.focus(); };
+  }, [open]);
   if (!open) return null;
   return (
     <div className="xpl-modal-overlay" onClick={onClose}>
-      <div className="xpl-modal" onClick={(e) => e.stopPropagation()}>
+      <div ref={dialogRef} className="xpl-modal" role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} onClick={(e) => e.stopPropagation()}>
         <div className="xpl-modal-head">
-          <h3>{title}</h3>
+          <h3 id={titleId}>{title}</h3>
           <button className="xpl-modal-close" onClick={onClose} aria-label="关闭">
             <LineIcon name="x" />
           </button>

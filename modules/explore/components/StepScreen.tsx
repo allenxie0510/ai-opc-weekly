@@ -89,8 +89,8 @@ export function StepScreen({
     <div className="xpl-panel">
       <Head
         kicker="第三步 · 系统筛选"
-        title="用孙正义式多维标准，把几百个候选筛成短名单"
-        desc="孙正义把 40 项检查项目逐一打分；这里归纳为 10 个维度。权重由你调、分数可人工覆盖——筛选的「尺子」永远握在人手里。"
+        title="按你的条件，筛出值得验证的少量方向"
+        desc="用 10 个维度比较取舍。调整权重与分数，保留有依据的判断。高分不代表市场已经验证，也不等于一定适合你。"
       />
 
       <div className="xpl-screen-layout">
@@ -197,6 +197,11 @@ export function StepScreen({
                         </Button>
                         <Button small variant="accent" onClick={() => deepDive(o)}><LineIcon name="search" /> 深度研判</Button>
                       </div>
+                      <label className="xpl-field" style={{ marginTop: 20 }}>
+                        <span className="xpl-field-label">我的验证记录</span>
+                        <textarea className="xpl-textarea" rows={3} value={o.note || ''} onChange={(event) => onPatch(o.id, { note: event.target.value })} placeholder="日期、访谈或试用中的实际行为、支持与反对的证据，以及下一步。把口头意愿与真实付款分开记录。" />
+                        <span className="xpl-field-hint">记录随当前草稿保留；保存探索后可跨设备加载。</span>
+                      </label>
                     </div>
                   )}
                 </div>

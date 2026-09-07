@@ -99,6 +99,14 @@ export async function getTwitterAccounts(): Promise<TwitterAccount[]> {
 
 // ═══ Opportunities · 机会情报 ═══
 
+/** Public preview needs one published record, without loading the library or score histories. */
+export async function getLatestOpportunity(): Promise<Opportunity | null> {
+  if (!isConfigured() || !supabase) return null;
+  const { data, error } = await supabase.from('opportunities').select('*').eq('status', 'published').order('published_at', { ascending: false, nullsFirst: false }).limit(1).maybeSingle();
+  if (error) { console.error('getLatestOpportunity:', error.message); return null; }
+  return data;
+}
+
 export async function getOpportunities(): Promise<Opportunity[]> {
   if (!isConfigured() || !supabase) return [];
   const { data, error } = await supabase

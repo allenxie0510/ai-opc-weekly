@@ -115,6 +115,9 @@ export interface OpportunityEvidence {
   source_url: string;
   quote: string;
   tier: 'S' | 'A' | 'B' | 'C' | 'D';
+  role?: 'direct' | 'background' | 'counter';
+  relevance_note?: string;
+  quote_verified_at?: string;
 }
 
 export interface ValidationPlan {
@@ -124,6 +127,7 @@ export interface ValidationPlan {
   kill_condition: string;
   niche_hint?: string;
   recommendation_reason?: string;
+  prototype_steps?: string[];
 }
 
 export interface OpportunityScoreHistory {
@@ -208,7 +212,7 @@ export interface OpportunityCase {
 }
 
 export const RECOMMENDATION_MAP: Record<Recommendation, { label: string; cssClass: string; desc: string }> = {
-  BUILD: { label: '立即动手', cssClass: 'rec-build', desc: '值得立即动手验证' },
+  BUILD: { label: '优先验证', cssClass: 'rec-build', desc: '先用小实验检验关键假设' },
   WATCH: { label: '保持关注', cssClass: 'rec-watch', desc: '持续观察，等信号成熟' },
   NICHE_ONLY: { label: '垂直切入', cssClass: 'rec-niche', desc: '只建议从垂直细分切入' },
   SKIP: { label: '不建议', cssClass: 'rec-skip', desc: '不建议进入' },

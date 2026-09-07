@@ -20,6 +20,8 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { generateOpportunityCover } from './lib/cover.mjs';
+import { validateSourceUrl } from './lib/source-validation.mjs';
+import { sourceTier, sourceCoverageGrade } from '../lib/evidence-policy.mjs';
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 
@@ -340,6 +342,9 @@ ${clusterSignals}
 - bull_case / bear_case 必须引用具体公司或具体机制（如"X 已被 OpenAI 官方集成"），不写空泛利弊
 - first_10_customers 必须给出可立即执行的具体动作：具体社区名（如 r/SideProject、V2EX、具体 Discord）、具体搜索关键词、具体话术方向
 - validation_plan.steps 必须是带具体动作的步骤，不许出现"调研市场""验证需求"这类虚词
+- validation_plan.steps 只写前 72 小时可完成的需求验证；第 4 天起的原型与交付放 prototype_steps。
+- 口头愿付不能写成商业验证成功；成功阈值写明实际行为（预约、投入试用时间、付款分别记录），不预设用户已完成。
+- evidence 每条仅支撑一个具体判断。注明 direct / background / counter 及 relevance_note；跨行业材料只能作 background，不得据此推断目标客户需求或付费意愿。quote 必须逐字复制原文，不能翻译或改写为摘录。
 【套话黑名单——出现即视为失败】
 随着AI技术的发展 / 赋能 / 降本增效 / 抓住风口 / 数字化转型 / AI时代 / 潜力巨大 / 前景广阔 / 机遇与挑战并存 / 深度融合
 输出 JSON 对象，字段如下：
@@ -375,12 +380,13 @@ ${clusterSignals}
   "niche_hint": "若 recommendation 为 NICHE_ONLY：从哪个垂直切入（60字以内），否则空字符串",
   "validation_plan": {
     "hypothesis": "待验证假设（50字以内）",
-    "steps": ["Day1 ...", "Day2-3 ...", "Day4-5 ..."],
-    "success_threshold": "成功阈值（如 10回复/5访谈/2愿付）",
+    "steps": ["Day1 需求访谈 ...", "Day2-3 行为验证 ..."],
+    "prototype_steps": ["Day4-7 后续原型实验 ..."],
+    "success_threshold": "需求验证门槛，注明可观察行为；口头意愿与真实付款分开",
     "kill_condition": "止损条件（如 回复率<3%）"
   },
   "evidence": [
-    { "claim": "该证据支撑的判断", "source_name": "来源名", "source_url": "https://...", "quote": "原文摘录(80字内)", "tier": "S/A/B/C/D" }
+    { "claim": "待核对的具体判断", "source_name": "来源名", "source_url": "https://...", "quote": "原文逐字摘录(80字内)", "role": "direct/background/counter", "relevance_note": "说明适用客户、行业、支持范围和局限" }
   ],
   "editor_conviction": "high / medium / low 之一",
   "cases": [
@@ -420,26 +426,30 @@ ${clusterSignals}
     const evidence = [];
     for (const ev of rawEvidence) {
       if (!ev.source_url || !/^https?:\/\//.test(ev.source_url)) continue;
-      if (!(await urlOk(ev.source_url))) {
-        console.log(`   ⚠️ 丢弃不可达证据: ${String(ev.source_url).slice(0, 60)}`);
+      const quote = String(ev.quote || '').trim();
+      if (quote.length < 12 || !String(ev.claim || '').trim()) continue;
+      const checked = await validateSourceUrl(ev.source_url, { quote });
+      if (!checked.ok) {
+        console.log(`   ⚠️ 丢弃无法核对摘录的证据: ${String(ev.source_url).slice(0, 60)} (${checked.reason})`);
         continue;
       }
       evidence.push({
         claim: String(ev.claim || '').slice(0, 200),
         source_name: String(ev.source_name || '').slice(0, 60),
         source_url: ev.source_url,
-        quote: String(ev.quote || '').slice(0, 200),
-        tier: tierOf(ev.source_name),
+        quote: quote.slice(0, 200),
+        tier: sourceTier(ev.source_url),
+        role: ['direct', 'background', 'counter'].includes(ev.role) ? ev.role : 'background',
+        relevance_note: String(ev.relevance_note || '').slice(0, 300),
+        quote_verified_at: new Date().toISOString(),
       });
     }
-    if (evidence.length === 0) {
+    if (evidence.length === 0 || !evidence.some((item) => item.role === 'direct' && item.relevance_note)) {
       console.log(`   🚫 拒收（无有效证据）: ${opp.title}`);
       continue;
     }
-    // Evidence Grade 代码计算（基于 URL 校验通过的有效 evidence）：
-    // A=≥2条且≥1条S/A；B=≥2条；C=仅1条——单条幸存证据撑不起 B，防止"编4条被毙3条"仍拿 B
-    const hasPrimary = evidence.some(e => e.tier === 'S' || e.tier === 'A');
-    const evidenceGrade = evidence.length >= 2 && hasPrimary ? 'A' : evidence.length >= 2 ? 'B' : 'C';
+    // 保守来源组合评级，不将来源等级或模型相关性判断等同于核心假设已验证。
+    const evidenceGrade = sourceCoverageGrade(evidence);
 
     // 4.2 七维分数 + 代码加权总分
     const scores = {};
@@ -554,6 +564,7 @@ ${clusterSignals}
       validation_plan: {
         hypothesis: String(opp.validation_plan?.hypothesis || '').slice(0, 200),
         steps: (Array.isArray(opp.validation_plan?.steps) ? opp.validation_plan.steps : []).map(s => String(s).slice(0, 150)).slice(0, 5),
+        prototype_steps: (Array.isArray(opp.validation_plan?.prototype_steps) ? opp.validation_plan.prototype_steps : []).map(s => String(s).slice(0, 150)).slice(0, 5),
         success_threshold: String(opp.validation_plan?.success_threshold || '').slice(0, 100),
         kill_condition: String(opp.validation_plan?.kill_condition || '').slice(0, 100),
         niche_hint: String(opp.niche_hint || '').slice(0, 150),
