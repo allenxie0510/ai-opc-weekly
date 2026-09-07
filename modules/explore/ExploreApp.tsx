@@ -361,7 +361,7 @@ export function ExploreApp({ example = null, initialDirection = '' }: { example?
             />
           )}
           {step === 3 && (
-            <StepPlan config={config} profile={profile} candidates={candidates} plans={plans} onPlanChange={onPlanChange} />
+            <StepPlan config={config} profile={profile} candidates={candidates} plans={plans} onPlanChange={onPlanChange} onSave={() => setSessionsOpen(true)} />
           )}
         </>
       )}

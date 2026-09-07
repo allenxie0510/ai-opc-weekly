@@ -1,5 +1,33 @@
 @import "tailwindcss";
 
+/* Private analytics: small multiples and an accessible table, no chart dependency. */
+.analytics-panel { min-width: 0; }
+.analytics-note { font-size: 12px; line-height: 1.8; color: var(--color-steel); margin: 12px 0; overflow-wrap: anywhere; }
+.analytics-error { padding: 20px; background: var(--color-surface); border: 1px solid var(--color-hairline); border-radius: 12px; }
+.analytics-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin: 20px 0; }
+.analytics-kpi { padding: 20px; background: var(--color-canvas); border: 1px solid var(--color-hairline); border-radius: 12px; min-width: 0; }
+.analytics-kpi h3 { font-size: 13px; font-weight: 500; color: var(--color-steel); }
+.analytics-kpi strong { display: block; font-size: 28px; font-weight: 600; margin: 8px 0; font-variant-numeric: tabular-nums; }
+.analytics-kpi p { font-size: 12px; color: var(--color-steel); line-height: 1.7; }
+.analytics-trend { display: block; width: 100%; height: 60px; color: var(--color-blue); margin: 12px 0; }
+.analytics-range { display: flex; gap: 8px; margin: 28px 0 12px; }
+.analytics-range [aria-pressed=true] { background: var(--color-ink); color: white; }
+.analytics-subtitle { margin: 28px 0 12px; font-size: 18px; }
+.analytics-funnel { list-style: none; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
+.analytics-funnel li { border-top: 2px solid var(--color-blue); background: var(--color-surface); padding: 16px; }
+.analytics-funnel span, .analytics-funnel small { display: block; font-size: 12px; }
+.analytics-funnel strong { display: block; font-size: 24px; margin: 8px 0; }
+.analytics-funnel small { color: var(--color-steel); }
+.analytics-details { margin: 24px 0; }
+.analytics-details summary { cursor: pointer; padding: 12px 0; }
+.analytics-details summary:focus-visible { outline: 2px solid var(--color-blue); outline-offset: 4px; }
+.analytics-table-wrap { overflow-x: auto; }
+.analytics-details table { border-collapse: collapse; width: 100%; min-width: 620px; font-size: 12px; }
+.analytics-details th, .analytics-details td { padding: 12px; text-align: right; border-bottom: 1px solid var(--color-hairline); }
+.analytics-details caption { text-align: left; padding: 12px 0; }
+@media (max-width: 900px) { .analytics-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .analytics-funnel { grid-template-columns: 1fr; } }
+@media (max-width: 480px) { .analytics-kpi { padding: 14px; } .analytics-kpis { gap: 10px; } .analytics-panel .admin-section-head { flex-wrap: wrap; gap: 12px; } .admin-page .admin-topbar { flex-direction: column; align-items: flex-start; gap: 16px; } .admin-page .admin-topbar h1 { white-space: nowrap; } }
+
 @theme {
   --color-ink: #0a0a0a;
   --color-ink-strong: #000000;
@@ -1358,7 +1386,7 @@ button:has(> .ui-line-icon) {
 /* Shared contact footer and editorial FAQ */
 .site-footer { width: 100%; margin-left: 0; margin-right: 0; padding: 48px 32px 24px; text-align: left; font-size: 12px; color: #b8b8bc; scroll-margin-top: 90px; }
 .site-footer-inner { max-width: 1120px; margin: 0 auto; }
-.site-footer-top { display: grid; grid-template-columns: minmax(200px, 1.35fr) repeat(2, minmax(130px, 1fr)) minmax(140px, .85fr); align-items: start; gap: 48px; }
+.site-footer-top { display: grid; grid-template-columns: minmax(200px, 1.5fr) repeat(2, minmax(130px, 1fr)); align-items: start; gap: 48px; }
 .site-footer-logo { display: inline-flex; align-items: center; gap: 8px; font-family: var(--font-brand); font-size: 30px; font-weight: 600; letter-spacing: .02em; line-height: 1; color: #f5f5f5; }
 .site-footer-logo::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--color-blue); }
 .site-footer .site-footer-slogan { color: #b8b8bc; font-size: 13px; margin: 10px 0 20px; }
@@ -1403,12 +1431,12 @@ button:has(> .ui-line-icon) {
   .faq-item { scroll-margin-top: 110px; }
 }
 @media (min-width: 761px) and (max-width: 960px) {
-  .site-footer-top { grid-template-columns: minmax(180px, 1.2fr) repeat(2, minmax(110px, 1fr)) minmax(110px, .85fr); gap: 24px; }
+  .site-footer-top { grid-template-columns: minmax(180px, 1.2fr) repeat(2, minmax(110px, 1fr)); gap: 24px; }
   .footer-visit-number { font-size: 28px; }
 }
 @media (max-width: 760px) {
   .site-footer { padding: 36px 20px 24px; }
-  .site-footer-top { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-areas: 'identity identity' 'content support' 'content visits'; gap: 20px 28px; }
+  .site-footer-top { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-areas: 'identity identity' 'content support'; gap: 20px 28px; }
   .site-footer-identity { grid-area: identity; display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; padding-bottom: 12px; }
   .site-footer .wechat-contact { flex: 0 0 140px; text-align: center; }
   .site-footer .wechat-contact figcaption { margin-top: 8px; }

@@ -4,6 +4,7 @@ import { ai, isMock } from '../lib/ai';
 import { exportPlanPdf } from '../lib/pdf';
 import { Button, Head, Pill, Spinner } from './ui';
 import { LineIcon } from '@/components/icons';
+import { trackAnalytics } from '@/lib/analytics-client';
 
 export function StepPlan({
   config,
@@ -11,12 +12,14 @@ export function StepPlan({
   candidates,
   plans,
   onPlanChange,
+  onSave,
 }: {
   config: AIConfig;
   profile: ThemeProfile;
   candidates: Opportunity[];
   plans: PlansMap;
   onPlanChange: (ideaId: string, plan: BackcastPlan) => void;
+  onSave: () => void;
 }) {
   const [selectedId, setSelectedId] = useState(candidates[0]?.id ?? '');
   const [loading, setLoading] = useState(false);
@@ -31,6 +34,11 @@ export function StepPlan({
     setError('');
     try {
       const p = await ai.buildPlan(config, profile, selected);
+      if (!isMock(config) && p.finalVision.trim() && p.firstStep.trim() && p.milestones.length > 0) {
+        p.analyticsCompletionId = crypto.randomUUID();
+        p.analyticsSource = config.provider === 'server' ? 'server' : 'custom';
+        await trackAnalytics('research_completed', { objectId: p.analyticsCompletionId, source: p.analyticsSource });
+      }
       onPlanChange(selected.id, p);
     } catch (e: any) {
       setError(e?.message || '生成失败');
@@ -88,6 +96,7 @@ export function StepPlan({
         </Button>
         {plan && (
           <>
+            <Button onClick={onSave}><LineIcon name="save" /> 保存研究结果</Button>
             <Button variant="accent" onClick={() => exportPlanPdf(selected!, plan, profile)}><LineIcon name="file-text" /> 导出 PDF</Button>
             <Button variant="outline" onClick={copyMarkdown}>复制 Markdown</Button>
           </>
@@ -141,6 +150,7 @@ export function StepPlan({
           <div className="xpl-foot-row">
             <span className="xpl-muted">人的参与：里程碑可与你自己的节奏冲突，请据实调整，再让 AI 重跑。</span>
             <Button variant="ghost" onClick={generate} disabled={loading}>换一个版本重跑</Button>
+            <Button onClick={onSave}><LineIcon name="save" /> 保存研究结果</Button>
           </div>
         </div>
       ) : (

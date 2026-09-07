@@ -2,6 +2,7 @@
  * /api/explore/sessions/[id] — 读取 / 更新 / 删除单个探索会话
  */
 import { getAdminClient, requireUser } from '@/lib/explore-auth';
+import { recordSavedResult } from '@/lib/analytics-server';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -51,6 +52,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     .select()
     .single();
   if (error) return Response.json({ error: error.message }, { status: 500 });
+  await recordSavedResult(request, auth.userId, data);
   return Response.json({ session: data });
 }
 

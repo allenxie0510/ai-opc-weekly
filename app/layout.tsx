@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { SiteFooter } from '@/components/site-footer';
+import { AnalyticsTracker } from '@/components/analytics-tracker';
 import './globals.css';
 import '../modules/explore/explore.css';
 
@@ -35,6 +36,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body>
+        <AnalyticsTracker />
         {children}
         <SiteFooter />
       </body>

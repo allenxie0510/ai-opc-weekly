@@ -95,6 +95,8 @@ export interface PlanMilestone {
 }
 
 export interface BackcastPlan {
+  analyticsCompletionId?: string;
+  analyticsSource?: 'server' | 'custom';
   ideaId: string;
   finalVision: string;   // 终局愿景（时间跨度终点）
   successMetric: string; // 成功度量

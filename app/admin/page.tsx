@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Header } from '@/components/page-shell';
 import { RECOMMENDATION_MAP, CONVICTION_MAP, CATEGORY_MAP } from '@/lib/types';
 import { LineIcon } from '@/components/icons';
+import { AdminAnalytics } from '@/components/admin-analytics';
 import { sourceCoverageGrade } from '@/lib/evidence-policy.mjs';
 
 type RadarDraft = {
@@ -394,6 +395,7 @@ export default function AdminPage() {
             {message && <p className="admin-msg">{message}</p>}
 
             {/* ---------- 雷达草稿 ---------- */}
+            <AdminAnalytics />
             <section className="admin-section">
               <div className="admin-section-head">
                 <h2>

@@ -5,6 +5,7 @@
  * 认证：Authorization: Bearer <supabase access_token>
  */
 import { getAdminClient, requireUser } from '@/lib/explore-auth';
+import { recordSavedResult } from '@/lib/analytics-server';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -46,5 +47,6 @@ export async function POST(request: Request) {
 
   const { data, error } = await supabase.from('explore_sessions').insert(row).select().single();
   if (error) return Response.json({ error: error.message }, { status: 500 });
+  await recordSavedResult(request, auth.userId, data);
   return Response.json({ session: data });
 }

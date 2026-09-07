@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import { EditorialLinks } from './editorial-links';
-import { PageViewCounter } from './page-view-counter';
 import { WechatContact } from './wechat-contact';
 
 export function SiteFooter() {
@@ -26,7 +25,6 @@ export function SiteFooter() {
           <h2 className="site-footer-heading">关于与联系</h2>
           <EditorialLinks />
         </div>
-        <PageViewCounter variant="statistic" label="累计访问数" />
       </div>
       <div className="site-footer-bottom"><p>© 2026 AI OPC. All rights reserved.</p></div>
     </div>
