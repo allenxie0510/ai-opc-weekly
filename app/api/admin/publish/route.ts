@@ -43,7 +43,10 @@ export async function POST(request: Request) {
     if (!['radar', 'weekly', 'news_item', 'opportunity'].includes(type)) {
       return Response.json({ error: 'type 必须是 radar / weekly / news_item / opportunity' }, { status: 400 });
     }
-    if (!Array.isArray(ids) || ids.length === 0) {
+    if (['feature', 'unfeature'].includes(action) && type !== 'opportunity') {
+      return Response.json({ error: '仅机会支持推荐操作' }, { status: 400 });
+    }
+    if (!Array.isArray(ids) || ids.length === 0 || ids.some(id => typeof id !== 'string' || !id.trim())) {
       return Response.json({ error: 'ids 不能为空' }, { status: 400 });
     }
 
@@ -128,7 +131,7 @@ export async function POST(request: Request) {
           .from('radar_items')
           .delete({ count: 'exact' })
           .in('id', ids)
-          .in('status', ['draft', 'rejected']);  // 草稿和弃选都可删除，published 受保护
+          .in('status', ['draft', 'rejected', 'published']);  // 管理员确认后可删除已发布信号
         if (error) return Response.json({ error: error.message }, { status: 500 });
         affected = count || 0;
       }
@@ -201,15 +204,20 @@ export async function POST(request: Request) {
         affected = data?.length || 0;
       } else {
         for (const id of ids) {
+          const { data: issue, error: findError } = await supabase.from('weekly_issues').select('id').eq('id', id).in('status', ['draft', 'published']).maybeSingle();
+          if (findError) return Response.json({ error: findError.message }, { status: 500 });
+          if (!issue) continue;
           // 先删条目再删期数（防外键约束/孤儿数据）
-          await supabase.from('news_items').delete().eq('weekly_issue_id', id);
-          const { error } = await supabase
+          const { error: itemError } = await supabase.from('news_items').delete().eq('weekly_issue_id', id);
+          if (itemError) return Response.json({ error: itemError.message }, { status: 500 });
+          const { data: deleted, error } = await supabase
             .from('weekly_issues')
             .delete()
             .eq('id', id)
-            .eq('status', 'draft');
+            .in('status', ['draft', 'published'])
+            .select('id');
           if (error) return Response.json({ error: error.message }, { status: 500 });
-          affected++;
+          affected += deleted?.length || 0;
         }
       }
     }

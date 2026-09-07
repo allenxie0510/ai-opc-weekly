@@ -3,7 +3,7 @@
  * body: { type: 'radar' | 'weekly', id: string, fields: {...} }
  *   radar  可改: title / summary / editor_note / pick_reason / category / score
  *   weekly 可改: title / summary
- * 仅允许编辑 status='draft' 的行，已发布内容不受保护性锁定之外的影响
+ * 草稿和已发布内容均允许管理员编辑；返回实际修改行数。
  * 认证：请求头 X-Admin-Token 需匹配环境变量 ADMIN_PASSWORD
  */
 import { createClient } from '@supabase/supabase-js';
@@ -84,10 +84,10 @@ export async function POST(request: Request) {
       // news_items 无 status 列；radar/weekly 草稿与已发布均可编辑（管理员权限）
       query = query.in('status', ['draft', 'published']);
     }
-    const { error } = await query;
+    const { data, error } = await query.select('id');
     if (error) return Response.json({ error: error.message }, { status: 500 });
 
-    return Response.json({ status: 'ok' });
+    return Response.json({ status: 'ok', affected: data?.length || 0 });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
     return Response.json({ error: msg }, { status: 500 });
