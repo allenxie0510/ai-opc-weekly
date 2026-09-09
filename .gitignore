@@ -12,6 +12,7 @@
 
 # testing
 /coverage
+/radar-audit.json
 
 # next.js
 /.next/

@@ -9,6 +9,10 @@
  * 可选：GITHUB_TOKEN（GitHub Actions 内置；缺失时降级为无认证请求）
  */
 
+import { parseRSS } from './lib/feed-parser.mjs';
+import { fetchProductHunt as fetchPH } from './lib/producthunt-source.mjs';
+import { assessCandidate } from './lib/radar-policy.mjs';
+
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SRK = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -23,7 +27,7 @@ const SOURCES = [
     kind: 'hackernews',
     name: 'Show HN',
     // 创始人一手发布的 0→1 新产品，OPC 最对口信号源
-    url: 'https://hn.algolia.com/api/v1/search?tags=show_hn&hitsPerPage=30',
+    url: 'https://hn.algolia.com/api/v1/search_by_date?tags=show_hn&hitsPerPage=30',
   },
   {
     kind: 'github',
@@ -101,60 +105,6 @@ async function fetchText(url, opts = {}) {
   return res.text();
 }
 
-function decodeEntities(s) {
-  return s
-    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'")
-    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(Number(n)));
-}
-
-function stripHtml(s) {
-  return decodeEntities((s || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim());
-}
-
-/** 解析标准 RSS item 与 Atom entry 两种结构：title / link / description / pubDate */
-function parseRSS(xml) {
-  const items = [];
-
-  // RSS 2.0 <item> 与 Atom <entry> 统一成 (block, isAtom) 处理
-  const blocks = [];
-  const itemRegex = /<item>([\s\S]*?)<\/item>/g;
-  const entryRegex = /<entry>([\s\S]*?)<\/entry>/g;
-  let match;
-  while ((match = itemRegex.exec(xml)) !== null) blocks.push([match[1], false]);
-  while ((match = entryRegex.exec(xml)) !== null) blocks.push([match[1], true]);
-
-  for (const [block, isAtom] of blocks) {
-    const tm = block.match(/<title[^>]*>(?:<!\[CDATA\[([\s\S]*?)\]\]>|([\s\S]*?))<\/title>/);
-    const title = decodeEntities(stripHtml(tm?.[1] || tm?.[2] || '').trim());
-    if (!title) continue;
-
-    // Atom 的 link 是 <link href="..."/> 空标签，RSS 是 <link>url</link>
-    let link = '';
-    if (isAtom) {
-      const lm = block.match(/<link[^>]*href="([^"]+)"[^>]*\/?>/);
-      link = (lm?.[1] || '').trim();
-    } else {
-      const lm = block.match(/<link>(?:<!\[CDATA\[([\s\S]*?)\]\]>|([\s\S]*?))<\/link>/);
-      link = (lm?.[1] || lm?.[2] || '').trim();
-    }
-    if (!link || !/^https?:\/\//.test(link)) continue;
-
-    const dm = block.match(/<(?:description|summary|content)[^>]*>(?:<!\[CDATA\[([\s\S]*?)\]\]>|([\s\S]*?))<\/(?:description|summary|content)>/);
-    const snippet = stripHtml(dm?.[1] || dm?.[2] || '').slice(0, 300);
-
-    const pm = block.match(/<(?:pubDate|published|updated)>([^<]+)<\/(?:pubDate|published|updated)>/) || block.match(/<dc:date>([^<]+)<\/dc:date>/);
-    let publishedAt = null;
-    if (pm?.[1]) {
-      const d = new Date(pm[1].trim());
-      if (!isNaN(d.getTime())) publishedAt = d.toISOString();
-    }
-
-    items.push({ title, source_url: link, snippet, published_at: publishedAt });
-  }
-  return items;
-}
-
 // ─── 各信源抓取 ─────────────────────────────────────────
 
 async function fetchHackerNews(source) {
@@ -193,50 +143,16 @@ async function fetchGitHubTrending(source) {
   }));
 }
 
-async function fetchProductHunt(source) {
-  const token = process.env.PRODUCTHUNT_TOKEN;
-  if (!token) {
-    console.warn('   ⚠️ 无 PRODUCTHUNT_TOKEN，跳过 Product Hunt（API Dashboard → Developer Token）');
-    return [];
-  }
-  // 近 36h 新品，按票数排序；GLM 筛选环节负责 OPC/AI 相关性判断
-  const postedAfter = new Date(Date.now() - 36 * 60 * 60 * 1000).toISOString();
-  const query = `{
-    posts(order: VOTES, postedAfter: "${postedAfter}", first: 30) {
-      edges { node { name tagline url votesCount createdAt topics { edges { node { name } } } } }
-    }
-  }`;
-  const res = await fetch('https://api.producthunt.com/v2/api/graphql', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${token}`,
-      'User-Agent': 'ai-opc-weekly-radar/1.0',
-    },
-    body: JSON.stringify({ query }),
-    signal: AbortSignal.timeout(20000),
-  });
-  if (!res.ok) throw new Error(`HTTP ${res.status}`);
-  const data = await res.json();
-  if (data.errors) throw new Error(`GraphQL: ${JSON.stringify(data.errors).slice(0, 150)}`);
-  const edges = data.data?.posts?.edges || [];
-  return edges.map(({ node: p }) => {
-    const topics = (p.topics?.edges || []).map(t => t.node.name).slice(0, 4).join('/');
-    const cleanUrl = (p.url || '').split('?')[0];  // 去掉 API 附加的 utm 参数
-    return {
-      source_name: source.name,
-      source_url: cleanUrl,
-      title: `${p.name} — ${p.tagline}`.slice(0, 200),
-      snippet: `[PH ▲${p.votesCount || 0}] ${p.tagline || ''}${topics ? ` · ${topics}` : ''}`.slice(0, 300),
-      published_at: p.createdAt || null,
-    };
-  }).filter(it => it.source_url);
+async function fetchProductHunt() {
+  const result = await fetchPH({ token: process.env.PRODUCTHUNT_TOKEN });
+  console.log(`   Product Hunt: API windows=${result.report.apiDays}/4, official feed=${result.report.feedCount}`);
+  return result.items;
 }
 
 async function fetchRSS(source) {
   const xml = await fetchText(source.url);
   if (!xml.includes('<item>') && !xml.includes('<entry>')) throw new Error('无 item/entry 节点（feed 可能失效或格式变更）');
-  return parseRSS(xml).slice(0, 20).map(it => ({
+  return parseRSS(xml).slice(0, source.name === 'Reddit r/SideProject' ? 25 : 30).map(it => ({
     source_name: source.name,
     source_url: it.source_url,
     title: it.title,
@@ -262,6 +178,13 @@ async function main() {
       else { console.warn(`  ⚠️ 未知信源类型: ${source.kind}`); continue; }
 
       total += items.length;
+      // Low-value narrative is stopped before storage as well as before the model.
+      const dropped = items.filter(item => !assessCandidate(item).eligible);
+      for (const item of dropped) console.log('   prefilter', JSON.stringify({ source: source.name, title: item.title, url: item.source_url, reason: assessCandidate(item).reason }));
+      items = items.filter(item => assessCandidate(item).eligible);
+      const fetchedAt = new Date().toISOString();
+      items = items.map(item => ({ ...item, fetched_at: fetchedAt }));
+      console.log(`   prefilter: kept=${items.length}, dropped=${dropped.length}`);
       console.log(`  ✅ ${source.name}: ${items.length} 条素材`);
 
       // upsert 去重（按 source_url 唯一约束；必须带 on_conflict，否则批次中任意一条重复会导致整批 409）
@@ -281,6 +204,7 @@ async function main() {
   }
 
   console.log(`\n📊 抓取完成: 共 ${total} 条素材，${written} 条 upsert 写入，${failed} 个信源失败`);
+  if (!written) throw new Error('所有来源均无可用素材，不能将空抓取标记成功');
   console.log('✅ 信源抓取结束');
 }
 
