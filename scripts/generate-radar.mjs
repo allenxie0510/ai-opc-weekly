@@ -17,6 +17,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { assessCandidate, filterRadarItems, selectCandidateMaterials } from './lib/radar-policy.mjs';
 import { canonicalSourceUrl } from './lib/feed-parser.mjs';
+import { assertReviewCoverage, reviewInBatches } from './lib/radar-review.mjs';
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 
@@ -142,9 +143,10 @@ function loadStyleSamples() {
   }
 }
 
-async function callGLMOnce(sysPrompt, userPrompt, model, temperature) {
+async function callGLMOnce(sysPrompt, userPrompt, model, temperature, materials) {
   const res = await fetch(ZHIPU_API, {
     method: 'POST',
+    signal: AbortSignal.timeout(180000),
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ZK}` },
     body: JSON.stringify({
       model,
@@ -171,16 +173,17 @@ async function callGLMOnce(sysPrompt, userPrompt, model, temperature) {
   }
   const parsed = JSON.parse(m[0]);
   if (!Array.isArray(parsed.items)) throw new Error('items 字段不是数组');
+  assertReviewCoverage(parsed, materials);
   console.log(`   ✅ 模型候选 ${parsed.items.length} 条 | 模型=${model} | tok in=${data.usage?.prompt_tokens} out=${data.usage?.completion_tokens}`);
   return parsed;
 }
 
-async function callGLM(sysPrompt, userPrompt) {
+async function callGLM(sysPrompt, userPrompt, materials) {
   let lastErr;
   for (const model of GLM_MODELS) {
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        return await callGLMOnce(sysPrompt, userPrompt, model, 0.2);
+        return await callGLMOnce(sysPrompt, userPrompt, model, 0.2, materials);
       } catch (e) {
         lastErr = e;
         if (e.congested) {
@@ -240,7 +243,7 @@ async function main() {
       reason: assessment.reason || '',
     };
   }) };
-  const materialText = materials.map(c => {
+  const formatMaterials = rows => rows.map(c => {
     const laneLabel = { founder: '产品发现/创作者线索（不代表团队规模已核实）', enabler: '工具与生态', context: '行业背景' }[c.policy.lane];
     return `[${c.source_name} | ${laneLabel}] ${c.title}${c.snippet ? ' — ' + c.snippet : ''}\nURL: ${c.source_url}`;
   }).join('\n---\n');
@@ -250,7 +253,7 @@ async function main() {
   }, {});
   console.log(`   分层入模: ${materials.length} 条 | founder=${laneCounts.founder || 0} enabler=${laneCounts.enabler || 0} context=${laneCounts.context || 0}`);
 
-  if (!materialText) {
+  if (!materials.length) {
     saveAudit(audit);
     console.log('\n⚠️ 没有可用素材，跳过本次生成');
     return;
@@ -274,14 +277,14 @@ ${samples.map(s => `- ${s}`).join('\n')}\n`
     : '';
   if (samples.length > 0) console.log(`   ✍️ 注入主编风格样本: ${samples.length} 条`);
 
-  const user = `以下是今天抓取到的真实素材。每条已标注来源层：
+  const user = batch => `以下是今天抓取到的真实素材。每条已标注来源层：
 - 创始人/小团队一手：优先，关注真实产品、做法、收入、客户和复盘
 - 工具与生态：只有直接改变小团队能力、成本或分发时才收录
 - 行业背景：默认不收录；只有可迁移成一人公司具体动作时才可作为例外
 
-${materialText}
+${formatMaterials(batch)}
 
-任务：逐条审阅，筛选 0–12 条候选快讯，宁缺毋滥。优先级依次为：
+任务：本批共 ${batch.length} 条，必须逐条独立审阅；每个 URL 必须且只能出现一次，在 items 或 rejected 中，不允许默默跳过。不是选几条印象最深的新闻；符合条件的都进入 items，不合格的进入 rejected 并说明具体原因。优先级依次为：
 1. 个人或 2–5 人团队用 AI 解决具体场景，并公开产品、客户、收入、定价、获客或构建过程；
 2. 可由小团队在数周内验证的垂直机会，素材中能看出谁付费、为什么付费或从哪里触达；
 3. 让一人公司在开发、交付、获客、运营上出现明确成本/能力变化的工具或平台；
@@ -291,6 +294,8 @@ ${materialText}
 额外业务价值铁律：
 - “个人做的/花了很多小时/辞职/误发后被迫上线/爆红/求支持”不是收录理由。只有故事、心路历程、标题噱头而没有明确业务用途或有证据的经营复盘，直接拒绝。
 - 针对个人获客、业务介绍、线索跟进、报价收款、客户交付、运营自动化、设计生产和软件构建的具体产品，即使团队人数未知、未披露收入，仍可作为待验证工具线索；不要误判成无价值的泛效率工具。
+- 判断以业务任务而非平台分类标签为准。例如把业务简介变成能回答访客问题、预约交流和跟进线索的入口，属于个体获客工具，不能因被标成 Social Networking 而当作泛社交工具拒绝。纯编程框架不应挤掉获客、交付和经营用途。
+- 只有开发心路、求内测、尚无可核实功能的预告，或面试作弊/生活娱乐等与经营无直接关联的用途，不能以开发者身份包装成创业价值。
 - 产品热度与价值分开：PH 票数只说明社区关注，不证明收入、用户满意度或增长；不得虚构榜单名次。API/Feed 没给名次就不写排名。
 - 每条必须填写 opc_value：用两段原文引用分别支撑服务对象与业务功能，提出基于该功能的验证动作，并说明成本、效果或商业数据的未知项。不得只抄“我花了260小时”等故事句当业务证据。
 - case-study 需要经营证据（客户、收入、转化、留存等），来源自述必须标明“作者自述”，不能当审计数据。工具机会不强制要求已有收入。
@@ -326,7 +331,8 @@ ${styleBlock}
         "transferability": "0–5，模式/做法是否能迁移，而非只值得围观"
       }
     }
-  ]
+  ],
+  "rejected": [{ "source_url": "未入选素材的原始URL", "reason": "明确指出缺少哪项业务价值或证据，不用泛泛而谈的不相关" }]
 }
 
 分类桶定义（严格按边界归类；拿不准一律归 other，不要硬塞进相近桶）：
@@ -339,8 +345,8 @@ ${styleBlock}
 - other：以上六类都不是，或素材信息不足以判断
 
 要求：
-- items 可以为空，最多 12 条；不要为了数量降低标准，最终最多收录6条
-- Product Hunt 最多3条，Reddit最多1条，其他同源最多2条；large-company最多1条
+- items 可以为空；不要为了数量降低标准。此阶段逐条判断，不套同源或总量配额；配额和最后6条排名由后续代码统一处理
+- items + rejected 必须覆盖本批所有 ${batch.length} 个 URL，不可遗漏、重复或引用其他批次
 - 所有 source_url 必须来自素材清单原文，不得编造
 - evidence_quote 必须逐字存在于对应素材标题或摘要中；不得改写、翻译或拼接
 - summary 和 editor_note 用中文，不用「你/你的」
@@ -348,18 +354,24 @@ ${styleBlock}
 - 只返回 JSON 对象本身`;
 
   saveAudit(audit); // 即使模型服务失败，也保留已抓取和入模去向。
-  const result = await callGLM(sys, user);
+  const result = await reviewInBatches(materials, async (batch, index) => {
+    console.log(`逐条审阅 batch=${index} size=${batch.length}`);
+    return callGLM(sys, user(batch), batch);
+  });
 
   // 4.5 硬门槛复核：来源 URL、五维 OPC fit、单源配额、大公司上限均由代码执行。
   // 模型无法用高总分绕过任一低维度，也不能把素材外 URL 写入数据库。
   const filtered = filterRadarItems(result.items || [], materials, { maxItems: 6, minimumScore: 70 });
   const acceptedUrls = new Set(filtered.accepted.map(r => r.source_url));
   const rejections = new Map(filtered.rejected.map(r => [r.source_url, r.reason]));
+  const modelRejections = new Map(result.rejected.map(r => [r.source_url, r.reason]));
   for (const row of audit.decisions) if (row.stage === 'model-review') {
     row.stage = acceptedUrls.has(row.source_url) ? 'accepted' : rejections.has(row.source_url) ? 'gate-rejected' : 'model-not-selected';
-    row.reason = rejections.get(row.source_url) || '';
+    row.reason = rejections.get(row.source_url) || modelRejections.get(row.source_url) || '';
   }
   audit.result = filtered;
+  audit.raw_items = result.items;
+  audit.model_rejections = result.rejected;
   saveAudit(audit);
   const rejectStats = filtered.rejected.reduce((acc, row) => {
     acc[row.reason] = (acc[row.reason] || 0) + 1;

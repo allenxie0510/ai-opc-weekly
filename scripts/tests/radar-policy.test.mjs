@@ -144,6 +144,7 @@ test('误发上线、耗时卖惨与求支持不能靠满分进入草稿；没�
     assert.equal(filterRadarItems([{ title, summary: 'story', editor_note: 'opinion', source_url: m.source_url, evidence_quote: m.title, fit: { audience_relevance: 5, actionability: 5, evidence_strength: 5, solo_feasibility: 5, transferability: 5 }, opc_value: businessValue }], [m]).accepted.length, 0);
   }
   assert.equal(assessCandidate({ source_name: 'Reddit r/SideProject', title: 'I accidentally launched an invoicing tool', snippet: 'Freelancers send invoices to clients. 12 paying customers pay $9/month.' }).eligible, true);
+  assert.equal(assessCandidate({ source_name: 'Reddit r/SideProject', title: 'I accidentally launched an invoicing tool', snippet: 'Freelancers send invoices to clients. I spent $500 developing it. Price $9/month.' }).eligible, false);
 });
 
 test('具体产品用途优先于泛词堆叠和纯票数，Knockin 类工具无需编造收入或团队规模', () => {
@@ -156,6 +157,8 @@ test('具体产品用途优先于泛词堆叠和纯票数，Knockin 类工具无
   assert.equal(filterRadarItems([{ ...raw, opc_value: { ...raw.opc_value, workflow_quote: 'Already generated 100 customers' } }], [product]).rejected[0].reason, 'opc-value-quotes-not-in-material');
   assert.equal(filterRadarItems([{ ...raw, title: 'AI 工具误发后被迫上线' }], [product]).rejected[0].reason, 'clickbait-headline');
   assert.equal(filterRadarItems([raw, raw], [product]).accepted.length, 1);
+  assert.equal(filterRadarItems([raw], [{ ...product, snippet: product.snippet + '. Built with the OpenAI API.' }]).accepted[0]._large_company, false);
+  assert.equal(filterRadarItems([{ ...raw, opc_value: { ...raw.opc_value, kind: 'case-study' } }], [{ ...product, snippet: product.snippet + '. Price $9/month.' }]).rejected[0].reason, 'case-without-business-evidence');
 });
 
 test('来源长尾不超过时效窗，URL 跟踪参数不能绕过历史排重', () => {

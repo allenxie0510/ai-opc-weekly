@@ -231,7 +231,7 @@ export default function AdminPage() {
       } else {
         setMessage(
           workflow === 'daily-radar'
-            ? '已触发雷达抓取 + 生成，约 2–3 分钟后点「刷新」查看新草稿'
+            ? '已触发信源抓取与分批审核，通常需数分钟；完成后点「刷新待办」查看新草稿'
             : workflow === 'weekly-newsletter'
               ? '已触发周报生成，约 3–5 分钟后点「刷新」查看草稿'
               : opts?.rescoreOnly

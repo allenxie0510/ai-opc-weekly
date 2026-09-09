@@ -46,7 +46,7 @@ const CONTEXT_NOISE_RE = /\b(funding|fundraise|valuation|series [a-z]|ceo|acquis
 // being solo, hours spent and votes alone never establish OPC business value.
 const BUSINESS_WORKFLOW_RE = /\b(leads?|outreach|prospect\w*|follow[- ]?up|book(?:ing|s)?|invoic\w*|checkout|payments?|customer support|sales|clients?|business cards?|bio|crm|marketing|ecommerce|e-commerce|storefront|proposal\w*|landing page|conversion|onboarding|subscri\w*|deploy\w*|debug\w*|design\w*|templates?|workflows?|automat\w*|translat\w*|schedul\w*|reports?|content creation|video edit\w*|pricing|revenue|mrr)\b|获客|线索|预约|名片|客户|报价|订单|收款|客服|交付|营销|转化|素材|设计|自动化|工作流|翻译|定价|收入|复购|留存/i;
 const AUDIENCE_RE = /\b(founders?|freelancers?|creators?|consultants?|agencies|agency|solopreneurs?|small business\w*|small teams?|developers?|designers?|merchants?|sellers?|clients?|customers?|salespeople|your (?:(?:static|personal) )?(?:work|business|bio|profile))\b|个体|创业者|自由职业|创作者|咨询师|工作室|小团队|商家|开发者|设计师|客户/i;
-const CASE_EVIDENCE_RE = /(?:\$|€|£|¥)\s*\d|\b\d[\d,.]*\s*(?:paying customers|paid users|customers|clients|subscribers)\b|\b(?:mrr|revenue|conversion|retention)\s*(?:of|:|to|is|at)?\s*\d|\d+\s*(?:付费用户|客户|元|美元)|转化率|留存率/i;
+const CASE_EVIDENCE_RE = /\b\d[\d,.]*\s*(?:paying customers|paid users|customers|clients|subscribers)\b|\b(?:mrr|revenue|profit|conversion|retention)\s*(?:of|:|to|is|at)?\s*[$€£¥]?\s*\d|[$€£¥]\s*\d[\d,.]*\s*(?:k\s*)?(?:mrr|revenue|profit)\b|\d+\s*(?:付费用户|客户)|(?:收入|盈利|转化率|留存率)\s*[:：为达至]?\s*[$¥￥]?\d/i;
 const NARRATIVE_HOOK_RE = /\b(?:accidentally|by accident|forced to (?:launch|ship)|spent \d[\d,.]* (?:hours|days|months)|roast my|please (?:upvote|support)|went viral|you won't believe|quit my job|got fired)\b|误发|意外(?:上线|发布)|被迫上线|熬夜|一夜爆红|跪求|震惊|炸裂|辞职创业/i;
 export const OPC_VALUE_KINDS = ['acquisition', 'delivery', 'operations', 'building', 'monetization', 'case-study'];
 
@@ -179,9 +179,11 @@ export function computeOpcScore(fit = {}) {
 }
 
 function isLargeCompanySignal(raw, material) {
-  // Deterministic name detection overrides an incorrect model scale label.
+  // A founder using an OpenAI/Google API is not itself a large-company story.
+  // Check the subject/title, and only inspect full copy for context-media lanes.
   return raw.company_scale === 'large-company'
-    || LARGE_COMPANY_RE.test(`${material.title || ''} ${material.snippet || ''}`);
+    || LARGE_COMPANY_RE.test(material.title || '')
+    || (sourcePolicy(material.source_name).lane === 'context' && LARGE_COMPANY_RE.test(material.snippet || ''));
 }
 
 function normalizedEvidence(text = '') {
@@ -202,6 +204,7 @@ export function filterRadarItems(rawItems = [], materials = [], options = {}) {
   const sourceCounts = new Map();
   const acceptedUrls = new Set();
   let largeCompanyCount = 0;
+  let buildingCount = 0;
 
   const ranked = rawItems.map(raw => {
     const material = materialByUrl.get(raw?.source_url);
@@ -227,7 +230,10 @@ export function filterRadarItems(rawItems = [], materials = [], options = {}) {
       const workflow = normalizedEvidence(value.workflow_quote);
       if (!OPC_VALUE_KINDS.includes(value.kind) || String(value.next_action || '').trim().length < 12 || String(value.limitation || '').trim().length < 8) reason = 'missing-concrete-opc-value';
       else if (audience.length < 8 || workflow.length < 8 || !sourceText.includes(audience) || !sourceText.includes(workflow)) reason = 'opc-value-quotes-not-in-material';
-      else if (!AUDIENCE_RE.test(audience) || !BUSINESS_WORKFLOW_RE.test(workflow)) reason = 'opc-value-not-business-specific';
+      // Exact quotes establish provenance; business fit is read in full context.
+      // Requiring isolated excerpts to contain a fixed English noun caused valid
+      // products to fail even when their complete description explained the job.
+      else if (!BUSINESS_WORKFLOW_RE.test(sourceText)) reason = 'opc-value-not-business-specific';
       else if (value.kind === 'case-study' && !CASE_EVIDENCE_RE.test(sourceText)) reason = 'case-without-business-evidence';
     }
     if (!reason) {
@@ -254,6 +260,7 @@ export function filterRadarItems(rawItems = [], materials = [], options = {}) {
     const sourceCap = sourceName === 'Product Hunt' ? 3 : sourceName === 'Reddit r/SideProject' || sourceName.startsWith('X/@') ? 1 : 2;
     if (!reason && acceptedUrls.has(canonicalSourceUrl(raw.source_url))) reason = 'duplicate-source-url';
     if (!reason && (sourceCounts.get(sourceName) || 0) >= sourceCap) reason = 'source-cap';
+    if (!reason && raw.opc_value.kind === 'building' && buildingCount >= 2) reason = 'building-tools-cap';
     if (!reason && accepted.length >= maxItems) reason = 'daily-cap';
 
     if (reason) {
@@ -265,6 +272,7 @@ export function filterRadarItems(rawItems = [], materials = [], options = {}) {
     acceptedUrls.add(canonicalSourceUrl(raw.source_url));
     sourceCounts.set(sourceName, (sourceCounts.get(sourceName) || 0) + 1);
     if (largeCompany) largeCompanyCount++;
+    if (raw.opc_value.kind === 'building') buildingCount++;
   }
 
   return { accepted, rejected };
