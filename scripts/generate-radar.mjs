@@ -20,6 +20,7 @@ import { candidateMix, EDITORIAL_PROMPT } from '../lib/editorial-policy.mjs';
 const EDITORIAL_ENABLED = process.env.EDITORIAL_RESEARCH_ENABLED === 'true';
 import { canonicalSourceUrl } from './lib/feed-parser.mjs';
 import { assertReviewCoverage, reviewInBatches } from './lib/radar-review.mjs';
+import { RADAR_BUDGET, readReviewLoad, loadReviewState, recentlyReviewed, saveReviewed, leanEligible } from './lib/radar-budget.mjs';
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 
@@ -39,7 +40,7 @@ const DRY_RUN = process.env.RADAR_DRY_RUN === 'true';
 
 // 拉宽读取窗口，再由 radar-policy 做 founder/enabler/context 分层配额。
 // 旧逻辑只取 fetched_at 最新 40 条，后抓的大媒体能直接挤掉 founder-first 来源。
-const TWEET_LIMIT = 100;
+const TWEET_LIMIT = EDITORIAL_ENABLED ? 20 : 100;
 
 async function readAll(path) {
   const rows = [];
@@ -57,7 +58,8 @@ function saveAudit(audit) {
   if (process.env.GITHUB_STEP_SUMMARY) {
     const safe = value => String(value || '').replace(/[|\r\n<>]/g, ' ').slice(0, 180);
     if (audit.candidate_mix) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `\n经营场景候选：国内 ${audit.candidate_mix.counts.domestic} / 中国团队出海 ${audit.candidate_mix.counts['china-outbound']} / 海外 ${audit.candidate_mix.counts.overseas} / 待核实 ${audit.candidate_mix.counts.unknown}。国内占比 ${(audit.candidate_mix.domestic_share * 100).toFixed(0)}%，目标约50%；缺口 ${audit.candidate_mix.shortfall}，不以发布数量补齐。\n`);
-    appendFileSync(process.env.GITHUB_STEP_SUMMARY, `\n## 每日信号 · 业务价值审核\n\n模式：${DRY_RUN ? '只读试跑，不写草稿' : '写入草稿/发布'}\n\n| 来源 | 标题 | 去向 | 原因 |\n|---|---|---|---|\n${audit.decisions.map(r => `| ${safe(r.source_name)} | ${safe(r.title)} | ${safe(r.stage)} | ${safe(r.reason)} |`).join('\n')}\n\n完整证据与模型选择见 radar-audit 附件。\n`);
+    const visible = audit.decisions.filter(r => ['model-review', 'accepted', 'gate-rejected', 'model-not-selected'].includes(r.stage));
+    appendFileSync(process.env.GITHUB_STEP_SUMMARY, `\n## 每日信号 · 精选审核\n\n模式：${DRY_RUN ? '只读试跑，不写后台草稿；正式验证请取消 dry_run' : '写入草稿，不自动发布'}\n\n仅展示本轮送审项；原始素材不是人工待办。\n\n| 来源 | 标题 | 去向 | 原因 |\n|---|---|---|---|\n${visible.map(r => `| ${safe(r.source_name)} | ${safe(r.title)} | ${safe(r.stage)} | ${safe(r.reason)} |`).join('\n')}\n\n完整过滤明细见 radar-audit 附件。\n`);
   }
 }
 
@@ -184,7 +186,7 @@ async function callGLMOnce(sysPrompt, userPrompt, model, temperature, materials)
 async function callGLM(sysPrompt, userPrompt, materials) {
   let lastErr;
   for (const model of GLM_MODELS) {
-    for (let attempt = 0; attempt < 3; attempt++) {
+      for (let attempt = 0; attempt < (EDITORIAL_ENABLED ? 2 : 3); attempt++) {
       try {
         return await callGLMOnce(sysPrompt, userPrompt, model, 0.2, materials);
       } catch (e) {
@@ -213,6 +215,14 @@ async function callGLM(sysPrompt, userPrompt, materials) {
 async function main() {
   console.log('🚀 OPC Radar · 每日生成');
   console.log(`   模型: ${GLM_MODELS.join(' → ')} | 发布模式: ${AUTO_PUBLISH ? '自动 published' : 'draft 待审核'}\n`);
+  const load = EDITORIAL_ENABLED ? await readReviewLoad(sb) : { capacity: 6 };
+  if (load.capacity === 0) {
+    const message = `暂停生成：待审${load.pending}/${RADAR_BUDGET.pending}，今日已新增${load.today}/${RADAR_BUDGET.perDay}，未调用模型。`;
+    console.log(message);
+    if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `\n${message}\n`);
+    return;
+  }
+  const reviewState = loadReviewState();
 
   // 1. 取素材：radar_candidates 最近 72 小时（扩大召回，不等于扩大入模）
   console.log('📥 读取素材...');
@@ -235,12 +245,15 @@ async function main() {
   console.log(`   历史已处理 URL: ${seenUrls.size} 条（将跳过，避免旧素材反复占位）`);
 
   // 3. founder-first 分层抽样，跳过已处理 URL。大媒体/大公司只占 context 小配额。
-  const materials = selectCandidateMaterials(candidates || [], tweets || [], seenUrls, 54, { domesticBalance: EDITORIAL_ENABLED });
+  const freshCandidates = EDITORIAL_ENABLED ? candidates.filter(c => leanEligible(c) && !recentlyReviewed(c, reviewState)) : candidates;
+  const tweetMaterials = (tweets || []).map(t => ({ source_name: `X/@${t.author_username}`, source_url: t.url, title: (t.content || '').slice(0, 160), snippet: (t.content || '').slice(0, 1200), published_at: t.published_at, fetched_at: t.created_at }));
+  const freshTweets = EDITORIAL_ENABLED ? tweetMaterials.filter(t => leanEligible(t) && !recentlyReviewed(t, reviewState)) : tweetMaterials;
+  const materials = selectCandidateMaterials([...freshCandidates, ...freshTweets], [], seenUrls, EDITORIAL_ENABLED ? RADAR_BUDGET.model : 54, { domesticBalance: EDITORIAL_ENABLED });
   const mix = candidateMix(materials);
   console.log('经营地区候选分布（未知不算国内）', JSON.stringify(mix));
   const seenCanonical = new Set([...seenUrls].map(canonicalSourceUrl));
   const materialUrls = new Set(materials.map(m => canonicalSourceUrl(m.source_url)));
-  const audit = { policy: EDITORIAL_ENABLED ? 'opc-domestic-evidence-v3' : 'opc-business-value-v2', candidate_mix: mix, generated_at: new Date().toISOString(), dry_run: DRY_RUN, materials, decisions: (candidates || []).map(c => {
+  const audit = { policy: EDITORIAL_ENABLED ? 'lean-opc-v4' : 'opc-business-value-v2', budget: RADAR_BUDGET, load, candidate_mix: mix, generated_at: new Date().toISOString(), dry_run: DRY_RUN, materials, decisions: [...candidates, ...tweetMaterials].map(c => {
     const assessment = assessCandidate(c);
     const url = canonicalSourceUrl(c.source_url);
     return { source_name: c.source_name, title: c.title, source_url: c.source_url,
@@ -363,11 +376,11 @@ ${EDITORIAL_ENABLED ? EDITORIAL_PROMPT : ''}
   const result = await reviewInBatches(materials, async (batch, index) => {
     console.log(`逐条审阅 batch=${index} size=${batch.length}`);
     return callGLM(sys, user(batch), batch);
-  });
+  }, EDITORIAL_ENABLED ? 4 : 12);
 
   // 4.5 硬门槛复核：来源 URL、五维 OPC fit、单源配额、大公司上限均由代码执行。
   // 模型无法用高总分绕过任一低维度，也不能把素材外 URL 写入数据库。
-  const filtered = filterRadarItems(result.items || [], materials, { maxItems: 6, minimumScore: 70, requireEditorialBrief: EDITORIAL_ENABLED });
+  const filtered = filterRadarItems(result.items || [], materials, { maxItems: load.capacity, minimumScore: 70, requireEditorialBrief: EDITORIAL_ENABLED });
   const acceptedUrls = new Set(filtered.accepted.map(r => r.source_url));
   const rejections = new Map(filtered.rejected.map(r => [r.source_url, r.reason]));
   const modelRejections = new Map(result.rejected.map(r => [r.source_url, r.reason]));
@@ -447,6 +460,13 @@ ${EDITORIAL_ENABLED ? EDITORIAL_PROMPT : ''}
       }
     }
   }
+  if (EDITORIAL_ENABLED) {
+    // Hard rejections are not sent through the LLM again for seven days unless
+    // their content changes. Quota-deferred items remain available next run.
+    const deferred = new Set(filtered.rejected.filter(r => ['source-cap', 'daily-cap', 'building-tools-cap', 'large-company-cap'].includes(r.reason)).map(r => r.source_url));
+    saveReviewed(materials.filter(m => !deferred.has(m.source_url)), reviewState);
+  }
+  if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `\n### 后台交付\n\n本轮已写入 **${items.length} 条草稿**，到 /admin → 待审核 → 每日信号查看；筛选素材不是待办。\n`);
 
   // 6. 汇总
   console.log('\n📊 汇总:');

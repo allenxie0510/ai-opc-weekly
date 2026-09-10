@@ -29,6 +29,7 @@ jobs:
       - run: npm ci
       - name: Refresh source pool
         env:
+          SOURCE_PROFILE: weekly
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -6,15 +6,17 @@ const DAY = 24 * HOURS;
 const ENDPOINT = 'https://api.producthunt.com/v2/api/graphql';
 // Popular launches from each separate day, not one 36-hour winner-takes-all list.
 // A token is optional; the official public feed is also consulted (no page scraping).
-export async function fetchProductHunt({ token, fetchImpl = fetch, now = Date.now(), warn = console.warn } = {}) {
+export async function fetchProductHunt({ token, fetchImpl = fetch, now = Date.now(), warn = console.warn, days = 4, perDay = 30, feedFallbackOnly = false } = {}) {
+  days = Math.max(1, Math.min(4, Math.floor(Number(days) || 4)));
+  perDay = Math.max(1, Math.min(30, Math.floor(Number(perDay) || 30)));
   const rows = new Map();
   const report = { apiDays: 0, feedCount: 0, warnings: [] };
   const warning = message => { report.warnings.push(message); warn(message); };
   if (token) {
-    for (let day = 0; day < 4; day++) {
+    for (let day = 0; day < days; day++) {
       const after = new Date(now - (day + 1) * DAY).toISOString();
       const before = new Date(now - day * DAY).toISOString();
-      const query = `query { posts(order: VOTES, postedAfter: "${after}", postedBefore: "${before}", first: 30) {
+      const query = `query { posts(order: VOTES, postedAfter: "${after}", postedBefore: "${before}", first: ${perDay}) {
         edges { node { name tagline description url votesCount createdAt topics { edges { node { name } } } } }
       } }`;
       try {
@@ -40,6 +42,7 @@ export async function fetchProductHunt({ token, fetchImpl = fetch, now = Date.no
       }
     }
   } else warning('Product Hunt: token missing; using official public feed (votes/history unavailable)');
+  if (feedFallbackOnly && rows.size) return { items: [...rows.values()], report };
   try {
     const response = await fetchImpl(PH_FEED_URL, { headers: { 'User-Agent': 'ai-opc-weekly-radar/2.0', Accept: 'application/atom+xml,application/rss+xml' }, signal: AbortSignal.timeout(20000) });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);

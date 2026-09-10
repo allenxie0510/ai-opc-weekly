@@ -22,6 +22,8 @@ import { dirname, join } from 'node:path';
 import { generateOpportunityCover } from './lib/cover.mjs';
 import { validateSourceUrl } from './lib/source-validation.mjs';
 import { sourceTier, sourceCoverageGrade } from '../lib/evidence-policy.mjs';
+import { beijingDayStart } from './lib/radar-budget.mjs';
+const LEAN = process.env.EDITORIAL_RESEARCH_ENABLED === 'true';
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
 
@@ -238,6 +240,18 @@ function tooSimilarToSamples(take, samples) {
 
 async function main() {
   console.log('🚀 AI OPC · 机会生产线（Decision Engine v1）\n');
+  let runCapacity = 3;
+  if (LEAN) {
+    const pending = await sb('/opportunities?select=id&status=eq.draft&limit=4');
+    const today = await sb(`/opportunities?select=id&created_at=gte.${encodeURIComponent(beijingDayStart())}&limit=2`);
+    if (!Array.isArray(pending) || !Array.isArray(today)) throw new Error('无法读取机会审核负荷');
+    if (pending.length >= 4 || today.length >= 2) {
+      console.log(`暂停机会生成：待审${pending.length}/4，今日新增${today.length}/2。未调用模型，请先处理待办。`);
+      return;
+    }
+    // Exact remaining capacity also protects a manual second run on the same day.
+    runCapacity = Math.min(2, 4 - pending.length, 2 - today.length);
+  }
 
   // 1. 读取近 14 天 Signals（用 created_at 兜底：早期在 Table Editor 手动改状态的条目 published_at 为 NULL）
   const WINDOW_DAYS = parseInt(process.env.OPP_WINDOW_DAYS || '14', 10);
@@ -294,11 +308,11 @@ ${digest}
     .map(c => ({
       theme: String(c.theme || '').slice(0, 50),
       signal_indexes: (Array.isArray(c.signal_indexes) ? c.signal_indexes : [])
-        .filter(i => Number.isInteger(i) && i >= 0 && i < signals.length),
+        .filter(i => Number.isInteger(i) && i >= 0 && i < signals.length).filter((i, pos, all) => all.indexOf(i) === pos),
       hypothesis: String(c.hypothesis || '').slice(0, 200),
     }))
     .filter(c => c.signal_indexes.length >= 3)  // 聚类铁律：≥3 条信号
-    .slice(0, 3);
+    .slice(0, runCapacity);
   console.log(`   有效聚类: ${clusters.length} 个（${clusters.map(c => c.theme).join(' / ')}）`);
   if (clusters.length === 0) {
     console.log('⚠️ 没有满足 ≥3 信号支撑的聚类，本期不生成机会');

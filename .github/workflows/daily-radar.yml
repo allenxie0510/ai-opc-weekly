@@ -8,8 +8,12 @@ on:
     - cron: '47 11 * * *'
   workflow_dispatch:
     inputs:
+      readiness_only:
+        description: '仅检查数据库迁移与队列负荷，不抓取、不生成。'
+        type: boolean
+        default: false
       dry_run:
-        description: '只评估并输出审核报告，不新增信号草稿（素材池仍会刷新）'
+        description: '试跑：不写后台草稿。要在后台审核请保持不勾选。'
         type: boolean
         default: false
 
@@ -29,7 +33,21 @@ jobs:
         with:
           node-version: 22
       - run: npm ci
+      - name: Editorial schema readiness
+        if: inputs.readiness_only == true
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node scripts/check-editorial-readiness.mjs
+      - uses: actions/cache@v4
+        if: inputs.readiness_only != true
+        with:
+          path: .cache/editorial-ingestion
+          key: radar-review-v4-${{ github.ref_name }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            radar-review-v4-${{ github.ref_name }}-
       - name: Fetch sources
+        if: inputs.readiness_only != true
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
@@ -37,6 +55,7 @@ jobs:
           PRODUCTHUNT_TOKEN: ${{ secrets.PRODUCTHUNT_TOKEN }}
         run: node scripts/fetch-sources.mjs
       - name: Generate radar items
+        if: inputs.readiness_only != true
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
@@ -45,7 +64,7 @@ jobs:
           RADAR_DRY_RUN: ${{ inputs.dry_run && 'true' || 'false' }}
         run: node scripts/generate-radar.mjs
       - name: Upload radar selection audit
-        if: always()
+        if: always() && inputs.readiness_only != true
         uses: actions/upload-artifact@v4
         with:
           name: radar-audit

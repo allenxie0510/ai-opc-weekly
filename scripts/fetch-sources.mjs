@@ -14,6 +14,10 @@ import { fetchProductHunt as fetchPH } from './lib/producthunt-source.mjs';
 import { assessCandidate } from './lib/radar-policy.mjs';
 import { appendFileSync } from 'node:fs';
 import { candidateMix } from '../lib/editorial-policy.mjs';
+import { RADAR_BUDGET, LEAN_SOURCES, selectIntake, readReviewLoad, loadReviewState, recentlyReviewed } from './lib/radar-budget.mjs';
+import { canonicalSourceUrl } from './lib/feed-parser.mjs';
+const LEAN = process.env.EDITORIAL_RESEARCH_ENABLED === 'true';
+const WEEKLY = process.env.SOURCE_PROFILE === 'weekly';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SRK = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -115,7 +119,9 @@ async function fetchText(url, opts = {}) {
 // ─── 各信源抓取 ─────────────────────────────────────────
 
 async function fetchHackerNews(source) {
-  const txt = await fetchText(source.url);
+  const url = new URL(source.url);
+  if (LEAN) url.searchParams.set('hitsPerPage', '10');
+  const txt = await fetchText(url.toString());
   const data = JSON.parse(txt);
   const hits = (data.hits || []).filter(h => h.title && h.url);
   return hits.slice(0, 30).map(h => ({
@@ -151,7 +157,7 @@ async function fetchGitHubTrending(source) {
 }
 
 async function fetchProductHunt() {
-  const result = await fetchPH({ token: process.env.PRODUCTHUNT_TOKEN });
+  const result = await fetchPH({ token: process.env.PRODUCTHUNT_TOKEN, ...(LEAN ? { days: 2, perDay: 8, feedFallbackOnly: true } : {}) });
   console.log(`   Product Hunt: API windows=${result.report.apiDays}/4, official feed=${result.report.feedCount}`);
   return result.items;
 }
@@ -159,7 +165,7 @@ async function fetchProductHunt() {
 async function fetchRSS(source) {
   const xml = await fetchText(source.url);
   if (!xml.includes('<item>') && !xml.includes('<entry>')) throw new Error('无 item/entry 节点（feed 可能失效或格式变更）');
-  return parseRSS(xml).slice(0, source.name === 'Reddit r/SideProject' ? 25 : 30).map(it => ({
+  return parseRSS(xml).slice(0, LEAN ? 16 : source.name === 'Reddit r/SideProject' ? 25 : 30).map(it => ({
     source_name: source.name,
     source_url: it.source_url,
     title: it.title,
@@ -175,8 +181,33 @@ async function main() {
 
   let total = 0, written = 0, failed = 0;
   const sourceReport = [];
+  let existing = new Set();
+  const collected = [];
+  const reviewState = loadReviewState();
+  if (LEAN) {
+    if (!WEEKLY) {
+      const load = await readReviewLoad(sb);
+      console.log('审核负荷', JSON.stringify(load));
+      if (load.capacity === 0) {
+        const message = `暂停外部抓取：待审${load.pending}/${RADAR_BUDGET.pending}，今日已新增${load.today}/${RADAR_BUDGET.perDay}。请先处理待办或等待次日。`;
+        console.log(message);
+        if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `\n${message}\n`);
+        return;
+      }
+    }
+    const known = [];
+    for (let offset = 0;; offset += 1000) {
+      const page = await sb(`/radar_candidates?select=source_url&order=id.asc&limit=1000&offset=${offset}`);
+      if (!Array.isArray(page)) throw new Error('素材去重读取失败');
+      known.push(...page);
+      if (page.length < 1000) break;
+      if (offset >= 20000) throw new Error('素材去重超出安全读取范围');
+    }
+    existing = new Set(known.map(r => canonicalSourceUrl(r.source_url)));
+  }
 
-  for (const source of SOURCES) {
+  const activeSources = LEAN ? SOURCES.filter(s => LEAN_SOURCES[s.name]) : SOURCES;
+  for (const source of activeSources) {
     try {
       let items;
       if (source.kind === 'hackernews') items = await fetchHackerNews(source);
@@ -190,13 +221,15 @@ async function main() {
       const dropped = items.filter(item => !assessCandidate(item).eligible);
       for (const item of dropped) console.log('   prefilter', JSON.stringify({ source: source.name, title: item.title, url: item.source_url, reason: assessCandidate(item).reason }));
       items = items.filter(item => assessCandidate(item).eligible);
+      if (LEAN) items = items.filter(item => !existing.has(canonicalSourceUrl(item.source_url)) && !recentlyReviewed(item, reviewState));
       const fetchedAt = new Date().toISOString();
       items = items.map(item => ({ ...item, fetched_at: fetchedAt }));
       console.log(`   prefilter: kept=${items.length}, dropped=${dropped.length}`);
       console.log(`  ✅ ${source.name}: ${items.length} 条素材`);
 
       // upsert 去重（按 source_url 唯一约束；必须带 on_conflict，否则批次中任意一条重复会导致整批 409）
-      if (items.length > 0) {
+      if (LEAN) collected.push(...items);
+      if (!LEAN && items.length > 0) {
         await sb('/radar_candidates?on_conflict=source_url', {
           method: 'POST',
           headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
@@ -213,10 +246,26 @@ async function main() {
     }
   }
 
+  if (LEAN) {
+    const selected = selectIntake(collected, existing);
+    const rows = selected.map(item => ({ source_name: item.source_name, source_url: item.source_url, title: item.title, snippet: item.snippet, published_at: item.published_at, fetched_at: item.fetched_at }));
+    if (rows.length) await sb('/radar_candidates?on_conflict=source_url', {
+      method: 'POST', headers: { Prefer: 'resolution=ignore-duplicates,return=minimal' }, body: JSON.stringify(rows),
+    });
+    written = rows.length;
+    for (const report of sourceReport) {
+      const kept = rows.filter(row => row.source_name === report.name);
+      report.kept = kept.length;
+      report.domestic = candidateMix(kept).counts.domestic;
+    }
+    console.log(`精选入池 ${written}/${RADAR_BUDGET.intake}；重复素材不刷新日期，不扩大送审池。`);
+  }
+
   console.log(`\n📊 抓取完成: 共 ${total} 条素材，${written} 条 upsert 写入，${failed} 个信源失败`);
   if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY,
     `\n## 来源池健康情况\n\n| 来源 | 状态 | 合格素材 | 明确国内经营 |\n|---|---|---:|---:|\n${sourceReport.map(r => `| ${r.name} | ${r.status} | ${r.kept} | ${r.domestic} |`).join('\n')}\n\n中文来源数量不等于国内经营数量；来源失败不能视为已抓取成功。\n`);
-  if (!written) throw new Error('所有来源均无可用素材，不能将空抓取标记成功');
+  if (!written && (!LEAN || failed === activeSources.length)) throw new Error('所有来源均无可用素材，不能将空抓取标记成功');
+  if (!written) console.log('本轮零新增：已去重或无合格候选，不代表抓取故障，也不生成凑数内容。');
   console.log('✅ 信源抓取结束');
 }
 

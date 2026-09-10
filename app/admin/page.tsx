@@ -452,6 +452,8 @@ export default function AdminPage() {
                 )}
               </div>
 
+              <p className="admin-item-meta">精选模式每轮最多新增 3 条、每天最多 6 条；待审达到 12 条暂停新增。抓取素材不等于待办。GitHub 手动运行请勿勾选 dry_run 或 readiness_only，完成后刷新此页。</p>
+
               {radarDrafts.length === 0 ? (
                 <p className="admin-empty">没有待审核的雷达条目</p>
               ) : (
