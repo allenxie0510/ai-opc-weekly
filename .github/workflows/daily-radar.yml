@@ -19,6 +19,8 @@ concurrency:
 
 jobs:
   radar:
+    env:
+      EDITORIAL_RESEARCH_ENABLED: ${{ vars.EDITORIAL_RESEARCH_ENABLED }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:

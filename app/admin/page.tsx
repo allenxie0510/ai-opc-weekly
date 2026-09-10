@@ -8,8 +8,12 @@ import { LineIcon } from '@/components/icons';
 import { AdminAnalytics } from '@/components/admin-analytics';
 import { AdminPublished } from '@/components/admin-published';
 import { sourceCoverageGrade } from '@/lib/evidence-policy.mjs';
+import { EditorialBrief } from '@/components/editorial-brief';
+import { AdminResearch } from '@/components/admin-research';
+import type { EditorialBrief as Brief } from '@/lib/editorial-policy.mjs';
 
 type RadarDraft = {
+  editorial_brief?: Brief;
   id: string;
   title: string;
   summary: string;
@@ -29,7 +33,7 @@ type WeeklyDraft = {
   title: string;
   summary: string;
   published_at: string;
-  items: { id: string; title: string; section: string; rank: number }[];
+  items: { id: string; title: string; section: string; rank: number; editorial_brief?: Brief }[];
 };
 
 type RadarRejected = {
@@ -61,7 +65,7 @@ type OpportunityDraft = {
 
 export default function AdminPage() {
   const [view, setView] = useState<'pending' | 'overview' | 'published'>('pending');
-  const [pendingType, setPendingType] = useState<'radar' | 'opportunity' | 'weekly'>('radar');
+  const [pendingType, setPendingType] = useState<'radar' | 'opportunity' | 'weekly' | 'research'>('radar');
   const [publishedDirty, setPublishedDirty] = useState(false);
   const [publishedBusy, setPublishedBusy] = useState(false);
   const [token, setToken] = useState('');
@@ -409,7 +413,9 @@ export default function AdminPage() {
                     <button className="admin-btn" aria-pressed={pendingType === 'radar'} disabled={busy} onClick={() => switchPending('radar')}>每日信号 · {radarDrafts.length}</button>
                     <button className="admin-btn" aria-pressed={pendingType === 'opportunity'} disabled={busy} onClick={() => switchPending('opportunity')}>机会 · {opportunityDrafts.length}</button>
                     <button className="admin-btn" aria-pressed={pendingType === 'weekly'} disabled={busy} onClick={() => switchPending('weekly')}>周报 · {weeklyDrafts.length}</button>
+                    <button className="admin-btn" aria-pressed={pendingType === 'research'} disabled={busy} onClick={() => switchPending('research')}>国内案例研究</button>
                   </div>
+                  {pendingType === 'research' && <AdminResearch token={token} />}
                   {pendingType === 'radar' &&
             <section className="admin-section">
               <div className="admin-section-head">
@@ -451,7 +457,7 @@ export default function AdminPage() {
               ) : (
                 <div className="admin-list">
                   {radarDrafts.map((d) => (
-                    <div key={d.id} className={`admin-item${selected.has(d.id) ? ' checked' : ''}`}>
+                    <div key={d.id} className={`admin-item${selected.has(d.id) ? ' checked' : ''}${d.editorial_brief ? ' has-editorial' : ''}`}>
                       {editing?.type === 'radar' && editing.id === d.id ? (
                         /* ─── 雷达编辑表单 ─── */
                         <div className="admin-edit-form">
@@ -567,6 +573,7 @@ export default function AdminPage() {
                               )}
                             </span>
                           </label>
+                          <EditorialBrief brief={d.editorial_brief} />
                           <div className="admin-item-btns">
                             <button
                               className="admin-btn sm"
@@ -679,6 +686,7 @@ export default function AdminPage() {
                                       <span className="admin-weekly-item-text">
                                         <em>{it.section}</em> {it.title}
                                       </span>
+                                      <EditorialBrief brief={it.editorial_brief} />
                                       <button
                                         type="button"
                                         className="admin-weekly-item-delete"

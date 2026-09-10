@@ -12,6 +12,8 @@
 import { parseRSS } from './lib/feed-parser.mjs';
 import { fetchProductHunt as fetchPH } from './lib/producthunt-source.mjs';
 import { assessCandidate } from './lib/radar-policy.mjs';
+import { appendFileSync } from 'node:fs';
+import { candidateMix } from '../lib/editorial-policy.mjs';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SRK = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -23,6 +25,11 @@ if (!SRK) { console.error('❌ 缺少 SUPABASE_SERVICE_ROLE_KEY'); process.exit(
 // 排序只影响抓取日志，不再影响入模顺序；generate-radar 会按 founder / enabler /
 // context 三层做确定性配额。大媒体保留作环境信号，但不会再靠数量占满 prompt。
 const SOURCES = [
+  ...(process.env.EDITORIAL_RESEARCH_ENABLED === 'true' ? [
+    // Official public feeds only. No article-body crawling or paid-community API.
+    { kind: 'rss', name: 'w2solo', url: 'https://w2solo.com/topics/feed' },
+    { kind: 'rss', name: 'V2EX 分享创造', url: 'https://www.v2ex.com/feed/create.xml' },
+  ] : []),
   {
     kind: 'hackernews',
     name: 'Show HN',
@@ -167,6 +174,7 @@ async function main() {
   console.log('📡 OPC Radar · 信源抓取开始\n');
 
   let total = 0, written = 0, failed = 0;
+  const sourceReport = [];
 
   for (const source of SOURCES) {
     try {
@@ -196,14 +204,18 @@ async function main() {
         });
         written += items.length;
       }
+      sourceReport.push({ name: source.name, status: items.length ? '可用' : '无合格新素材', kept: items.length, domestic: candidateMix(items).counts.domestic });
     } catch (e) {
       // 单个源失败只警告，不中断整体
       console.warn(`  ⚠️ ${source.name} 抓取失败: ${e.message.slice(0, 120)}`);
       failed++;
+      sourceReport.push({ name: source.name, status: '请求/写入失败（见日志）', kept: 0, domestic: 0 });
     }
   }
 
   console.log(`\n📊 抓取完成: 共 ${total} 条素材，${written} 条 upsert 写入，${failed} 个信源失败`);
+  if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY,
+    `\n## 来源池健康情况\n\n| 来源 | 状态 | 合格素材 | 明确国内经营 |\n|---|---|---:|---:|\n${sourceReport.map(r => `| ${r.name} | ${r.status} | ${r.kept} | ${r.domestic} |`).join('\n')}\n\n中文来源数量不等于国内经营数量；来源失败不能视为已抓取成功。\n`);
   if (!written) throw new Error('所有来源均无可用素材，不能将空抓取标记成功');
   console.log('✅ 信源抓取结束');
 }

@@ -1,3 +1,4 @@
+import type { EditorialBrief } from './editorial-policy.mjs';
 export interface WeeklyIssue {
   id: string;
   slug: string;
@@ -14,6 +15,7 @@ export interface WeeklyIssue {
 }
 
 export interface NewsItem {
+  editorial_brief?: EditorialBrief | null;
   id: string;
   weekly_issue_id: string;
   title: string;
@@ -74,6 +76,7 @@ export const CATEGORY_MAP: Record<Category, { label: string; cssClass: string }>
 
 // OPC Radar · 一人雷达
 export interface RadarItem {
+  editorial_brief?: EditorialBrief | null;
   id: string;
   title: string;
   summary: string;

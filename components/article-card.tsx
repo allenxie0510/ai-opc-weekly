@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import type { NewsItem } from '@/lib/types';
+import { EditorialBrief } from '@/components/editorial-brief';
 import { AdminEditButton } from '@/components/admin-edit';
 import { LineIcon } from '@/components/icons';
 
@@ -175,6 +176,7 @@ export function ArticleCard({ item, index }: { item: NewsItem; index: number }) 
         </button>
       </div>
 
+      <EditorialBrief brief={item.editorial_brief} />
       <div className={`insight-panel${insightOpen ? ' open' : ''}`}>
         <strong>{item.section === 'picks' ? '编辑点评：' : item.section === 'deepdive' ? '编辑判断：' : '落地路径：'}</strong>{item.insight}
       </div>

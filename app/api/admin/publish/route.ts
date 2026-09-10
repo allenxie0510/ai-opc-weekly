@@ -10,6 +10,7 @@
  */
 import { createClient } from '@supabase/supabase-js';
 import { buildWeeklyRankUpdates, updateGeneratedWeeklySummaryCount } from '@/lib/weekly-admin';
+import { publishableBrief } from '@/lib/editorial-policy.mjs';
 
 export const runtime = 'nodejs';
 
@@ -51,6 +52,17 @@ export async function POST(request: Request) {
     }
 
     let affected = 0;
+
+    // New editorial mode fails closed. Historical drafts need regenerated evidence;
+    // turning on a new schema must not silently bypass the six-question review.
+    if (process.env.EDITORIAL_RESEARCH_ENABLED === 'true' && action === 'publish' && ['radar', 'weekly'].includes(type)) {
+      const query = type === 'radar'
+        ? supabase.from('radar_items').select('id,editorial_brief').in('id', ids).eq('status', 'draft')
+        : supabase.from('news_items').select('id,editorial_brief').in('weekly_issue_id', ids);
+      const { data, error } = await query;
+      if (error) return Response.json({ error: '证据字段读取失败，请检查数据库迁移' }, { status: 503 });
+      if (!data?.length || data.some(row => !publishableBrief(row.editorial_brief))) return Response.json({ error: '存在缺少六问或来源使用依据的条目，请重新生成/补全证据后发布；历史草稿不会自动认定为已核实' }, { status: 409 });
+    }
 
     if (type === 'news_item') {
       if (action !== 'discard') {

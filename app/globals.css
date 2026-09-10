@@ -1563,3 +1563,33 @@ footer .editorial-links { color: #b8b8bc; }
   html { scroll-behavior: auto; }
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
 }
+
+/* Evidence is supporting detail, not another score or a dense dashboard. */
+.editorial-brief { margin: 16px 0; padding: 14px 0; border-block: 1px solid var(--color-hairline); font-size: 13px; line-height: 1.7; overflow-wrap: anywhere; }
+.editorial-brief summary { cursor: pointer; font-weight: 600; }
+.editorial-brief summary:focus-visible { outline: 2px solid var(--color-blue); outline-offset: 5px; }
+.editorial-brief summary span { font-size: 12px; font-weight: 400; color: var(--color-steel); margin-left: 8px; }
+.editorial-brief dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 24px; margin: 20px 0; }
+.editorial-brief dt { font-weight: 600; }
+.editorial-brief dt small { font-size: 11px; font-weight: 400; color: var(--color-steel); }
+.editorial-brief dd { margin: 4px 0 0; }
+.editorial-brief blockquote { margin: 6px 0; padding-left: 10px; border-left: 2px solid var(--color-hairline); color: var(--color-steel); font-size: 12px; }
+.editorial-evidence-note { font-size: 12px; color: var(--color-steel); }
+.admin-item.has-editorial { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
+.admin-item.has-editorial > .admin-item-main { grid-column: 1; grid-row: 1; }
+.admin-item.has-editorial > .admin-item-btns { grid-column: 2; grid-row: 1; }
+.admin-item.has-editorial > .editorial-brief { grid-column: 1 / -1; margin: 0; min-width: 0; }
+.admin-item.has-editorial > .admin-edit-form { grid-column: 1 / -1; }
+.admin-research > p { font-size: 13px; line-height: 1.8; }
+.admin-research fieldset { padding: 20px; margin: 20px 0; border: 1px solid var(--border, #ddd); border-radius: 12px; min-width: 0; }
+.admin-research .admin-field { margin-bottom: 16px; }
+.research-confirm { display: block; font-size: 13px; line-height: 1.8; margin-bottom: 20px; }
+.research-confirm input { margin-right: 8px; }
+.research-row { display: flex; justify-content: space-between; gap: 16px; align-items: center; padding: 16px 0; border-bottom: 1px solid var(--border, #ddd); }
+.research-row p { font-size: 12px; margin: 6px 0 0; }
+@media (max-width: 640px) {
+  .editorial-brief dl { grid-template-columns: 1fr; }
+  .editorial-brief summary span { display: block; margin-left: 0; }
+  .admin-research fieldset { padding: 14px; }
+  .research-row { align-items: flex-start; flex-direction: column; }
+}

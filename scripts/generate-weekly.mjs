@@ -25,6 +25,8 @@
 
 import { extractProductTerms, validateSourceUrl } from './lib/source-validation.mjs';
 import { selectCandidateMaterials } from './lib/radar-policy.mjs';
+import { canUseMaterial, inferOperatingMarket, validateEditorialBrief, EDITORIAL_PROMPT, candidateMix } from '../lib/editorial-policy.mjs';
+const EDITORIAL_ENABLED = process.env.EDITORIAL_RESEARCH_ENABLED === 'true';
 import {
   MIN_WEEKLY_ITEMS,
   TARGET_WEEKLY_ITEMS,
@@ -96,6 +98,7 @@ async function callGLMOnce(sysPrompt, userPrompt, model, temperature, useTools) 
   }
   const res = await fetch(ZHIPU_API, {
     method: 'POST',
+    signal: AbortSignal.timeout(180000),
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${ZK}` },
     body: JSON.stringify(body)
   });
@@ -114,7 +117,7 @@ async function callGLMOnce(sysPrompt, userPrompt, model, temperature, useTools) 
     throw new Error(`无JSON(finish=${fr}): ${(content || txt).slice(0, 150)}`);
   }
   const items = JSON.parse(m[0]);
-  if (!Array.isArray(items) || items.length === 0) throw new Error(`仅${items?.length || 0}条`);
+  if (!Array.isArray(items) || (!EDITORIAL_ENABLED && items.length === 0)) throw new Error(`仅${items?.length || 0}条`);
   console.log(`   ✅ ${items.length} 条 | 模型=${model} | 联网=${useTools ? '开' : '关'} | tok in=${data.usage?.prompt_tokens} out=${data.usage?.completion_tokens}`);
   return items;
 }
@@ -122,12 +125,12 @@ async function callGLMOnce(sysPrompt, userPrompt, model, temperature, useTools) 
 // 双模型 × 3 次重试；useTools=true 全部失败后降级为无工具调用（只靠素材）
 async function callGLM(sysPrompt, userPrompt) {
   let lastErr;
-  for (const useTools of [true, false]) {
-    if (!useTools) console.log('   ⚠️ 联网搜索调用连续失败，降级为无工具调用（仅基于雷达素材）...');
+  for (const useTools of EDITORIAL_ENABLED ? [false] : [true, false]) {
+    if (!useTools) console.log(EDITORIAL_ENABLED ? '   证据限定模式：只使用已采集/核实的素材，不启用自由联网选题。' : '   ⚠️ 联网搜索调用连续失败，降级为无工具调用（仅基于雷达素材）...');
     for (const model of GLM_MODELS) {
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
-          return await callGLMOnce(sysPrompt, userPrompt, model, 0.5 + attempt * 0.1, useTools);
+          return await callGLMOnce(sysPrompt, userPrompt, model, EDITORIAL_ENABLED ? 0.2 : 0.5 + attempt * 0.1, useTools);
         } catch (e) {
           lastErr = e;
           if (e.congested) {
@@ -164,6 +167,8 @@ const BLOCK_KEYWORDS = [
 ];
 function isIndieRelevant(text) {
   const t = String(text || '');
+  // A merchant using Douyin, WeChat or an LLM is not a big-company news item.
+  if (EDITORIAL_ENABLED) return !/融资|获投|领投|估值|收购|并购|\bIPO\b|\bseries [a-z]\b/i.test(t);
   return !BLOCK_KEYWORDS.some(k => t.includes(k));
 }
 
@@ -254,7 +259,7 @@ async function main() {
     `/tweets?published_at=gte.${encodeURIComponent(cutoff)}&order=published_at.desc&limit=200`
   );
   // 确定性过滤：剔除大公司/资本事件素材，只留独立开发者相关
-  const published = (publishedRaw || []).filter(r => isIndieRelevant(`${r.title} ${r.summary}`));
+  const published = EDITORIAL_ENABLED ? [] : (publishedRaw || []).filter(r => isIndieRelevant(`${r.title} ${r.summary}`));
   const candidates = (candidatesRaw || []).filter(c => isIndieRelevant(`${c.title} ${c.snippet}`));
   const tweets = (tweetsRaw || []).filter(t => isIndieRelevant(t.content));
   const publishedAsCandidates = published.map(r => ({
@@ -262,12 +267,24 @@ async function main() {
     snippet: r.summary,
     fetched_at: r.published_at,
   }));
-  const materials = selectCandidateMaterials(
+  const sampled = selectCandidateMaterials(
     [...publishedAsCandidates, ...candidates],
     tweets,
     new Set(),
     54,
+    { domesticBalance: EDITORIAL_ENABLED },
   );
+  // This private table is service-role only. Do NOT pass lead_url or permission_note to the model/audit.
+  const research = EDITORIAL_ENABLED ? await sb('/editorial_research?status=eq.verified&order=verified_at.asc&limit=20') : [];
+  const verifiedCases = (research || []).map(r => ({
+    source_name: '编辑核实案例', source_url: r.source_url, title: r.title, snippet: r.excerpt,
+    source_access: r.rights_basis === 'author-permission' ? 'authorized' : 'public',
+    permission_verified: r.rights_basis === 'author-permission', editor_verified_at: r.verified_at,
+    research_id: r.id,
+  })).filter(r => canUseMaterial(r) && inferOperatingMarket(`${r.title} ${r.snippet}`) === 'domestic').slice(0, 2);
+  const materials = [...verifiedCases, ...sampled.filter(m => !verifiedCases.some(v => canonicalSourceUrl(v.source_url) === canonicalSourceUrl(m.source_url)))].slice(0, 54);
+  console.log('候选经营分布', JSON.stringify(candidateMix(materials)));
+  console.log(`本周国内核实案例待写 ${verifiedCases.length}/2；目标1–2篇，不足不凑数。`);
   const materialIndex = buildMaterialIndex(materials);
   const sourceCounts = materials.reduce((acc, material) => {
     acc[material.source_name] = (acc[material.source_name] || 0) + 1;
@@ -276,11 +293,11 @@ async function main() {
   console.log(`   快讯线索: ${(publishedRaw || []).length} → ${published.length} | 原始素材: ${(candidatesRaw || []).length} → ${candidates.length} | 推文: ${(tweetsRaw || []).length} → ${tweets.length}`);
   console.log(`   founder-first 入模: ${materials.length} 条 / ${Object.keys(sourceCounts).length} 个来源 | ${Object.entries(sourceCounts).map(([name, count]) => `${name}=${count}`).join(' · ')}`);
 
-  if (materials.length < MIN_WEEKLY_ITEMS) {
+  if (materials.length < (EDITORIAL_ENABLED ? 1 : MIN_WEEKLY_ITEMS)) {
     throw new Error(`可用真实素材仅 ${materials.length} 条，少于周报最低 ${MIN_WEEKLY_ITEMS} 条`);
   }
-  const materialText = materials.map((material, index) =>
-    `#${index + 1} [${material.source_name}] ${material.title}${material.snippet ? ` — ${String(material.snippet).slice(0, 260)}` : ''}\nURL: ${material.source_url}`
+  const formatMaterials = rows => rows.map((material, index) =>
+    `#${index + 1} [${material.source_name}] ${material.title}${material.snippet ? ` — ${String(material.snippet).slice(0, EDITORIAL_ENABLED ? 1600 : 260)}` : ''}\nURL: ${material.source_url}`
   ).join('\n---\n');
 
   // 3b. 去重：最近 12 条周报标题，避免跨周重复选题
@@ -293,17 +310,18 @@ async function main() {
   // 4. 深度拆解：模型只能从已抓取、带真实 URL 的候选池选题。
   const sysPrompt = '你是「AI OPC Weekly」的主编。你只能从用户提供的真实候选素材中选题，并原样复制素材 URL；绝不能创造产品名、链接、收入或事实。只返回 JSON 数组。';
 
-  function buildPrompt(excludeTitles, count) {
+  function buildPrompt(excludeTitles, count, batchMaterials) {
     const excludeHint = excludeTitles.length > 0
       ? `\n\n本期内已拆解的案例（必须避开，选完全不同的案例）：${excludeTitles.join('、')}`
       : '';
     return `以下是本周（${start}~${end}）由官方 API、RSS 或已跟踪账号实际抓取到的候选素材。URL 是唯一允许引用的证据白名单：
 
-${materialText}${dupHint}${excludeHint}
+${formatMaterials(batchMaterials)}${dupHint}${excludeHint}
 
-任务：只能从上方候选素材中选择 ${count} 个不同的真实产品或案例，各写一篇面向一人公司的深度拆解。可以联网阅读和理解候选 URL，但不得选择候选清单之外的产品，也不得输出清单之外的 refs URL。
+任务：只能从上方候选素材中选择最多 ${count} 个不同的真实产品或案例，各写一篇面向一人公司的深度拆解。${EDITORIAL_ENABLED ? '只使用提供的事实摘录，不假装已经打开或独立验证来源，不用训练记忆补充收入、用户或团队事实。' : '可以联网阅读和理解候选 URL。'}不得选择候选清单之外的产品，也不得输出清单之外的 refs URL。
 
 选题铁律（违反任何一条都坚决不收）：
+${EDITORIAL_ENABLED ? '不要凑数量；可以返回少于目标的条目。国内经营案例必须来自本批「编辑核实案例」。AI辅助设计、内容、电商、知识产品、小企业服务与软件同等考虑。证据未知明确标注，禁止承诺收入。' : ''}
 1. 主体必须是独立开发者、solo 创始人或不超过 5 人小团队的真实产品/项目；获风投融资（天使轮以上）的公司一律不收——融资金额再大，对一人创业者也没有可复制性
 2. 巨头（OpenAI / Google / Microsoft / Anthropic / 阿里 / 字节等）的产品动态不收，除非该动态给 solo 开发者带来可直接使用的免费资源或新渠道——此时按「工具红利」框架写：谁能用、怎么用、能省多少成本，而不是写公司本身
 3. 商业数据只允许使用候选素材或其 URL 页面明确披露的收入 / MRR / 用户量 / 定价；查不到就写"未披露"，严禁推测编造
@@ -312,6 +330,7 @@ ${materialText}${dupHint}${excludeHint}
 来源约束：refs 中每一个 URL 都必须逐字复制自上方候选清单。不要补充搜索结果 URL，不要猜测 Product Hunt、Indie Hackers、TrustMRR 或 X 链接。大公司融资、收购、人事、纯技术论文、与商业变现无关的更新，一律视为废稿。
 
 输出一个 JSON 数组（不要输出其他文字），恰好 ${count} 项，每项字段：
+${EDITORIAL_ENABLED ? EDITORIAL_PROMPT + '\n以上数量为上限，不是必达数量；团队人数未披露不应猜测，可分析一人交付的边界；标题用「真实中文项目名」或真实英文名。' : ''}
 - title: 中文标题（30字以内），必须包含产品/项目的真实名称（如 "ShipFast"、"Attie"、「即梦」这类专有名词），只有品类描述没有名字的（如「AI 营销邮件生成器」）说明你没找到真实案例，这种废稿不要输出
 - description: 180-300字中文，只使用候选素材及其 URL 中能够确认的事实；团队规模、收入或增长没有明确证据时写「未披露」，不用「你/你的」
 - insight: 100-150字中文，第一人称编辑判断（我/我看），核心回答「独立开发者怎么抄这个作业」：复刻切入点、所需技能、现实的 MVP 周期；有明确立场，敢泼冷水也敢给结论
@@ -340,10 +359,11 @@ ${materialText}${dupHint}${excludeHint}
     (Array.isArray(item.refs) ? item.refs : []).map(ref => canonicalSourceUrl(ref?.url)).filter(Boolean)
   ));
   for (let b = 0; b < MAX_BATCHES && deepdive.length < plan.needed; b++) {
-    const need = Math.min(DEEPDIVE_BATCH, plan.needed - deepdive.length);
+    const batchMaterials = b === 0 && verifiedCases.length ? verifiedCases : materials;
+    const need = Math.min(DEEPDIVE_BATCH, plan.needed - deepdive.length, batchMaterials.length);
     console.log(`\n   批次 ${b + 1}/${MAX_BATCHES}（还需 ${need} 篇）...`);
     try {
-      const raw = await callGLM(sysPrompt, buildPrompt([...existingTitles, ...deepdive.map(d => d.title)], need));
+      const raw = await callGLM(sysPrompt, buildPrompt([...existingTitles, ...deepdive.map(d => d.title)], need, batchMaterials));
       const mapped = raw.slice(0, need).map(it => ({
         title: String(it.title || '').slice(0, 200),
         description: String(it.description || '').slice(0, 900),
@@ -363,6 +383,7 @@ ${materialText}${dupHint}${excludeHint}
           .map(r => ({ label: String(r.label || '来源').slice(0, 50), url: String(r.url) })),
         tags: (Array.isArray(it.tags) ? it.tags : []).map(t => String(t).slice(0, 30)).slice(0, 3),
         section: 'deepdive',
+        ...(EDITORIAL_ENABLED ? { editorial_brief: it.editorial_brief } : {}),
       }));
       // 基础证据必须来自已抓取素材白名单；收入数字仍需直接打开原文逐字验证。
       for (const m of mapped) {
@@ -373,7 +394,7 @@ ${materialText}${dupHint}${excludeHint}
         const hasNumber = /\d/.test(m.mrr_range) && !m.mrr_range.includes('未披露');
         if (hasNumber) {
           let verified = false;
-          if (m.revenue_source_url && m.claim_quote) {
+          if (m.revenue_source_url && m.claim_quote && (!EDITORIAL_ENABLED || materialIndex.has(canonicalSourceUrl(m.revenue_source_url)))) {
             const okRefs = await validateExternalRefs(
               [{ label: 'revenue', url: m.revenue_source_url }],
               m.title,
@@ -398,7 +419,17 @@ ${materialText}${dupHint}${excludeHint}
       }
       const noRef = mapped.filter(m => m.refs.length === 0);
       for (const m of noRef) console.log(`   🚫 终审拒收（无有效信源 URL）: ${m.title}`);
-      const withRefs = mapped.filter(m => m.refs.length > 0);
+      const withRefs = mapped.filter(m => m.refs.length > 0).filter(m => {
+        if (!EDITORIAL_ENABLED) return true;
+        const material = materialIndex.get(canonicalSourceUrl(m.refs[0].url));
+        const checked = validateEditorialBrief(m.editorial_brief, material);
+        if (!checked.ok) { console.log(`拒收六问证据不全：${m.title} / ${checked.reason}`); return false; }
+        if (checked.brief.operating_market === 'domestic' && !material.editor_verified_at) {
+          console.log(`国内深度案例需先人工核对或授权：${m.title}`); return false;
+        }
+        m.editorial_brief = checked.brief;
+        return true;
+      });
 
       // 本期内按真实产品名与来源 URL 去重，不能再用“工具/助手”等泛词误杀。
       for (const m of withRefs) {
@@ -430,11 +461,13 @@ ${materialText}${dupHint}${excludeHint}
   deepdive.forEach((it, i) => { it.rank = plan.existingCount + i + 1; });
 
   const totalAfterRun = plan.existingCount + deepdive.length;
-  if (totalAfterRun < MIN_WEEKLY_ITEMS) {
+  if (totalAfterRun < MIN_WEEKLY_ITEMS && (!EDITORIAL_ENABLED || totalAfterRun === 0)) {
     throw new Error(`真实性终审后合计仅 ${totalAfterRun} 条，未达到至少 ${MIN_WEEKLY_ITEMS} 条；本次不写入，保留后续自动补跑机会`);
   }
 
   const news = deepdive;
+  const domesticCount = news.filter(it => it.editorial_brief?.operating_market === 'domestic').length;
+  console.log(`国内深度案例本次 ${domesticCount} 篇（目标1–2；不降低证据标准）。`);
   const summary = `本周 ${totalAfterRun} 个深度拆解：AI × 一人公司创业 / 商业 / 变现，全部附已抓取的真实证据来源。`;
 
   // 5. 写入（DRY_RUN 跳过）
@@ -451,7 +484,7 @@ ${materialText}${dupHint}${excludeHint}
       await sb('/weekly_issues', { method: 'POST', body: JSON.stringify({
         slug, issue_number: ni, year, week_number: wn, week_start: start, week_end: end,
         title: `AI OPC Weekly #${ni}`, summary,
-        cover_image: '', status: process.env.WEEKLY_DRAFT === 'true' ? 'draft' : 'published', published_at: new Date().toISOString()
+        cover_image: '', status: EDITORIAL_ENABLED || process.env.WEEKLY_DRAFT === 'true' ? 'draft' : 'published', published_at: new Date().toISOString()
       })});
       // 回查 id（INSERT 响应可能为空）
       const created = await sb(`/weekly_issues?slug=eq.${slug}&select=id&limit=1`);
@@ -480,6 +513,14 @@ ${materialText}${dupHint}${excludeHint}
       }
     }
     console.log(`   ✅ ${rows.length} 条 news_items`);
+    if (EDITORIAL_ENABLED) {
+      for (const r of verifiedCases) {
+        if (!news.some(n => canonicalSourceUrl(n.refs[0]?.url) === canonicalSourceUrl(r.source_url))) continue;
+        await sb(`/editorial_research?id=eq.${r.research_id}&status=eq.verified`, {
+          method: 'PATCH', body: JSON.stringify({ status: 'drafted', drafted_at: new Date().toISOString() }),
+        });
+      }
+    }
     await sb(`/weekly_issues?id=eq.${iid}`, {
       method: 'PATCH',
       body: JSON.stringify({ summary, published_at: new Date().toISOString() }),

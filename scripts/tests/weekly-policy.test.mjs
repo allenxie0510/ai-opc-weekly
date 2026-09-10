@@ -85,7 +85,8 @@ test('admin review and action routes expose item ids and single-item discard', (
   const review = readFileSync(resolve(root, 'app/api/admin/review/route.ts'), 'utf8');
   const publish = readFileSync(resolve(root, 'app/api/admin/publish/route.ts'), 'utf8');
   const admin = readFileSync(resolve(root, 'app/admin/page.tsx'), 'utf8');
-  assert.match(review, /select\('id, title, section, rank'\)/);
+  assert.match(review, /'id, title, section, rank'/);
+  assert.match(review, /'id, title, section, rank, editorial_brief'/);
   assert.match(publish, /type === 'news_item'/);
   assert.match(admin, /删除本条/);
 });

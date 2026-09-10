@@ -17,6 +17,8 @@ concurrency:
 
 jobs:
   generate:
+    env:
+      EDITORIAL_RESEARCH_ENABLED: ${{ vars.EDITORIAL_RESEARCH_ENABLED }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

@@ -3,6 +3,7 @@ import type { RadarItem } from '@/lib/types';
 import { AdminEditButton } from '@/components/admin-edit';
 import { RadarCover } from '@/components/radar-cover';
 import { ScoreBadge } from '@/components/score-badge';
+import { EditorialBrief } from '@/components/editorial-brief';
 
 export function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -67,6 +68,7 @@ export function RadarCard({ item }: { item: RadarItem }) {
         </div>
 
         {item.summary && <p className="radar-summary">{item.summary}</p>}
+        <EditorialBrief brief={item.editorial_brief} />
 
         {item.editor_note && (
           <blockquote className="radar-editor-note">

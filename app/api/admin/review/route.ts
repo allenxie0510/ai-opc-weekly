@@ -21,8 +21,8 @@ export async function GET(request: Request) {
   if (!db) return Response.json({ error: '后台数据服务未配置' }, { status: 503, headers });
   try {
     const [radarDrafts, weeklyRows, opportunityDrafts, radarRejected] = await Promise.all([
-      readAll(offset => db.from('radar_items').select('id,title,summary,source_name,source_url,score,category,pick_reason,editor_note,published_at')
-        .eq('status','draft').order('published_at', {ascending:false}).order('id').range(offset,offset+999).abortSignal(AbortSignal.timeout(8000))),
+      readAll(offset => db.from('radar_items').select(process.env.EDITORIAL_RESEARCH_ENABLED === 'true' ? 'id,title,summary,source_name,source_url,score,category,pick_reason,editor_note,published_at,editorial_brief' : 'id,title,summary,source_name,source_url,score,category,pick_reason,editor_note,published_at')
+        .eq('status','draft').order('published_at', {ascending:false}).order('id').range(offset,offset+999).abortSignal(AbortSignal.timeout(8000)).overrideTypes<Record<string, unknown>[], { merge: false }>()),
       readAll(offset => db.from('weekly_issues').select('id,slug,issue_number,title,summary,published_at,week_start,week_end')
         .eq('status','draft').order('published_at', {ascending:false}).order('id').range(offset,offset+999).abortSignal(AbortSignal.timeout(8000))),
       readAll(offset => db.from('opportunities').select('id,slug,title,thesis,category,score_total,evidence_grade,recommendation,editor_conviction,editor_take,evidence,cover_url,created_at')
@@ -32,8 +32,8 @@ export async function GET(request: Request) {
     ]);
     const weeklyDrafts = [];
     for (const issue of weeklyRows) {
-      const items = await readAll(offset => db.from('news_items').select('id, title, section, rank').eq('weekly_issue_id',issue.id)
-        .order('rank').order('id').range(offset,offset+999).abortSignal(AbortSignal.timeout(8000)));
+      const items = await readAll(offset => db.from('news_items').select(process.env.EDITORIAL_RESEARCH_ENABLED === 'true' ? 'id, title, section, rank, editorial_brief' : 'id, title, section, rank').eq('weekly_issue_id',issue.id)
+        .order('rank').order('id').range(offset,offset+999).abortSignal(AbortSignal.timeout(8000)).overrideTypes<Record<string, unknown>[], { merge: false }>());
       weeklyDrafts.push({...issue,items});
     }
     return Response.json({radarDrafts,weeklyDrafts,opportunityDrafts,radarRejected}, {headers});
