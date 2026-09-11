@@ -36,7 +36,7 @@ export async function reviewWithEditorialRepair(materials, review, repair = revi
     for (const item of retry.items) {
       const material = retryMaterials.find(m => m.source_url === item.source_url);
       try { assertEditorialReview({ items: [item] }, [material]); result.items.push(item); }
-      catch { result.rejected.push({ source_url: item.source_url, reason: 'review-invalid: 六问引用或字段未通过校验，保留后续重试，不作为内容拒稿缓存' }); }
+      catch (error) { result.rejected.push({ source_url: item.source_url, reason: `review-invalid: ${error.message}` }); console.warn(`证据提取未通过 ${item.source_url}: ${error.message}`); }
     }
   } catch {
     result.rejected.push(...retryMaterials.map(m => ({ source_url: m.source_url, reason: 'review-unavailable: 格式修复服务失败，保留后续重试' })));

@@ -34,7 +34,9 @@ globalThis.fetch = async (input, init = {}) => {
    assert.match(body.messages[1].content, /"editorial_brief":/);
    if (calls > 1) assert.match(body.messages[1].content, /校验反馈/);
    const { editorial_brief, ...old } = item;
-   return Response.json({ choices: [{ message: { content: JSON.stringify({ items: [calls === 1 ? old : item], rejected: [] }) } }] });
+   const repaired = { source_url: item.source_url, evidence_quote_id: 'q1', opc_value: { ...item.opc_value, audience_quote_id: 'q1', workflow_quote_id: 'q1' },
+     editorial_brief: { ...editorial_brief, market_quote_id: 'q1', answers: Object.fromEntries(Object.entries(editorial_brief.answers).map(([key, field]) => [key, { ...field, quote_id: field.basis === 'source' ? 'q1' : '' }])) } };
+   return Response.json({ choices: [{ message: { content: JSON.stringify({ items: [calls === 1 ? old : repaired], rejected: [] }) } }] });
  }
  assert.equal(url.hostname, 'test-db.example');
  if (init.method === 'POST') {

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { assertReviewCoverage, assertEditorialReview, reviewWithEditorialRepair, cacheableReviewMaterials, reviewInBatches } from '../lib/radar-review.mjs';
 import { EDITORIAL_BRIEF_TEMPLATE } from '../../lib/editorial-policy.mjs';
 import { readFileSync } from 'node:fs';
+import { quoteIndex, resolveQuoteIds } from '../lib/editorial-quotes.mjs';
 
 test('每条素材必须明确接受或拒绝，不允许模型默默漏看', () => {
   const materials = [{ source_url: 'https://a.test/1' }, { source_url: 'https://a.test/2' }];
@@ -72,4 +73,17 @@ test('后续批次服务故障不能抹掉已验证批次，故障素材保留�
   assert.equal(result.items.length, 1);
   assert.match(result.rejected[0].reason, /^review-unavailable/);
   assertReviewCoverage(result, materials);
+});
+
+test('原文编号解析不接受模型改写、未知编号或其他来源的引文', () => {
+  const material = { title: '真实来源测试', snippet: 'AI 帮商家生成商品图并交由设计师审核后交付。' };
+  const quotes = quoteIndex(material);
+  const raw = { evidence_quote_id: 'q1', evidence_quote: '模型编造的原文', opc_value: { audience_quote_id: 'q999', workflow_quote_id: 'q1' },
+    editorial_brief: { answers: { ai_role: { basis: 'source', answer: 'AI生成商品图', quote_id: 'q1', quote: '伪造' }, risk: { basis: 'inference', quote_id: 'q1' } } } };
+  const result = resolveQuoteIds(raw, material);
+  assert.equal(result.evidence_quote, quotes.q1);
+  assert.equal(result.opc_value.audience_quote, '');
+  assert.equal(result.editorial_brief.answers.ai_role.quote, quotes.q1);
+  assert.equal(result.editorial_brief.answers.risk.quote, '');
+  assert.notEqual(resolveQuoteIds(raw, { title: '完全不同的另一条来源正文', snippet: '' }).evidence_quote, quotes.q1);
 });
