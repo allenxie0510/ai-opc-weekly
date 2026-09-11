@@ -53,14 +53,15 @@ const AUDIENCE_RE = /\b(founders?|freelancers?|creators?|consultants?|agencies|a
 const CASE_EVIDENCE_RE = /\b\d[\d,.]*\s*(?:paying customers|paid users|customers|clients|subscribers)\b|\b(?:mrr|revenue|profit|conversion|retention)\s*(?:of|:|to|is|at)?\s*[$€£¥]?\s*\d|[$€£¥]\s*\d[\d,.]*\s*(?:k\s*)?(?:mrr|revenue|profit)\b|\d+\s*(?:付费用户|客户)|(?:收入|盈利|转化率|留存率)\s*[:：为达至]?\s*[$¥￥]?\d/i;
 const NARRATIVE_HOOK_RE = /\b(?:accidentally|by accident|forced to (?:launch|ship)|spent \d[\d,.]* (?:hours|days|months)|roast my|please (?:upvote|support)|went viral|you won't believe|quit my job|got fired)\b|误发|意外(?:上线|发布)|被迫上线|熬夜|一夜爆红|跪求|震惊|炸裂|辞职创业/i;
 export const OPC_VALUE_KINDS = ['acquisition', 'delivery', 'operations', 'building', 'monetization', 'case-study'];
-const DOMESTIC_WORKFLOW_RE = /选品|一件代发|店铺|商品图|电商|代运营|知识付费|知识产品|付费专栏|短视频制作|剪辑|课件|排版|财税|记账|合同审阅|企业服务/;
+const DOMESTIC_WORKFLOW_RE = /选品|一件代发|店铺|商品图|电商|代运营|知识付费|知识产品|付费专栏|短视频制作|短视频配乐|广告配乐|字幕|人声分离|剪辑|课件|排版|财税|记账|合同审阅|企业服务|代码生成|代码调试|断点续传/;
+const DOMESTIC_AUDIENCE_RE = /程序员|内容运营|独立音乐人|视频制作者|自媒体|店主|卖家|中小企业/;
 
 export function assessCandidate(row = {}, now = Date.now()) {
   if (row.source_url && !canUseMaterial(row)) return { eligible: false, reason: 'source-not-cleared', utility: 0 };
   const title = String(row.title || '');
   const text = `${title} ${row.snippet || ''}`;
   const workflow = BUSINESS_WORKFLOW_RE.test(text) || DOMESTIC_WORKFLOW_RE.test(text);
-  const audience = AUDIENCE_RE.test(text);
+  const audience = AUDIENCE_RE.test(text) || DOMESTIC_AUDIENCE_RE.test(text);
   const caseEvidence = CASE_EVIDENCE_RE.test(text);
   const date = Date.parse(row.published_at);
   if (Number.isFinite(date) && (date < now - 7 * 86400000 || date > now + 3600000)) return { eligible: false, reason: 'outside-signal-window', utility: 0 };
@@ -168,7 +169,17 @@ export function selectCandidateMaterials(candidates = [], tweets = [], seenUrls 
     for (const r of domestic) { if (result.length >= Math.ceil(maxTotal / 2)) break; add(r); }
     const domesticCount = result.length;
     const otherBudget = Math.floor(maxTotal / 2);
-    for (const r of rest) { if (result.length - domesticCount >= otherBudget) break; add(r); }
+    // Unknown geography is not overseas. Interleave sources so English PH rows
+    // cannot occupy every unknown slot and starve Chinese public-feed leads.
+    const restGroups = new Map();
+    for (const r of rest) {
+      if (!restGroups.has(r.source_name)) restGroups.set(r.source_name, []);
+      restGroups.get(r.source_name).push(r);
+    }
+    for (const r of roundRobin([...restGroups.values()].map(items => ({ items })), rest.length)) {
+      if (result.length - domesticCount >= otherBudget) break;
+      add(r);
+    }
     return result;
   }
 

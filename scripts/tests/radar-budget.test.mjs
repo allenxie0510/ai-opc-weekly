@@ -2,6 +2,19 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { RADAR_BUDGET, reviewCapacity, beijingDayStart, selectIntake, leanEligible, materialKey, recentlyReviewed, readReviewLoad } from '../lib/radar-budget.mjs';
 import { fetchProductHunt } from '../lib/producthunt-source.mjs';
+import { selectCandidateMaterials } from '../lib/radar-policy.mjs';
+import { candidateMix } from '../../lib/editorial-policy.mjs';
+
+test('中文配乐和代码工作流不误筛，未知地区按来源轮转、不冒充国内', () => {
+  const chinese = { source_name: 'w2solo', source_url: 'https://example.com/cn', title: '测试AI音乐工具', snippet: '为独立音乐人和短视频创作者提供短视频配乐与人声分离。' };
+  assert.equal(leanEligible(chinese), true);
+  assert.equal(leanEligible({ ...chinese, snippet: '面向程序员的 AI 编程工具，支持断点续传。' }), true);
+  const ph = Array.from({ length: 15 }, (_, i) => ({ source_name: 'Product Hunt', source_url: `https://example.com/ph${i}`, title: 'AI design', snippet: 'AI design tools for freelancers with workflows.' }));
+  const selected = selectCandidateMaterials([...ph, chinese], [], new Set(), 12, { domesticBalance: true });
+  assert.ok(selected.some(m => m.source_url === chinese.source_url));
+  assert.equal(candidateMix(selected).counts.domestic, 0);
+  assert.ok(selected.length <= 12);
+});
 
 test('每轮3/每日6/待审12，使用剩余容量，不因反复点击不断新增', () => {
   assert.equal(reviewCapacity(), 3);

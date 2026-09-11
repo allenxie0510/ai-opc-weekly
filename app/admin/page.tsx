@@ -10,6 +10,7 @@ import { AdminPublished } from '@/components/admin-published';
 import { sourceCoverageGrade } from '@/lib/evidence-policy.mjs';
 import { EditorialBrief } from '@/components/editorial-brief';
 import { AdminResearch } from '@/components/admin-research';
+import { AdminPipeline } from '@/components/admin-pipeline';
 import type { EditorialBrief as Brief } from '@/lib/editorial-policy.mjs';
 
 type RadarDraft = {
@@ -82,6 +83,7 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const [pipelineRefresh, setPipelineRefresh] = useState(0);
   // 编辑态：editing = { type, id } | null；editForm 为正在编辑的字段副本
   const [editing, setEditing] = useState<{ type: 'radar' | 'weekly' | 'opportunity'; id: string } | null>(null);
   const [editForm, setEditForm] = useState<Record<string, string | number>>({});
@@ -196,6 +198,7 @@ export default function AdminPage() {
       if (!res.ok) {
         setMessage(data.error || '操作失败');
       } else {
+        setPipelineRefresh(value => value + 1);
         setMessage(
           action === 'publish'
             ? `已发布 ${data.affected} 条（前台即时生效）`
@@ -233,14 +236,15 @@ export default function AdminPage() {
       if (!res.ok) {
         setMessage(data.error || '触发失败');
       } else {
+        setPipelineRefresh(value => value + 1);
         setMessage(
           workflow === 'daily-radar'
-            ? '已触发信源抓取与分批审核，通常需数分钟；完成后点「刷新待办」查看新草稿'
+            ? '已提交每日信号任务，通常需数分钟；草稿将直接送到本页，完成后自动刷新（编辑中除外）'
             : workflow === 'weekly-newsletter'
-              ? '已触发周报生成，约 3–5 分钟后点「刷新」查看草稿'
+              ? '已提交周报任务；完成后自动刷新待审内容。本周已发布时不会重复生成'
               : opts?.rescoreOnly
                 ? '已触发评分复评，约 1–2 分钟完成，结果见机会详情页「评分轨迹」'
-                : '已触发机会生产线，约 3–5 分钟后点「刷新」查看机会草稿',
+                : '已提交机会任务，完成后自动刷新待审内容；证据不足不会生成凑数草稿',
         );
       }
     } catch {
@@ -408,6 +412,7 @@ export default function AdminPage() {
                 {view === 'overview' && <AdminAnalytics />}
                 {view === 'published' && <><h2 className="admin-view-title">已发布内容</h2><AdminPublished token={token} externalBusy={busy} onChanged={() => void load(token, true)} onDirtyChange={setPublishedDirty} onBusyChange={setPublishedBusy} /></>}
                 {view === 'pending' && <>
+                  <AdminPipeline token={token} refreshKey={pipelineRefresh} onComplete={() => { if (!editing && !busy && !publishedDirty) void load(token, true); }} />
                   <div className="admin-section-head"><h2 className="admin-view-title">待审核</h2><button className="admin-btn" disabled={loading || busy} onClick={() => { if (editing && !confirm('编辑尚未保存，确认刷新并放弃修改？')) return; cancelEdit(); void load(token); }}>{loading ? '刷新中…' : '刷新待办'}</button></div>
                   <div className="admin-filter-tabs" role="group" aria-label="待审核内容类型">
                     <button className="admin-btn" aria-pressed={pendingType === 'radar'} disabled={busy} onClick={() => switchPending('radar')}>每日信号 · {radarDrafts.length}</button>
@@ -452,7 +457,7 @@ export default function AdminPage() {
                 )}
               </div>
 
-              <p className="admin-item-meta">精选模式每轮最多新增 3 条、每天最多 6 条；待审达到 12 条暂停新增。抓取素材不等于待办。GitHub 手动运行请勿勾选 dry_run 或 readiness_only，完成后刷新此页。</p>
+              <p className="admin-item-meta">精选模式每轮最多新增 3 条、每天最多 6 条；待审达到 12 条暂停新增。通过筛选的内容直接进入下方待审核列表，无需到其他平台审核。</p>
 
               {radarDrafts.length === 0 ? (
                 <p className="admin-empty">没有待审核的雷达条目</p>

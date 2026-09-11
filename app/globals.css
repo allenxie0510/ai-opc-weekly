@@ -871,6 +871,15 @@ footer p + p { margin-top: 4px; }
 .admin-item-title { font-size: 15px; font-weight: 600; color: var(--color-ink); text-decoration: none; line-height: 1.4; }
 a.admin-item-title:hover { color: var(--color-blue); }
 .admin-item-meta { font-size: 12px; color: var(--color-stone); }
+.admin-pipeline { margin-bottom: 28px; }
+.admin-pipeline h2 { font-size: 16px; margin-bottom: 8px; }
+.admin-pipeline-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
+.admin-pipeline-grid article { border: 1px solid var(--color-line, #e5e7eb); border-radius: 12px; padding: 16px; }
+.admin-pipeline-grid h3 { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; }
+.admin-pipeline-grid h3 span { font-size: 12px; font-weight: 400; color: var(--color-stone); }
+.admin-pipeline-grid p { font-size: 13px; line-height: 1.7; margin-top: 8px; }
+.admin-pipeline-grid .admin-item-meta { font-size: 12px; }
+@media (max-width: 900px) { .admin-pipeline-grid { grid-template-columns: minmax(0, 1fr); } }
 .admin-item-reason { font-size: 12px; color: var(--color-blue); }
 .admin-item-summary { font-size: 13px; color: var(--color-slate); line-height: 1.55; }
 .admin-item-note {

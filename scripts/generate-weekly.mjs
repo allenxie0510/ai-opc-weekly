@@ -25,7 +25,7 @@
 
 import { extractProductTerms, validateSourceUrl } from './lib/source-validation.mjs';
 import { selectCandidateMaterials } from './lib/radar-policy.mjs';
-import { canUseMaterial, inferOperatingMarket, validateEditorialBrief, EDITORIAL_PROMPT, candidateMix } from '../lib/editorial-policy.mjs';
+import { canUseMaterial, inferOperatingMarket, validateEditorialBrief, EDITORIAL_PROMPT, EDITORIAL_BRIEF_TEMPLATE, assertEditorialShape, candidateMix } from '../lib/editorial-policy.mjs';
 const EDITORIAL_ENABLED = process.env.EDITORIAL_RESEARCH_ENABLED === 'true';
 import {
   MIN_WEEKLY_ITEMS,
@@ -118,6 +118,7 @@ async function callGLMOnce(sysPrompt, userPrompt, model, temperature, useTools) 
   }
   const items = JSON.parse(m[0]);
   if (!Array.isArray(items) || (!EDITORIAL_ENABLED && items.length === 0)) throw new Error(`仅${items?.length || 0}条`);
+  if (EDITORIAL_ENABLED) assertEditorialShape(items);
   console.log(`   ✅ ${items.length} 条 | 模型=${model} | 联网=${useTools ? '开' : '关'} | tok in=${data.usage?.prompt_tokens} out=${data.usage?.completion_tokens}`);
   return items;
 }
@@ -130,7 +131,7 @@ async function callGLM(sysPrompt, userPrompt) {
     for (const model of GLM_MODELS) {
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
-          return await callGLMOnce(sysPrompt, userPrompt, model, EDITORIAL_ENABLED ? 0.2 : 0.5 + attempt * 0.1, useTools);
+          return await callGLMOnce(sysPrompt, userPrompt + (EDITORIAL_ENABLED && lastErr ? `\n上次格式校验失败：${lastErr.message.slice(0, 350)}。请重新输出完整数组，证据不足可返回空数组，不能省略必填字段。` : ''), model, EDITORIAL_ENABLED ? 0.2 : 0.5 + attempt * 0.1, useTools);
         } catch (e) {
           lastErr = e;
           if (e.congested) {
@@ -329,7 +330,7 @@ ${EDITORIAL_ENABLED ? '不要凑数量；可以返回少于目标的条目。国
 
 来源约束：refs 中每一个 URL 都必须逐字复制自上方候选清单。不要补充搜索结果 URL，不要猜测 Product Hunt、Indie Hackers、TrustMRR 或 X 链接。大公司融资、收购、人事、纯技术论文、与商业变现无关的更新，一律视为废稿。
 
-输出一个 JSON 数组（不要输出其他文字），恰好 ${count} 项，每项字段：
+输出一个 JSON 数组（不要输出其他文字），${EDITORIAL_ENABLED ? '最多' : '恰好'} ${count} 项，每项字段：
 ${EDITORIAL_ENABLED ? EDITORIAL_PROMPT + '\n以上数量为上限，不是必达数量；团队人数未披露不应猜测，可分析一人交付的边界；标题用「真实中文项目名」或真实英文名。' : ''}
 - title: 中文标题（30字以内），必须包含产品/项目的真实名称（如 "ShipFast"、"Attie"、「即梦」这类专有名词），只有品类描述没有名字的（如「AI 营销邮件生成器」）说明你没找到真实案例，这种废稿不要输出
 - description: 180-300字中文，只使用候选素材及其 URL 中能够确认的事实；团队规模、收入或增长没有明确证据时写「未披露」，不用「你/你的」
@@ -343,6 +344,7 @@ ${EDITORIAL_ENABLED ? EDITORIAL_PROMPT + '\n以上数量为上限，不是必达
 - mvp_time: 真实开发周期信息，查不到填 "未披露"
 - refs: 1-3个真实 URL，格式 [{"label":"来源名","url":"https://..."}]，每个 URL 必须逐字复制自上方候选清单；至少包含该案例对应的候选 URL
 - tags: 2-3个中文标签
+${EDITORIAL_ENABLED ? `- editorial_brief: 每个数组条目内必须包含此对象（按本条原文填写，不复制示例占位文字）：${JSON.stringify(EDITORIAL_BRIEF_TEMPLATE)}` : ''}
 
 要求：
 - 严禁编造 URL 和数字；所有数字必须能在公开来源中找到，查不到就写"未披露"

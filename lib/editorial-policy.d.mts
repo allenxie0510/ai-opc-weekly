@@ -19,3 +19,5 @@ export function publishableBrief(brief: unknown): boolean;
 export function candidateMix(materials: Record<string, unknown>[]): { counts: Record<string, number>; total: number; domestic_share: number; target: number; shortfall: number };
 export function validateEditorialBrief(raw: unknown, material: Record<string, unknown>): { ok: boolean; reason?: string; brief?: EditorialBrief };
 export const EDITORIAL_PROMPT: string;
+export const EDITORIAL_BRIEF_TEMPLATE: Record<string, unknown>;
+export function assertEditorialShape(items: Record<string, unknown>[]): void;

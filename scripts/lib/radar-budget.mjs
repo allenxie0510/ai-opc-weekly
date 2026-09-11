@@ -6,8 +6,8 @@ import { canonicalSourceUrl } from './feed-parser.mjs';
 
 export const RADAR_BUDGET = Object.freeze({ intake: 24, model: 12, perRun: 3, perDay: 6, pending: 12 });
 export const LEAN_SOURCES = { w2solo: 6, 'V2EX 分享创造': 6, '少数派': 3, 'Product Hunt': 6, 'Show HN': 3, 'BetaList AI': 3 };
-const STATE_PATH = '.cache/editorial-ingestion/review-v4.json';
-const POLICY = 'lean-opc-v4';
+const STATE_PATH = '.cache/editorial-ingestion/review-v5.json';
+const POLICY = 'lean-opc-v5';
 
 export function reviewCapacity({ pending = 0, today = 0 } = {}) {
   return Math.max(0, Math.min(RADAR_BUDGET.perRun, RADAR_BUDGET.pending - pending, RADAR_BUDGET.perDay - today));

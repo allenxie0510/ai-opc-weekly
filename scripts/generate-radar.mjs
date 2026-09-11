@@ -16,10 +16,10 @@ import { readFileSync, writeFileSync, appendFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { assessCandidate, filterRadarItems, selectCandidateMaterials } from './lib/radar-policy.mjs';
-import { candidateMix, EDITORIAL_PROMPT } from '../lib/editorial-policy.mjs';
+import { candidateMix, EDITORIAL_PROMPT, EDITORIAL_BRIEF_TEMPLATE } from '../lib/editorial-policy.mjs';
 const EDITORIAL_ENABLED = process.env.EDITORIAL_RESEARCH_ENABLED === 'true';
 import { canonicalSourceUrl } from './lib/feed-parser.mjs';
-import { assertReviewCoverage, reviewInBatches } from './lib/radar-review.mjs';
+import { assertReviewCoverage, assertEditorialReview, cacheableReviewMaterials, reviewInBatches } from './lib/radar-review.mjs';
 import { RADAR_BUDGET, readReviewLoad, loadReviewState, recentlyReviewed, saveReviewed, leanEligible } from './lib/radar-budget.mjs';
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
@@ -179,6 +179,7 @@ async function callGLMOnce(sysPrompt, userPrompt, model, temperature, materials)
   const parsed = JSON.parse(m[0]);
   if (!Array.isArray(parsed.items)) throw new Error('items 字段不是数组');
   assertReviewCoverage(parsed, materials);
+  if (EDITORIAL_ENABLED) assertEditorialReview(parsed, materials);
   console.log(`   ✅ 模型候选 ${parsed.items.length} 条 | 模型=${model} | tok in=${data.usage?.prompt_tokens} out=${data.usage?.completion_tokens}`);
   return parsed;
 }
@@ -188,7 +189,7 @@ async function callGLM(sysPrompt, userPrompt, materials) {
   for (const model of GLM_MODELS) {
       for (let attempt = 0; attempt < (EDITORIAL_ENABLED ? 2 : 3); attempt++) {
       try {
-        return await callGLMOnce(sysPrompt, userPrompt, model, 0.2, materials);
+        return await callGLMOnce(sysPrompt, userPrompt + (lastErr ? `\n上次输出未通过校验：${lastErr.message.slice(0, 500)}。重新输出完整 JSON，不改变事实标准。` : ''), model, 0.2, materials);
       } catch (e) {
         lastErr = e;
         if (e.congested) {
@@ -253,7 +254,7 @@ async function main() {
   console.log('经营地区候选分布（未知不算国内）', JSON.stringify(mix));
   const seenCanonical = new Set([...seenUrls].map(canonicalSourceUrl));
   const materialUrls = new Set(materials.map(m => canonicalSourceUrl(m.source_url)));
-  const audit = { policy: EDITORIAL_ENABLED ? 'lean-opc-v4' : 'opc-business-value-v2', budget: RADAR_BUDGET, load, candidate_mix: mix, generated_at: new Date().toISOString(), dry_run: DRY_RUN, materials, decisions: [...candidates, ...tweetMaterials].map(c => {
+  const audit = { policy: EDITORIAL_ENABLED ? 'lean-opc-v5' : 'opc-business-value-v2', budget: RADAR_BUDGET, load, candidate_mix: mix, generated_at: new Date().toISOString(), dry_run: DRY_RUN, materials, decisions: [...candidates, ...tweetMaterials].map(c => {
     const assessment = assessCandidate(c);
     const url = canonicalSourceUrl(c.source_url);
     return { source_name: c.source_name, title: c.title, source_url: c.source_url,
@@ -334,6 +335,7 @@ ${EDITORIAL_ENABLED ? EDITORIAL_PROMPT : ''}
       "signal_type": "必须是以下之一: product（新产品/功能）/ launch（发布上线）/ funding（融资）/ m-and-a（收购并购）/ model（模型或API变化）/ policy（政策监管）/ metric（收入或增长数据披露）",
       "category": "必须是以下之一: micro-saas / design-assets / automation / content-monetize / indie-tool / digital-product / other",
       "company_scale": "必须是以下之一: solo / small-team / large-company / unknown；素材未写则 unknown",
+      ${EDITORIAL_ENABLED ? `"editorial_brief": ${JSON.stringify(EDITORIAL_BRIEF_TEMPLATE)},` : ''}
       "opc_value": {
         "kind": "acquisition / delivery / operations / building / monetization / case-study 之一",
         "audience_quote": "素材中逐字引用8–160字符，指向创业者、自由职业者、创作者、开发者、商家、客户或个人业务对象；不能凭空补写",
@@ -463,18 +465,17 @@ ${EDITORIAL_ENABLED ? EDITORIAL_PROMPT : ''}
   if (EDITORIAL_ENABLED) {
     // Hard rejections are not sent through the LLM again for seven days unless
     // their content changes. Quota-deferred items remain available next run.
-    const deferred = new Set(filtered.rejected.filter(r => ['source-cap', 'daily-cap', 'building-tools-cap', 'large-company-cap'].includes(r.reason)).map(r => r.source_url));
-    saveReviewed(materials.filter(m => !deferred.has(m.source_url)), reviewState);
+    saveReviewed(cacheableReviewMaterials(materials, filtered.rejected), reviewState);
   }
   if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `\n### 后台交付\n\n本轮已写入 **${items.length} 条草稿**，到 /admin → 待审核 → 每日信号查看；筛选素材不是待办。\n`);
 
   // 6. 汇总
   console.log('\n📊 汇总:');
   console.log(`   收录 ${items.length} 条 → status = '${itemStatus}'`);
-  if (!AUTO_PUBLISH) {
-    console.log('\n⏳ 当前为 draft 模式：请到 Supabase 后台 radar_items 表人工审核，');
-    console.log('   把 status 从 draft 改为 published 后才会出现在 /radar 页面。');
+  if (!AUTO_PUBLISH && items.length > 0) {
+    console.log('\n⏳ 草稿已送达 /admin → 待审核 → 每日信号，审核发布后才会出现在前台。');
   }
+  if (!items.length) console.warn('本轮没有新增后台草稿：候选未通过终审，不应将任务执行完成视为推送成功。');
   console.log('\n✅ OPC Radar 生成完成');
   console.log('🌐 https://www.aiopcnews.com/radar');
 }

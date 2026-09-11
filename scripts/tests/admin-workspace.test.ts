@@ -6,6 +6,7 @@ import { GET as content } from '../../app/api/admin/content/route';
 import { GET as review } from '../../app/api/admin/review/route';
 import { POST as publish } from '../../app/api/admin/publish/route';
 import { POST as edit } from '../../app/api/admin/edit/route';
+import { GET as pipeline } from '../../app/api/admin/pipeline/route';
 
 async function isolated(run: (request: (path: string, body?: object) => Request) => Promise<void>, fetcher: typeof fetch) {
   const keys = ['ADMIN_PASSWORD', 'NEXT_PUBLIC_SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'] as const;
@@ -33,11 +34,30 @@ test('内容查询参数、分页边界和通配符转义', () => {
 });
 
 test('后台接口拒绝匿名用户且禁用缓存', async () => {
-  for (const get of [content, review]) {
+  for (const get of [content, review, pipeline]) {
     const result = await get(new Request('https://example.com/api/admin/content'));
     assert.equal(result.status, 401);
     assert.match(result.headers.get('cache-control') || '', /private, no-store/);
   }
+});
+
+test('后台执行成功但0新增不能冒充交付；接口不向前端泄露任务凭证', async () => {
+  const saved = process.env.GITHUB_PAT;
+  process.env.GITHUB_PAT = 'test-github-secret';
+  try {
+    await isolated(async request => {
+      const response = await pipeline(request('/api/admin/pipeline'));
+      assert.equal(response.status, 200);
+      const data = await response.json();
+      assert.equal(data.pipelines[0].state, 'empty');
+      assert.match(data.pipelines[0].message, /不代表推送成功/);
+      assert.equal(JSON.stringify(data).includes('test-github-secret'), false);
+    }, async input => {
+      const url = new URL(String(input));
+      if (url.hostname === 'api.github.com') return Response.json({ workflow_runs: [{ id: 1, status: 'completed', conclusion: 'success', run_started_at: '2026-09-11T00:00:00Z', updated_at: '2026-09-11T00:05:00Z' }] });
+      return new Response(null, { headers: { 'content-range': '*/0' } });
+    });
+  } finally { if (saved === undefined) delete process.env.GITHUB_PAT; else process.env.GITHUB_PAT = saved; }
 });
 
 test('已发布搜索使用数据库全历史分页、准确总数与参数转义', async () => {

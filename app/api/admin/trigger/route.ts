@@ -43,6 +43,7 @@ export async function POST(req: NextRequest) {
   // weekly-opportunities 支持两个输入：rescore_only（跳过生成只复评）/
   // force_rescore（无相关信号也用全站 top 信号强制复评，校准路径验证用）
   const dispatchBody: { ref: string; inputs?: Record<string, string> } = { ref: 'main' };
+  if (body.workflow === 'daily-radar') dispatchBody.inputs = { dry_run: 'false', readiness_only: 'false' };
   if (body.workflow === 'weekly-opportunities') {
     const inputs: Record<string, string> = {};
     if (body.rescore_only) inputs.rescore_only = 'true';
