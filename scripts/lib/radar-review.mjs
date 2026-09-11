@@ -8,7 +8,12 @@ export function assertEditorialReview(result, materials) {
   for (const item of result.items || []) {
     const material = materials.find(m => m.source_url === item.source_url);
     const checked = material && validateEditorialBrief(item.editorial_brief, material);
-    if (!checked?.ok) throw new Error(`六问校验失败：${checked?.reason || 'unknown-source'}。仅用本条原文补齐；引用不翻译、不拼接，地区不明确填 unknown；确无证据请放入 rejected`);
+    if (!checked?.ok) {
+      const key = checked?.reason?.replace(/^missing-answer-/, '');
+      const field = item.editorial_brief?.answers?.[key];
+      const detail = checked?.reason?.startsWith('missing-answer-') ? `（answer=${JSON.stringify(field?.answer)}, basis=${JSON.stringify(field?.basis)}）` : '';
+      throw new Error(`六问校验失败：${checked?.reason || 'unknown-source'}${detail}。仅用本条原文补齐；引用不翻译、不拼接，地区不明确填 unknown；确无证据请放入 rejected`);
+    }
     const gate = filterRadarItems([item], [material], { requireEditorialBrief: true });
     const reason = gate.rejected[0]?.reason || '';
     if (/^(evidence-quote|opc-value-quotes|missing-copy|missing-concrete-opc-value)/.test(reason)) throw new Error(`条目格式/引用校验失败：${reason}；只从该URL素材逐字复制引文，补全必填字段，无法支撑则 rejected`);

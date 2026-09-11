@@ -39,6 +39,18 @@ test('六问必须有来源支撑；收入未知可保留，引用存在不等�
   assert.equal(validateEditorialBrief({ ...brief(), operating_market: 'china-outbound' }, material).ok, false);
 });
 
+test('付费对象短称与坦白未披露不能被当成字段缺失；发布端采用同一标准', () => {
+  for (const answer of ['商家', '开发者', '创作者', '未披露']) {
+    const raw = brief(); raw.answers.payer = { answer, basis: answer === '未披露' ? 'unknown' : 'inference', quote: '' };
+    raw.answers.solo_delivery = { answer: '未披露', basis: 'unknown', quote: '' };
+    const checked = validateEditorialBrief(raw, material);
+    assert.equal(checked.ok, true, answer);
+    assert.equal(publishableBrief(checked.brief), true);
+  }
+  const raw = brief(); raw.answers.payer.answer = '';
+  assert.equal(validateEditorialBrief(raw, material).ok, false);
+});
+
 test('付费社群在入库预筛、候选、六问和发布门槛均不可作公共证据', () => {
   for (const url of ['https://scys.com/articleDetail/xq_topic/123', 'https://wx.zsxq.com/group/init', 'https://scys.com./post']) {
     const privateMaterial = { ...material, source_url: url, source_access: 'private' };

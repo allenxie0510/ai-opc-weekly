@@ -394,7 +394,7 @@ ${EDITORIAL_ENABLED ? EDITORIAL_PROMPT : ''}
 校验反馈：${feedback}\n
 输出一个JSON对象 {"items": [...], "rejected": [...]}，覆盖本批所有 ${subset.length} 个URL。每个 items 元素必须包含以下完整结构：
 {"source_url":"逐字复制URL","editorial_brief":${JSON.stringify(evidenceSchema)},"evidence_quote_id":"q1","opc_value":{"kind":"acquisition/delivery/operations/building/monetization/case-study 之一","audience_quote_id":"q1","workflow_quote_id":"q2","next_action":"基于实际功能的拟议测试，至少12字符","limitation":"未核实的成本/效果/经营数据，至少8字符"}}
-六问答案必须放在 editorial_brief.answers 内，不能省略。answer用中文4–360字符。basis只能是source/inference/unknown；problem、ai_role、evidence必须是source并选择能支撑回答的本URL片段编号。其余未知明确写未知，推断标inference且quote_id为空。不要输出任何quote文字，只输出本URL真实的quote_id，由程序填回原文。
+六问答案必须放在 editorial_brief.answers 内，不能省略。answer用中文，不超过360字符；payer可用商家、开发者等短称，未知可直接写未披露；其他回答至少4字符。basis只能是source/inference/unknown；problem、ai_role、evidence必须是source并选择能支撑回答的本URL片段编号。其余未知明确写未披露，推断标inference且quote_id为空。不要输出任何quote文字，只输出本URL真实的quote_id，由程序填回原文。
 经营地区只能是domestic/china-outbound/overseas/unknown。无明确经营地证据填unknown且market_quote_id为空；中文不等于国内经营。business_form只能是software/design/content/ecommerce/knowledge/business-service/other。
 无法找到具体业务对象或AI用途证据，就放 rejected：{"source_url":"原URL","reason":"具体缺少什么证据"}。不得编造，不能遗漏URL。不输出标题、摘要、评分。`;
       const repaired = await callGLM('你是严格的公开证据提取员。只返回有效 JSON；素材无法支持的事实绝不补写。', prompt, subset);
