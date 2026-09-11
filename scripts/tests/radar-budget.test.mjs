@@ -9,6 +9,7 @@ test('中文配乐和代码工作流不误筛，未知地区按来源轮转、�
   const chinese = { source_name: 'w2solo', source_url: 'https://example.com/cn', title: '测试AI音乐工具', snippet: '为独立音乐人和短视频创作者提供短视频配乐与人声分离。' };
   assert.equal(leanEligible(chinese), true);
   assert.equal(leanEligible({ ...chinese, snippet: '面向程序员的 AI 编程工具，支持断点续传。' }), true);
+  assert.equal(leanEligible({ ...chinese, title: '零预算冷启动引流实战', snippet: '独立开发者用客户访谈与渠道营销提高转化率，分享一篇经营复盘。' }), false);
   const ph = Array.from({ length: 15 }, (_, i) => ({ source_name: 'Product Hunt', source_url: `https://example.com/ph${i}`, title: 'AI design', snippet: 'AI design tools for freelancers with workflows.' }));
   const selected = selectCandidateMaterials([...ph, chinese], [], new Set(), 12, { domesticBalance: true });
   assert.ok(selected.some(m => m.source_url === chinese.source_url));

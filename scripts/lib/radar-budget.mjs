@@ -8,6 +8,7 @@ export const RADAR_BUDGET = Object.freeze({ intake: 24, model: 12, perRun: 3, pe
 export const LEAN_SOURCES = { w2solo: 6, 'V2EX 分享创造': 6, '少数派': 3, 'Product Hunt': 6, 'Show HN': 3, 'BetaList AI': 3 };
 const STATE_PATH = '.cache/editorial-ingestion/review-v5.json';
 const POLICY = 'lean-opc-v5';
+const AI_CONTEXT = /\b(?:AI|artificial intelligence|LLM\w*|GPT\w*|GLM|ChatGPT|Claude|DeepSeek|Gemini|Codex|Copilot|Midjourney|machine learning|AI[- ]powered|multi[- ]agents?|agentic)\b|人工智能|大模型|智能体|生成式|机器学习|智谱|通义|豆包/i;
 
 export function reviewCapacity({ pending = 0, today = 0 } = {}) {
   return Math.max(0, Math.min(RADAR_BUDGET.perRun, RADAR_BUDGET.pending - pending, RADAR_BUDGET.perDay - today));
@@ -35,7 +36,9 @@ export function saveReviewed(materials, state, now = Date.now()) {
 }
 export function leanEligible(row, now = Date.now()) {
   const check = assessCandidate(row, now);
-  return check.eligible && check.utility >= 40; // both a concrete workflow and audience, not just "AI launch"
+  // The final six-question contract requires an evidenced AI role. Non-AI
+  // business discussions cannot satisfy it and must not consume scarce slots.
+  return check.eligible && check.utility >= 40 && AI_CONTEXT.test(`${row.title || ''} ${row.snippet || ''}`);
 }
 export function selectIntake(rows, seen = new Set(), now = Date.now()) {
   const groups = new Map();
