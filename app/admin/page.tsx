@@ -412,7 +412,7 @@ export default function AdminPage() {
                 {view === 'overview' && <AdminAnalytics />}
                 {view === 'published' && <><h2 className="admin-view-title">已发布内容</h2><AdminPublished token={token} externalBusy={busy} onChanged={() => void load(token, true)} onDirtyChange={setPublishedDirty} onBusyChange={setPublishedBusy} /></>}
                 {view === 'pending' && <>
-                  <AdminPipeline token={token} refreshKey={pipelineRefresh} onComplete={() => { if (!editing && !busy && !publishedDirty) void load(token, true); }} />
+                  <AdminPipeline token={token} refreshKey={pipelineRefresh} onComplete={() => { if (!editing && !busy && !publishedDirty && selected.size === 0) void load(token, true); }} />
                   <div className="admin-section-head"><h2 className="admin-view-title">待审核</h2><button className="admin-btn" disabled={loading || busy} onClick={() => { if (editing && !confirm('编辑尚未保存，确认刷新并放弃修改？')) return; cancelEdit(); void load(token); }}>{loading ? '刷新中…' : '刷新待办'}</button></div>
                   <div className="admin-filter-tabs" role="group" aria-label="待审核内容类型">
                     <button className="admin-btn" aria-pressed={pendingType === 'radar'} disabled={busy} onClick={() => switchPending('radar')}>每日信号 · {radarDrafts.length}</button>

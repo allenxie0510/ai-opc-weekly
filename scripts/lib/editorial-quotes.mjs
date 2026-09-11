@@ -4,7 +4,11 @@ export function quoteIndex(material) {
   const text = `${material.title || ''} ${material.snippet || ''}`.replace(/\s+/g, ' ').trim();
   const quotes = {};
   for (let start = 0; start < text.length; start += 60) {
-    const quote = text.slice(start, start + 80);
+    // Do not split an emoji/supplementary character into invalid JSONB Unicode.
+    const from = /[\uDC00-\uDFFF]/.test(text[start]) ? start + 1 : start;
+    let end = Math.min(from + 80, text.length);
+    if (/[\uD800-\uDBFF]/.test(text[end - 1])) end--;
+    const quote = text.slice(from, end);
     if (quote.length >= 8) quotes[`q${Object.keys(quotes).length + 1}`] = quote;
   }
   return quotes;

@@ -86,4 +86,5 @@ test('原文编号解析不接受模型改写、未知编号或其他来源的�
   assert.equal(result.editorial_brief.answers.ai_role.quote, quotes.q1);
   assert.equal(result.editorial_brief.answers.risk.quote, '');
   assert.notEqual(resolveQuoteIds(raw, { title: '完全不同的另一条来源正文', snippet: '' }).evidence_quote, quotes.q1);
+  for (const quote of Object.values(quoteIndex({ title: 'x'.repeat(79) + '🎬'.repeat(70) }))) assert.equal(quote.isWellFormed(), true);
 });
