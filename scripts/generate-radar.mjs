@@ -19,7 +19,7 @@ import { assessCandidate, filterRadarItems, selectCandidateMaterials } from './l
 import { candidateMix, EDITORIAL_PROMPT, EDITORIAL_BRIEF_TEMPLATE } from '../lib/editorial-policy.mjs';
 const EDITORIAL_ENABLED = process.env.EDITORIAL_RESEARCH_ENABLED === 'true';
 import { canonicalSourceUrl } from './lib/feed-parser.mjs';
-import { assertReviewCoverage, assertEditorialReview, cacheableReviewMaterials, reviewInBatches } from './lib/radar-review.mjs';
+import { assertReviewCoverage, reviewWithEditorialRepair, cacheableReviewMaterials, reviewInBatches } from './lib/radar-review.mjs';
 import { RADAR_BUDGET, readReviewLoad, loadReviewState, recentlyReviewed, saveReviewed, leanEligible } from './lib/radar-budget.mjs';
 
 const SCRIPT_DIR = dirname(fileURLToPath(import.meta.url));
@@ -34,6 +34,7 @@ if (!ZK) { console.error('❌ 缺少 ZHIPU_API_KEY'); process.exit(1); }
 
 // 免费模型按顺序兜底：429/1305 拥挤或持续失败时换下一个
 const GLM_MODELS = ['glm-4.7-flash', 'glm-4.5-flash'];
+const unavailableModels = new Set();
 const ZHIPU_API = 'https://open.bigmodel.cn/api/paas/v4/chat/completions';
 const AUTO_PUBLISH = process.env.RADAR_AUTO_PUBLISH === 'true';
 const DRY_RUN = process.env.RADAR_DRY_RUN === 'true';
@@ -179,7 +180,6 @@ async function callGLMOnce(sysPrompt, userPrompt, model, temperature, materials)
   const parsed = JSON.parse(m[0]);
   if (!Array.isArray(parsed.items)) throw new Error('items 字段不是数组');
   assertReviewCoverage(parsed, materials);
-  if (EDITORIAL_ENABLED) assertEditorialReview(parsed, materials);
   console.log(`   ✅ 模型候选 ${parsed.items.length} 条 | 模型=${model} | tok in=${data.usage?.prompt_tokens} out=${data.usage?.completion_tokens}`);
   return parsed;
 }
@@ -187,12 +187,18 @@ async function callGLMOnce(sysPrompt, userPrompt, model, temperature, materials)
 async function callGLM(sysPrompt, userPrompt, materials) {
   let lastErr;
   for (const model of GLM_MODELS) {
+      if (unavailableModels.has(model)) continue;
       for (let attempt = 0; attempt < (EDITORIAL_ENABLED ? 2 : 3); attempt++) {
       try {
         return await callGLMOnce(sysPrompt, userPrompt + (lastErr ? `\n上次输出未通过校验：${lastErr.message.slice(0, 500)}。重新输出完整 JSON，不改变事实标准。` : ''), model, 0.2, materials);
       } catch (e) {
         lastErr = e;
         if (e.congested) {
+          if (model !== GLM_MODELS.at(-1)) {
+            unavailableModels.add(model);
+            console.log(`   ⚠️ ${model} 限流，本轮后续使用备用模型，不反复请求拥挤服务`);
+            break;
+          }
           const wait = 20 + attempt * 20; // 20s / 40s / 60s 退避
           console.log(`   ⚠️ ${model} 拥挤(429)，${wait}s 后重试 ${attempt + 1}/3...`);
           await sleep(wait * 1000);
@@ -377,8 +383,12 @@ ${EDITORIAL_ENABLED ? EDITORIAL_PROMPT : ''}
   saveAudit(audit); // 即使模型服务失败，也保留已抓取和入模去向。
   const result = await reviewInBatches(materials, async (batch, index) => {
     console.log(`逐条审阅 batch=${index} size=${batch.length}`);
-    return callGLM(sys, user(batch), batch);
-  }, EDITORIAL_ENABLED ? 4 : 12);
+    if (!EDITORIAL_ENABLED) return callGLM(sys, user(batch), batch);
+    return reviewWithEditorialRepair(batch, (subset, feedback) => {
+      if (feedback) console.log(`   仅修复 ${subset.length} 条六问不合格输出，不重复分析已合格条目`);
+      return callGLM(sys, user(subset) + (feedback ? `\n上次输出未通过校验，以下只重试失败条目：\n${feedback}\n请重新输出完整 JSON；摘录必须逐字存在，证据缺失直接 rejected。` : ''), subset);
+    });
+  }, EDITORIAL_ENABLED ? 4 : 12, { continueOnError: EDITORIAL_ENABLED });
 
   // 4.5 硬门槛复核：来源 URL、五维 OPC fit、单源配额、大公司上限均由代码执行。
   // 模型无法用高总分绕过任一低维度，也不能把素材外 URL 写入数据库。
@@ -401,6 +411,9 @@ ${EDITORIAL_ENABLED ? EDITORIAL_PROMPT : ''}
   console.log(`   🧭 硬门槛后保留 ${filtered.accepted.length}/${(result.items || []).length} 条${filtered.rejected.length ? ` | 拒绝 ${JSON.stringify(rejectStats)}` : ''}`);
   for (const item of filtered.accepted) console.log('   accepted', JSON.stringify({ title: item.title, source_url: item.source_url, score: item.score, opc_value: item.opc_value }));
   if (DRY_RUN) { console.log('只读试跑完成：未写入 radar_items，结果见 radar-audit.json'); return; }
+  if (!filtered.accepted.length && result.rejected.some(row => /^review-(invalid|unavailable)/.test(row.reason))) {
+    throw new Error('本轮无可交付草稿，仍有模型/引用校验异常；未缓存失败素材，后续可重试。不能将技术失败当成全部内容无价值。');
+  }
 
   // 5. 写入 radar_items
   console.log('\n💾 写入 radar_items...');
@@ -465,7 +478,7 @@ ${EDITORIAL_ENABLED ? EDITORIAL_PROMPT : ''}
   if (EDITORIAL_ENABLED) {
     // Hard rejections are not sent through the LLM again for seven days unless
     // their content changes. Quota-deferred items remain available next run.
-    saveReviewed(cacheableReviewMaterials(materials, filtered.rejected), reviewState);
+    saveReviewed(cacheableReviewMaterials(materials, [...filtered.rejected, ...result.rejected]), reviewState);
   }
   if (process.env.GITHUB_STEP_SUMMARY) appendFileSync(process.env.GITHUB_STEP_SUMMARY, `\n### 后台交付\n\n本轮已写入 **${items.length} 条草稿**，到 /admin → 待审核 → 每日信号查看；筛选素材不是待办。\n`);
 
