@@ -16,7 +16,7 @@ export function assertEditorialReview(result, materials) {
 }
 
 /** One malformed proposal must not erase other, evidence-valid proposals. */
-export async function reviewWithEditorialRepair(materials, review) {
+export async function reviewWithEditorialRepair(materials, review, repair = review) {
   const first = await review(materials, '');
   assertReviewCoverage(first, materials);
   const result = { items: [], rejected: [...(first.rejected || [])] };
@@ -30,7 +30,7 @@ export async function reviewWithEditorialRepair(materials, review) {
   const retryMaterials = invalid.map(row => row.material);
   const feedback = invalid.map(row => `${row.material.source_url}: ${row.reason}`).join('\n');
   try {
-    const retry = await review(retryMaterials, feedback);
+    const retry = await repair(retryMaterials, feedback, first.items);
     assertReviewCoverage(retry, retryMaterials);
     result.rejected.push(...(retry.rejected || []));
     for (const item of retry.items) {

@@ -30,8 +30,9 @@ globalThis.fetch = async (input, init = {}) => {
  if (url.hostname === 'open.bigmodel.cn') {
    calls++;
    const body = JSON.parse(init.body);
+   assert.equal(body.response_format.type, 'json_object');
    assert.match(body.messages[1].content, /"editorial_brief":/);
-   if (calls > 1) assert.match(body.messages[1].content, /上次输出未通过校验/);
+   if (calls > 1) assert.match(body.messages[1].content, /校验反馈/);
    const { editorial_brief, ...old } = item;
    return Response.json({ choices: [{ message: { content: JSON.stringify({ items: [calls === 1 ? old : item], rejected: [] }) } }] });
  }
