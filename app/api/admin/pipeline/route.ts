@@ -22,13 +22,18 @@ export async function GET(request: Request) {
       const base = { key: pipeline.key, label: pipeline.label, schedule: pipeline.schedule, pending };
       if (!pat) return { ...base, state: 'unavailable', message: '执行状态不可读取：未配置任务访问凭证；待审核内容仍可正常查看。' };
       try {
-        const response = await fetch(`https://api.github.com/repos/allenxie0510/ai-opc-weekly/actions/workflows/${pipeline.key}.yml/runs?branch=main&per_page=1`, {
+        const response = await fetch(`https://api.github.com/repos/allenxie0510/ai-opc-weekly/actions/workflows/${pipeline.key}.yml/runs?branch=main&per_page=5`, {
           headers: { Authorization: `Bearer ${pat}`, Accept: 'application/vnd.github+json', 'User-Agent': 'aiopc-admin' },
           cache: 'no-store', signal: AbortSignal.timeout(8000),
         });
         if (!response.ok) throw new Error('任务状态服务暂不可用');
-        const run: Run | undefined = (await response.json()).workflow_runs?.[0];
+        const runs: Run[] = (await response.json()).workflow_runs || [];
+        // A cancelled duplicate must not hide the scheduled run doing the work.
+        const run = runs.find(row => row.status !== 'completed')
+          || runs.find(row => row.conclusion !== 'cancelled') || runs[0];
         if (!run) return { ...base, state: 'not-run', message: '尚无运行记录' };
+        if (run.conclusion === 'cancelled') return { ...base, runId: run.id, startedAt: run.run_started_at || run.created_at,
+          state: 'cancelled', message: '最近任务已取消；取消不代表生成故障，已有草稿不受影响。' };
         const done = run.status === 'completed';
         const start = run.run_started_at || run.created_at;
         const { count: created, error: countError } = await db.from(pipeline.table).select('id', { count: 'exact', head: true })

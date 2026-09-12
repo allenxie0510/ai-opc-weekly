@@ -60,6 +60,34 @@ test('后台执行成功但0新增不能冒充交付；接口不向前端泄露�
   } finally { if (saved === undefined) delete process.env.GITHUB_PAT; else process.env.GITHUB_PAT = saved; }
 });
 
+test('取消重复任务不遮住实际生成任务，全部取消也不显示执行故障', async () => {
+  const saved = process.env.GITHUB_PAT;
+  process.env.GITHUB_PAT = 'test-github-secret';
+  let activeStatus = 'in_progress';
+  let onlyCancelled = false;
+  try {
+    await isolated(async request => {
+      let data = await (await pipeline(request('/api/admin/pipeline'))).json();
+      assert.equal(data.pipelines[0].runId, 1);
+      assert.equal(data.pipelines[0].state, 'running');
+      activeStatus = 'completed';
+      data = await (await pipeline(request('/api/admin/pipeline'))).json();
+      assert.equal(data.pipelines[0].runId, 1);
+      assert.equal(data.pipelines[0].state, 'delivered');
+      onlyCancelled = true;
+      data = await (await pipeline(request('/api/admin/pipeline'))).json();
+      assert.equal(data.pipelines[0].state, 'cancelled');
+    }, async input => {
+      const url = new URL(String(input));
+      if (url.hostname === 'api.github.com') return Response.json({ workflow_runs: [
+        { id: 2, status: 'completed', conclusion: 'cancelled', run_started_at: '2026-09-12T00:01:00Z' },
+        ...(onlyCancelled ? [] : [{ id: 1, status: activeStatus, conclusion: activeStatus === 'completed' ? 'success' : null, run_started_at: '2026-09-12T00:00:00Z', updated_at: '2026-09-12T00:05:00Z' }]),
+      ] });
+      return new Response(null, { headers: { 'content-range': '*/1' } });
+    });
+  } finally { if (saved === undefined) delete process.env.GITHUB_PAT; else process.env.GITHUB_PAT = saved; }
+});
+
 test('已发布搜索使用数据库全历史分页、准确总数与参数转义', async () => {
   await isolated(async request => {
     const result = await content(request('/api/admin/content?type=radar&page=2&q=100%25'));

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 type Pipeline = { key: string; label: string; schedule: string; pending: number; state: string; message: string; runId?: number; startedAt?: string; finishedAt?: string };
-const labels: Record<string, string> = { running: '执行中', failed: '执行异常', delivered: '已有新增', empty: '本轮无新增整项', unavailable: '状态暂不可用', 'not-run': '尚未运行' };
+const labels: Record<string, string> = { running: '执行中', cancelled: '已取消', failed: '执行异常', delivered: '已有新增', empty: '本轮无新增整项', unavailable: '状态暂不可用', 'not-run': '尚未运行' };
 
 export function AdminPipeline({ token, refreshKey, onComplete }: { token: string; refreshKey: number; onComplete: () => void }) {
   const [rows, setRows] = useState<Pipeline[]>([]);
