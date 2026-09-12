@@ -21,8 +21,8 @@ const item = { source_url: material.source_url, source_name: 'w2solo', title: ma
  opc_value: { kind: 'delivery', audience_quote: '面向国内商家的商品图设计服务', workflow_quote: '设计师审核并按订单交付', next_action: '先找一家商家试做样图评估实际交付成本', limitation: '收入和实际效果未披露，需核查版权' },
  fit: { audience_relevance: 5, actionability: 4, evidence_strength: 4, solo_feasibility: 4, transferability: 4 },
  editorial_brief: { operating_market: 'domestic', market_quote: '面向国内商家的商品图设计服务', business_form: 'design', answers: {
- payer: { answer: '潜在付费对象为需要商品图的商家', basis: 'inference', quote: '' }, problem: source('面向国内商家的商品图设计服务'), ai_role: source('AI 生成商品背景图'),
- solo_delivery: { answer: '一人试做仍需人工审图和订单管理', basis: 'inference', quote: '' }, evidence: source('作者自述已开始交付'), risk: { answer: '版权与实际交付成本需要核查', basis: 'inference', quote: '' }
+ payer: { answer: '商家', basis: 'inference', quote: '' }, problem: source('面向国内商家的商品图设计服务'), ai_role: source('AI 生成商品背景图'),
+ solo_delivery: { answer: '未披露', basis: 'inference', quote: '' }, evidence: source('作者自述已开始交付'), risk: { answer: '版权与实际交付成本需要核查', basis: 'inference', quote: '' }
  } }
 };
 globalThis.fetch = async (input, init = {}) => {
@@ -44,6 +44,9 @@ globalThis.fetch = async (input, init = {}) => {
    const rows = JSON.parse(init.body);
    assert.equal(rows.length, 1); assert.equal(rows[0].status, 'draft');
    assert.equal(rows[0].editorial_brief.version, 1); delivered++;
+   assert.equal(rows[0].editorial_brief.answers.payer.answer, '潜在付费对象：商家');
+   assert.deepEqual(rows[0].editorial_brief.answers.solo_delivery, { answer: '尚未披露', basis: 'unknown', quote: '' });
+   for (const field of Object.values(rows[0].editorial_brief.answers)) assert.ok(Array.from(field.answer).length >= 4);
    return new Response(null, { status: 201 });
  }
  if (url.pathname.endsWith('/radar_candidates') && url.searchParams.get('offset') === '0') return Response.json([material]);

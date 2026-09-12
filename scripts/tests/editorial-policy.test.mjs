@@ -46,9 +46,30 @@ test('付费对象短称与坦白未披露不能被当成字段缺失；发布�
     const checked = validateEditorialBrief(raw, material);
     assert.equal(checked.ok, true, answer);
     assert.equal(publishableBrief(checked.brief), true);
+    assert.ok(Array.from(checked.brief.answers.payer.answer).length >= 4);
+    assert.equal(checked.brief.answers.solo_delivery.answer, '尚未披露');
   }
   const raw = brief(); raw.answers.payer.answer = '';
   assert.equal(validateEditorialBrief(raw, material).ok, false);
+});
+
+test('明确未披露被误标为推断时只纠正标记，不编造事实或抹除证据错误', () => {
+  const raw = brief();
+  for (const key of ['payer', 'solo_delivery', 'risk']) raw.answers[key] = { answer: '未披露', basis: 'inference', quote: '' };
+  const checked = validateEditorialBrief(raw, material);
+  assert.equal(checked.ok, true);
+  for (const key of ['payer', 'solo_delivery', 'risk']) {
+    assert.deepEqual(checked.brief.answers[key], { answer: '尚未披露', basis: 'unknown', quote: '' });
+    assert.equal(raw.answers[key].answer, '未披露', '不修改模型原始对象');
+  }
+  raw.answers.ai_role = { answer: '未披露', basis: 'inference', quote: '' };
+  assert.equal(validateEditorialBrief(raw, material).reason, 'insufficient-evidence-ai_role');
+  const falseQuote = brief(); falseQuote.answers.risk = { answer: '未披露', basis: 'inference', quote: '虚构的来源' };
+  assert.equal(validateEditorialBrief(falseQuote, material).ok, false);
+  const empty = brief(); empty.answers.payer = { answer: ' ', basis: 'unknown', quote: '' };
+  assert.equal(validateEditorialBrief(empty, material).ok, false);
+  const shortStored = structuredClone(checked.brief); shortStored.answers.payer.answer = '商家';
+  assert.equal(publishableBrief(shortStored), false, '发布端不得放行数据库不接受的未规范化答案');
 });
 
 test('付费社群在入库预筛、候选、六问和发布门槛均不可作公共证据', () => {
