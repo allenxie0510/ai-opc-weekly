@@ -100,3 +100,16 @@ test('supplement mode uses a separate stable slug and leaves the published editi
  assert.ok(reads.some(p=>p.includes('weekly_issue_id=eq.supplement')));
  assert.ok(!reads.some(p=>p.includes('weekly_issue_id=eq.published')));
 });
+
+
+test('source span references restore only exact immutable original quotes',async()=>{
+ const {sourceQuoteBank,resolveReportQuotes}=await import('../lib/weekly-report-generator.mjs');
+ const bank=sourceQuoteBank(testMaterial);
+ const [id,quote]=Object.entries(bank)[0];
+ assert.ok(`${testMaterial.title} ${testMaterial.snippet}`.replace(/\s+/g,' ').includes(quote));
+ const raw=reportPayload();raw.report.facts[0]={claim:'来自原文的真实陈述',quote_id:id,quote:''};
+ assert.equal(resolveReportQuotes(raw,testMaterial).report.facts[0].quote,quote);
+ assert.equal(raw.report.facts[0].quote,'');
+ raw.report.facts[0].quote_id='Q999999';
+ assert.throws(()=>resolveReportQuotes(raw,testMaterial),/unknown-source-quote-id/);
+});

@@ -61,6 +61,7 @@ export async function runWeeklyResearch({db=sb,read=enrichMaterial,generate=gene
   if(selected.filter(x=>new URL(x.refs[0].url).hostname===new URL(lead.source_url).hostname).length>=2)continue;
   try{
    const material=await read(lead);audit.read++;
+   if(!/\b(ai|llm|gpt|agent|automation)\b|人工智能|智能体|大模型|自动化/i.test(material.snippet))throw new Error('source-without-ai-evidence');
    if(recentlyRejected(material,reviewState))throw new Error('recent-content-rejection');
    const result=await generate(material);
    if(!result.ok){if(!dry&&cacheableRejection(result.reason))rememberRejection(material,reviewState,cachePath);throw new Error(result.reason);}
