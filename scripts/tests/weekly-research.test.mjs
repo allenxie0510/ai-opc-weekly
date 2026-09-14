@@ -113,3 +113,11 @@ test('source span references restore only exact immutable original quotes',async
  raw.report.facts[0].quote_id='Q999999';
  assert.throws(()=>resolveReportQuotes(raw,testMaterial),/unknown-source-quote-id/);
 });
+
+
+test('source extraction does not mistake a short testimonial for the product page',()=>{
+ const product='AI product customer workflow pricing and delivery. '.repeat(30);
+ const text=extractSourceText(`<main><article>Great tool!</article><section>${product}</section></main>`);
+ assert.ok(text.includes('pricing and delivery'));
+ assert.ok(text.length>1000);
+});

@@ -35,9 +35,11 @@ export async function readPublicUrl(value, redirects = 0) {
 }
 export function extractSourceText(html) {
   const body = html.replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>/gi,' ').replace(/<(nav|footer|header|aside)\b[^>]*>[\s\S]*?<\/\1>/gi,' ');
-  const article = body.match(/<article\b[^>]*>([\s\S]*?)<\/article>/i)?.[1]
-    || body.match(/<main\b[^>]*>([\s\S]*?)<\/main>/i)?.[1] || body;
-  return stripHtml(article).slice(0,14000);
+  const articles=[...body.matchAll(/<article\b[^>]*>([\s\S]*?)<\/article>/gi)].map(m=>stripHtml(m[1])).sort((a,b)=>b.length-a.length);
+  const main=stripHtml(body.match(/<main\b[^>]*>([\s\S]*?)<\/main>/i)?.[1]||'');
+  // Product sites often use <article> for a tiny testimonial, not the page body.
+  const text=articles[0]?.length>=800?articles[0]:main.length>=800?main:stripHtml(body);
+  return text.slice(0,14000);
 }
 export async function enrichMaterial(material) {
   const result = await readPublicUrl(material.source_url);
