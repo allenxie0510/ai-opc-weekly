@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { isWeeklyReport } from '@/lib/weekly-report.mjs';
 import type { NewsItem } from '@/lib/types';
 import { EditorialBrief } from '@/components/editorial-brief';
 import { AdminEditButton } from '@/components/admin-edit';
@@ -54,7 +56,7 @@ function showToast(msg: string) {
   }, 2000);
 }
 
-function BookmarkBtn({ item }: { item: NewsItem }) {
+export function BookmarkBtn({ item }: { item: NewsItem }) {
   const [faved, setFaved] = useState(false);
   const sk = stableKey(item);
 
@@ -106,6 +108,7 @@ function BookmarkBtn({ item }: { item: NewsItem }) {
 
 export function ArticleCard({ item, index }: { item: NewsItem; index: number }) {
   const [insightOpen, setInsightOpen] = useState(false);
+  const report = isWeeklyReport(item.editorial_brief?.weekly_report) ? item.editorial_brief.weekly_report : null;
   const catLabel = CAT_LABELS[item.category] || item.category.replace('-', ' ').replace(/\b\w/g, c => c.toUpperCase());
 
   return (
@@ -132,7 +135,9 @@ export function ArticleCard({ item, index }: { item: NewsItem; index: number }) 
       <p className="desc">{item.description}</p>
 
       <div className="art-meta">
-        {item.mrr_range && (
+        {report && <><div className="mi"><span className="ml">研究价值</span><span className="mv">{report.score}/100</span></div><div className="mi"><span className="ml">原文事实</span><span className="mv">{report.facts.length} 项</span></div><div className="mi"><span className="ml">验证计划</span><span className="mv">两周 · 三阶段</span></div></>}
+
+        {!report && item.mrr_range && (
           <div className="mi">
             <span className="ml">月收入参考</span>
             <span className="mv">
@@ -157,15 +162,16 @@ export function ArticleCard({ item, index }: { item: NewsItem; index: number }) 
             </span>
           </div>
         )}
-        {item.pricing && (
+        {!report && item.pricing && (
           <div className="mi"><span className="ml">定价</span><span className="mv">{item.pricing}</span></div>
         )}
-        {item.mvp_time && (
+        {!report && item.mvp_time && (
           <div className="mi"><span className="ml">MVP</span><span className="mv">{item.mvp_time}</span></div>
         )}
       </div>
 
       <div className="art-pills">
+        {isWeeklyReport(item.editorial_brief?.weekly_report) && <Link className="pill link" href={`/reports/${item.id}`}>阅读全文 · 创业研究 ↗</Link>}
         {item.refs?.map((ref, i) => (
           <a key={i} href={ref.url} target="_blank" rel="noopener noreferrer" className="pill link">
             {ref.label}

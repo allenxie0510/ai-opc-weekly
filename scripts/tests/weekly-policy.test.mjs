@@ -54,7 +54,7 @@ test('weekly workflow refreshes sources and serializes retries', () => {
   const workflow = readFileSync(resolve(root, '.github/workflows/weekly-newsletter.yml'), 'utf8');
   const generator = readFileSync(resolve(root, 'scripts/generate-weekly.mjs'), 'utf8');
   assert.match(workflow, /concurrency:\s+group: weekly-newsletter\s+cancel-in-progress: false/);
-  assert.match(workflow, /Refresh source pool[\s\S]*node scripts\/fetch-sources\.mjs/);
+  assert.match(workflow, /Refresh source pool[\s\S]*node scripts\/fetch-weekly-sources\.mjs/);
   assert.doesNotMatch(workflow, /Check if already published this week/);
   assert.match(generator, /weeklyIssuePlan\(existingIssue/);
   assert.match(generator, /totalAfterRun < MIN_WEEKLY_ITEMS/);

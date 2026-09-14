@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { Header } from '@/components/page-shell';
 import Link from 'next/link';
-import { LineIcon } from '@/components/icons';
 
 interface FavItem {
   id: string;
@@ -36,82 +35,8 @@ const CAT_LABELS: Record<string, string> = {
   'digital-product': '虚拟产品',
 };
 
-function DeepAnalysisModal({ item, onClose }: { item: FavItem; onClose: () => void }) {
-  const [copied, setCopied] = useState(false);
-
-  const track = CAT_LABELS[item.category] || item.category;
-  const metrics = [
-    item.mrr_range && `单人收入: ${item.mrr_range}`,
-    item.pricing && `变现: ${item.pricing}`,
-    item.mvp_time && `MVP: ${item.mvp_time}`,
-  ].filter(Boolean).join('、');
-
-  const prompt = `请对以下 AI 创业方向进行深度拆解分析：
-
-【项目名称】${item.title}
-【所属赛道】${track}
-【项目描述】${item.description}
-【创作者洞察】落地路径：${item.insight}
-${metrics ? `【关键指标】${metrics}` : ''}
-
-请从以下 10 个维度逐一评估，每个维度给出 2-4 句话的实质性分析：
-
-1. 市场规模与增长潜力
-2. 竞争格局与差异化空间
-3. 商业模式与变现路径
-4. 技术可行性（Vibe Coding 可实现程度）
-5. 复利效应评估（数据/网络/品牌）
-6. 进入壁垒与护城河
-7. 目标用户画像与获客策略
-8. MVP 最小可行产品路径（含时间估算）
-9. 核心风险与应对策略
-10. 综合创业建议与行动清单
-
-输出格式要求：
-- 每个维度以【维度名】开头
-- 最后给出总体评分（1-10分）及一句话总结
-- 分析要具体、可操作，避免泛泛而谈
-- 针对独立创作者/AI Vibe Coder 的视角`;
-
-  const handleCopy = () => {
-    navigator.clipboard.writeText(prompt).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
-  };
-
-  return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content" onClick={e => e.stopPropagation()}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <h3 style={{ fontSize: 18, fontWeight: 600 }}><LineIcon name="search" /> 深度拆解</h3>
-          <button aria-label="关闭" onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: 'var(--color-stone)' }}><LineIcon name="x" /></button>
-        </div>
-        <p style={{ fontSize: 13, color: 'var(--color-steel)', marginBottom: 12 }}>
-          复制下方提示词到 <strong>ChatGPT / Claude / DeepSeek</strong> 获取完整分析报告
-        </p>
-        <pre style={{
-          background: 'var(--color-surface)', borderRadius: 12, padding: 16,
-          fontSize: 13, lineHeight: 1.6, color: 'var(--color-slate)',
-          whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: 400, overflowY: 'auto',
-          border: '1px solid var(--color-hairline)',
-        }}>{prompt}</pre>
-        <button onClick={handleCopy} style={{
-          width: '100%', marginTop: 12, padding: '10px 20px', borderRadius: 9999,
-          border: 'none', background: copied ? 'var(--color-success-text)' : 'var(--color-blue)',
-          color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer',
-          transition: 'background 0.2s',
-        }}>
-          {copied ? <><LineIcon name="check" /> 已复制</> : <><LineIcon name="clipboard" /> 复制提示词</>}
-        </button>
-      </div>
-    </div>
-  );
-}
-
 export default function FavoritesPage() {
   const [favs, setFavs] = useState<FavItem[]>([]);
-  const [analysisItem, setAnalysisItem] = useState<FavItem | null>(null);
 
   useEffect(() => {
     try {
@@ -154,13 +79,7 @@ export default function FavoritesPage() {
                       {CAT_LABELS[f.category] || f.category || '—'}
                     </span>
                     <span className="art-idx" style={{ marginLeft: 0 }}>{fmtDate(f.savedAt || f.created_at)}</span>
-                    <button
-                      onClick={() => setAnalysisItem(f)}
-                      className="pill insight-tgl"
-                      style={{ marginLeft: 'auto', border: '1px solid var(--color-hairline)', background: 'transparent', color: 'var(--color-blue)', flexShrink: 0 }}
-                    >
-                      <LineIcon name="search" /> 深度拆解
-                    </button>
+                    <Link href={`/reports/${f.id}`} className="pill insight-tgl" style={{marginLeft:'auto'}}>阅读全文 · 创业研究 ↗</Link>
                   </div>
 
                   <h4 style={{ fontSize: 17, fontWeight: 600, color: 'var(--color-ink)', marginBottom: 6 }}>
@@ -195,7 +114,6 @@ export default function FavoritesPage() {
         </div>
       </div>
 
-      {analysisItem && <DeepAnalysisModal item={analysisItem} onClose={() => setAnalysisItem(null)} />}
     </>
   );
 }

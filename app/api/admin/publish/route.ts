@@ -11,6 +11,7 @@
 import { createClient } from '@supabase/supabase-js';
 import { buildWeeklyRankUpdates, updateGeneratedWeeklySummaryCount } from '@/lib/weekly-admin';
 import { publishableBrief } from '@/lib/editorial-policy.mjs';
+import { weeklyDeliveryReady } from '@/lib/weekly-report.mjs';
 
 export const runtime = 'nodejs';
 
@@ -62,6 +63,14 @@ export async function POST(request: Request) {
       const { data, error } = await query;
       if (error) return Response.json({ error: '证据字段读取失败，请检查数据库迁移' }, { status: 503 });
       if (!data?.length || data.some(row => !publishableBrief(row.editorial_brief))) return Response.json({ error: '存在缺少六问或来源使用依据的条目，请重新生成/补全证据后发布；历史草稿不会自动认定为已核实' }, { status: 409 });
+    }
+
+    if (type === 'weekly' && action === 'publish') {
+      const { data: reportItems, error: reportError } = await supabase.from('news_items').select('weekly_issue_id,editorial_brief').in('weekly_issue_id', ids);
+      if (reportError) return Response.json({ error: '无法读取完整研究报告' }, { status: 503 });
+      if (ids.some(id => !weeklyDeliveryReady((reportItems || []).filter(row => row.weekly_issue_id === id)))) {
+        return Response.json({ error: '每期需有5–6篇案例，且每篇完整研究报告均已就绪；请先补足再发布' }, { status: 409 });
+      }
     }
 
     if (type === 'news_item') {

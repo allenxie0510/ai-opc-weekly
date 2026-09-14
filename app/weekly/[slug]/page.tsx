@@ -98,7 +98,7 @@ export default async function WeeklyPage({ params }: { params: Promise<{ slug: s
               <section className="weekly-section">
                 <h2 className="weekly-section-title">
                   深度拆解
-                  <span className="weekly-section-sub">GLM 联网检索核实 · 真实数据与信源</span>
+                  <span className="weekly-section-sub">公开原文研究 · 商业拆解 · 两周验证计划</span>
                 </h2>
                 <div className="article-list">
                   {deepdive.map((item, idx) => (
@@ -112,7 +112,7 @@ export default async function WeeklyPage({ params }: { params: Promise<{ slug: s
       })()}
 
         <div className="page-disclaimer">
-        <p>数据来源：OPC Radar 每日信源（HN / GitHub / RSS / X）· 智谱 GLM 联网检索</p>
+        <p>研究方法：公开来源与原文引用 · AI 辅助分析 · 编辑审核发布</p>
         <p>本分析仅供方向参考。原创创造价值，不做搬运工。每周一自动更新。</p>
       </div>
 

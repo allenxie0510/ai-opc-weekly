@@ -11,6 +11,8 @@ import { sourceCoverageGrade } from '@/lib/evidence-policy.mjs';
 import { EditorialBrief } from '@/components/editorial-brief';
 import { AdminResearch } from '@/components/admin-research';
 import { AdminPipeline } from '@/components/admin-pipeline';
+import { AdminWeeklyReport } from '@/components/admin-weekly-report';
+import { isWeeklyReport, weeklyDeliveryReady } from '@/lib/weekly-report.mjs';
 import type { EditorialBrief as Brief } from '@/lib/editorial-policy.mjs';
 
 type RadarDraft = {
@@ -629,7 +631,7 @@ export default function AdminPage() {
                 <h2>
                   周报草稿 <span className="admin-count">{weeklyDrafts.length}</span>
                 </h2>
-                <button className="admin-btn primary" disabled={busy || weeklyDrafts.length === 0} onClick={() => void act('publish', 'weekly', weeklyDrafts.map(w => w.id))}>全部发布</button>
+                <button className="admin-btn primary" disabled={busy || !weeklyDrafts.some(w => weeklyDeliveryReady(w.items))} onClick={() => void act('publish', 'weekly', weeklyDrafts.filter(w => weeklyDeliveryReady(w.items)).map(w => w.id))}>发布已就绪周报</button>
               </div>
               {weeklyDrafts.length === 0 ? (
                 <p className="admin-empty">没有待发布的周报</p>
@@ -676,7 +678,7 @@ export default function AdminPage() {
                                 <span className="admin-item-title">{w.title}</span>
                               </span>
                               <span className="admin-item-meta">
-                                /weekly/{w.slug} · {w.items.length} 条 · {w.published_at}
+                                /weekly/{w.slug} · {w.items.length}/6 篇 · {w.items.length < 5 ? "待补足" : "达到篇数要求"} · {w.items.filter(it => isWeeklyReport(it.editorial_brief?.weekly_report)).length} 份完整报告
                               </span>
                               <span className="admin-item-summary">{w.summary}</span>
                               <button
@@ -694,6 +696,7 @@ export default function AdminPage() {
                                         <em>{it.section}</em> {it.title}
                                       </span>
                                       <EditorialBrief brief={it.editorial_brief} />
+                                      <AdminWeeklyReport id={it.id} ready={isWeeklyReport(it.editorial_brief?.weekly_report)} />
                                       <button
                                         type="button"
                                         className="admin-weekly-item-delete"
@@ -725,7 +728,8 @@ export default function AdminPage() {
                             </button>
                             <button
                               className="admin-btn primary sm"
-                              disabled={busy}
+                              disabled={busy || !weeklyDeliveryReady(w.items)}
+                              title={weeklyDeliveryReady(w.items) ? '发布本期' : '需5–6篇且完整报告均已就绪'}
                               onClick={() => void act('publish', 'weekly', [w.id])}
                             >
                               发布本期

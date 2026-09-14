@@ -2,6 +2,7 @@ export const MARKET_LABELS: Record<string, string>;
 export const BUSINESS_LABELS: Record<string, string>;
 export const QUESTION_LABELS: Record<string, string>;
 export interface EditorialBrief {
+  weekly_report?: import("./weekly-report.mjs").WeeklyReport;
   version: number;
   operating_market: string;
   market_quote: string;
