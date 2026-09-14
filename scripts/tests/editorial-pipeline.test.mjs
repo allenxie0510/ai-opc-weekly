@@ -22,3 +22,22 @@ test('周报整条链路：核实国内案例→六问草稿→队列状态；�
     assert.doesNotMatch(JSON.stringify(news), /SECRET-|test-research/);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
+
+
+test('地区未知的公开素材：市场误判拒收后反馈重试，通过真实引用校验并保存草稿', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'weekly-unknown-test-'));
+  try {
+    const output = join(dir, 'writes.json');
+    const result = spawnSync(process.execPath, ['--import', resolve(root, 'scripts/tests/helpers/editorial-pipeline-mock.mjs'), resolve(root, 'scripts/generate-weekly.mjs')], { cwd: dir, encoding: 'utf8', timeout: 15000, env: { ...process.env, NEXT_PUBLIC_SUPABASE_URL: 'https://editorial-pipeline.test', SUPABASE_SERVICE_ROLE_KEY: 'test-only', ZHIPU_API_KEY: 'test-only', EDITORIAL_RESEARCH_ENABLED: 'true', WEEKLY_DRY_RUN: 'false', WEEKLY_DRAFT: 'true', TEST_UNKNOWN_MARKET: 'true', TEST_WRITES_PATH: output } });
+    assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+    assert.match(result.stdout, /market-without-explicit-evidence/);
+    const writes = JSON.parse(readFileSync(output, 'utf8'));
+    const news = writes.find(w => w.path.endsWith('/news_items')).body;
+    assert.equal(news.length, 1);
+    assert.equal(news[0].editorial_brief.operating_market, 'unknown');
+    assert.equal(news[0].editorial_brief.market_quote, '');
+    assert.equal(news[0].editorial_brief.evidence_grade, 'C');
+    assert.equal(writes.find(w => w.path.endsWith('/weekly_issues') && w.method === 'POST').body.status, 'draft');
+    assert.ok(!writes.some(w => w.method === 'DELETE'));
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});

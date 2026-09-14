@@ -126,14 +126,16 @@ async function callGLMOnce(sysPrompt, userPrompt, model, temperature, useTools) 
 // 双模型 × 3 次重试；useTools=true 全部失败后降级为无工具调用（只靠素材）
 async function callGLM(sysPrompt, userPrompt) {
   let lastErr;
+  let formatError;
   for (const useTools of EDITORIAL_ENABLED ? [false] : [true, false]) {
     if (!useTools) console.log(EDITORIAL_ENABLED ? '   证据限定模式：只使用已采集/核实的素材，不启用自由联网选题。' : '   ⚠️ 联网搜索调用连续失败，降级为无工具调用（仅基于雷达素材）...');
     for (const model of GLM_MODELS) {
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
-          return await callGLMOnce(sysPrompt, userPrompt + (EDITORIAL_ENABLED && lastErr ? `\n上次格式校验失败：${lastErr.message.slice(0, 350)}。请重新输出完整数组，证据不足可返回空数组，不能省略必填字段。` : ''), model, EDITORIAL_ENABLED ? 0.2 : 0.5 + attempt * 0.1, useTools);
+          return await callGLMOnce(sysPrompt, userPrompt + (EDITORIAL_ENABLED && formatError ? `\n上次格式校验失败：${formatError.slice(0, 350)}。请重新输出完整数组，证据不足可返回空数组，不能省略必填字段。` : ''), model, EDITORIAL_ENABLED ? 0.2 : 0.5 + attempt * 0.1, useTools);
         } catch (e) {
           lastErr = e;
+          if (!e.congested && !e.censored) formatError = e.message;
           if (e.congested) {
             const wait = 20 + attempt * 20; // 20s / 40s / 60s 退避
             console.log(`   ⚠️ ${model} 拥挤(429)，${wait}s 后重试 ${attempt + 1}/3...`);
@@ -298,7 +300,7 @@ async function main() {
     throw new Error(`可用真实素材仅 ${materials.length} 条，少于周报最低 ${MIN_WEEKLY_ITEMS} 条`);
   }
   const formatMaterials = rows => rows.map((material, index) =>
-    `#${index + 1} [${material.source_name}] ${material.title}${material.snippet ? ` — ${String(material.snippet).slice(0, EDITORIAL_ENABLED ? 1600 : 260)}` : ''}\nURL: ${material.source_url}`
+    `#${index + 1} [${material.source_name}] ${material.title}${material.snippet ? ` — ${String(material.snippet).slice(0, EDITORIAL_ENABLED ? 1600 : 260)}` : ''}\nURL: ${material.source_url}${EDITORIAL_ENABLED ? `\n经营地区校验提示：${inferOperatingMarket(`${material.title || ''} ${material.snippet || ''}`)}；unknown 时 operating_market 必须填 unknown、market_quote 填空字符串。地区未知不代表案例不合格。` : ''}`
   ).join('\n---\n');
 
   // 3b. 去重：最近 12 条周报标题，避免跨周重复选题
@@ -355,6 +357,7 @@ ${EDITORIAL_ENABLED ? `- editorial_brief: 每个数组条目内必须包含此�
 
   console.log(`\n🔬 深度拆解（真实素材白名单，需新增 ${plan.needed} 篇，最多 6 批）...`);
   const deepdive = [];
+  const editorialFeedback = new Map();
   const MAX_BATCHES = 6;  // 终审拒收率高，多给补足机会
   const existingIdentities = new Set(existingTitles.map(productIdentity).filter(Boolean));
   const usedSourceUrls = new Set((existingItems || []).flatMap(item =>
@@ -365,7 +368,7 @@ ${EDITORIAL_ENABLED ? `- editorial_brief: 每个数组条目内必须包含此�
     const need = Math.min(DEEPDIVE_BATCH, plan.needed - deepdive.length, batchMaterials.length);
     console.log(`\n   批次 ${b + 1}/${MAX_BATCHES}（还需 ${need} 篇）...`);
     try {
-      const raw = await callGLM(sysPrompt, buildPrompt([...existingTitles, ...deepdive.map(d => d.title)], need, batchMaterials));
+      const raw = await callGLM(sysPrompt, buildPrompt([...existingTitles, ...deepdive.map(d => d.title)], need, batchMaterials) + (editorialFeedback.size ? `\n上批终审反馈（按原文纠正；证据不存在则换候选，不能编造）：\n${[...editorialFeedback].slice(-12).map(([url, reason]) => `${url}: ${reason}`).join('\n')}` : ''));
       const mapped = raw.slice(0, need).map(it => ({
         title: String(it.title || '').slice(0, 200),
         description: String(it.description || '').slice(0, 900),
@@ -425,7 +428,11 @@ ${EDITORIAL_ENABLED ? `- editorial_brief: 每个数组条目内必须包含此�
         if (!EDITORIAL_ENABLED) return true;
         const material = materialIndex.get(canonicalSourceUrl(m.refs[0].url));
         const checked = validateEditorialBrief(m.editorial_brief, material);
-        if (!checked.ok) { console.log(`拒收六问证据不全：${m.title} / ${checked.reason}`); return false; }
+        if (!checked.ok) {
+          editorialFeedback.set(m.refs[0].url, checked.reason);
+          console.log(`拒收六问证据不全：${m.title} / ${checked.reason}`); return false;
+        }
+        editorialFeedback.delete(m.refs[0].url);
         if (checked.brief.operating_market === 'domestic' && !material.editor_verified_at) {
           console.log(`国内深度案例需先人工核对或授权：${m.title}`); return false;
         }
@@ -464,7 +471,7 @@ ${EDITORIAL_ENABLED ? `- editorial_brief: 每个数组条目内必须包含此�
 
   const totalAfterRun = plan.existingCount + deepdive.length;
   if (totalAfterRun < MIN_WEEKLY_ITEMS && (!EDITORIAL_ENABLED || totalAfterRun === 0)) {
-    throw new Error(`真实性终审后合计仅 ${totalAfterRun} 条，未达到至少 ${MIN_WEEKLY_ITEMS} 条；本次不写入，保留后续自动补跑机会`);
+    throw new Error(`真实性终审后合计仅 ${totalAfterRun} 条，${EDITORIAL_ENABLED ? '未获得任何通过六问证据审核的案例' : `未达到至少 ${MIN_WEEKLY_ITEMS} 条`}；拒收原因：${[...new Set(editorialFeedback.values())].join('、') || '生成失败或无合格选题'}；本次不写入，保留后续自动补跑机会`);
   }
 
   const news = deepdive;
