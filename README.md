@@ -1,3 +1,10 @@
+## 周报编辑规范
+
+周报选题、来源维护、筛选、深度研究与人工审核，以 [周报编辑规范 v1.0](docs/WEEKLY-EDITORIAL-STANDARD.md) 为依据。
+
+- [2026-W38 人工审核认可样本与原文来源](docs/editorial-reviews/2026-w38.md)
+- [研究策略与运行复盘](docs/WEEKLY-RESEARCH-STRATEGY.md)
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started

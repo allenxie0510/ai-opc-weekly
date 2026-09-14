@@ -12,7 +12,7 @@
 ## 新会话启动流程
 
 1. `git log --oneline -5` — 了解最近做了什么
-2. 读需要改的文件，不要全量读代码
+2. 读需要改的文件，不要全量读代码；涉及周报来源、筛选、模型、报告或审核时，先读 `docs/WEEKLY-EDITORIAL-STANDARD.md` 与其中的人工认可样本
 3. 改完 → `npm run build` → commit → push → 结束
 4. 一个会话只做一件事
 
@@ -27,7 +27,7 @@
 | `app/weekly/[slug]/filter-bar.tsx` | 分类筛选器 |
 | `app/weekly/[slug]/share-bar.tsx` | 分享/下载 |
 | `app/archive/page.tsx` | 归档页 |
-| `app/favorites/page.tsx` | 收藏页（深度拆解提示词） |
+| `app/favorites/page.tsx` | 收藏页（直达已入库的深度研究报告） |
 | `components/article-card.tsx` | 项目卡片 + 收藏按钮 |
 | `components/page-shell.tsx` | Header + Nav |
 | `components/weekly-nav.tsx` | 上/下期切换 + 期数下拉 |
@@ -48,7 +48,7 @@
 
 ## 定时任务
 
-- **周报**：GitHub Actions `weekly-newsletter.yml` — 每周一 08:05–12:05 北京时间 5 个触发时段（防 scheduled 被跳过），调用 `scripts/generate-weekly.mjs` 写入 Supabase，Vercel ISR 刷新。自 W31 起改为三段式（快讯精选 + 深度拆解 + 本周弃选），素材来自 Radar 数据池（radar_items 近 7 天 published/rejected）+ GLM 联网检索，不再凭空生成；`WEEKLY_DRY_RUN=true` 可只打印不写入
+- **周报**：GitHub Actions `weekly-newsletter.yml` — 每周一08:05–12:05北京时间分时运行；`weekly-source-pool.yml` 周三、五、日05:17预采集。`fetch-weekly-sources.mjs` 使用独立发现渠道和官方经营页研究库，`generate-weekly-research.mjs` 读原文、逐案例生成并保存草稿与完整报告。目标6篇，最低5篇且每篇报告完整；未知收入不编造，已发布版不自动改写。手动 `supplement=true` 创建/续跑独立补充草稿。报告存于 `news_items.editorial_brief.weekly_report`，在 `/reports/[id]` 阅读；`Weekly Delivery Check` 核对数据库实存数量。现行规范：`docs/WEEKLY-EDITORIAL-STANDARD.md`；第44期六篇已获用户人工质量认可。
 - **推文**：GitHub Actions 每 2 小时执行 `scripts/fetch-tweets.mjs` 抓取 RSS.app feeds
 - **OPC Radar · 一人雷达**（/radar）：GitHub Actions `daily-radar.yml` — 每天北京时间 06:47 + 19:47 先跑 `scripts/fetch-sources.mjs` 抓取素材入 `radar_candidates`。信源按 founder-first / enabler / context 三层管理（完整台账见 `RADAR-SOURCES.md`）：Show HN、Product Hunt、BetaList AI、Reddit r/SideProject、IH Podcast、RevenueCat 和独立开发者 X 为优先层；HN/GitHub/少数派为能力层；TechCrunch/The Verge/a16z/大公司 X 仅作低配额背景层。`scripts/generate-radar.mjs` 拉 72h 宽召回后由 `scripts/lib/radar-policy.mjs` 分层入模，并以 URL 溯源 + 五维 OPC fit + 单源上限 + 大公司每天至多 1 条做代码硬过滤；允许 0 条、每天至多 6 条，默认写 draft 供 /admin 审核。每条抓原文 OG 封面图。**主编口吻**：`scripts/style-samples.md` 中 `- ` 行作为 few-shot；策略测试运行 `npm run test:radar`
 - **机会生产线**（Opportunities，重构 P1.1）：GitHub Actions `weekly-opportunities.yml` — 每周三 09:23 北京时间自动 + 手动触发。`scripts/generate-opportunities.mjs` 两段式：近 7 天 published radar_items 不联网聚类（每个机会必须 ≥3 条信号，不足本期不生成）→ 逐聚类 GLM 联网深研，产出 16 字段机会卡 + OPC Score 七维（代码加权算 score_total）+ Evidence Grade（代码按证据条数/tier 定级，0 条有效证据整篇拒收）+ Recommendation（BUILD/WATCH/NICHE_ONLY/SKIP 草稿）。案例收入数字执行"三件套"终审（revenue_source_url + claim_quote 齐全且 URL 可达，否则抹为"未披露"），evidence/case URL 逐个 HTTP 校验，source_tier 代码确定性映射。写入 `opportunities` 表 status=draft，关联 `cases` 表（按 name 去重）；editor_take 注入 style-samples 前 2 条做口吻
