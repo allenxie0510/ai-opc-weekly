@@ -13,6 +13,17 @@ export const WEEKLY_FEEDS = [
   { name: 'IH Podcast', url: 'https://feeds.transistor.fm/the-indie-hackers-podcast', lane: 'business' },
   { name: 'n8n workflows', url: 'https://blog.n8n.io/rss/', lane: 'delivery' },
 ];
+// Maintained research leads: read current primary evidence, never label these as new launches.
+export const WEEKLY_PRIMARY_CASES = [
+ {title:'Twinly Lab · AI 咨询与知识服务',source_url:'https://twinlylab.com/'},
+ {title:'Interior AI · 室内设计与虚拟布置',source_url:'https://interiorai.com/'},
+ {title:'DocsBot · AI 客服与知识交付',source_url:'https://docsbot.ai/'},
+ {title:'Guidde · AI 视频文档与客户培训',source_url:'https://www.guidde.com/'},
+ {title:'SiteGPT · AI 客服经营案例',source_url:'https://sitegpt.ai/'},
+ {title:'HeadshotPro · AI 职业头像交付',source_url:'https://www.headshotpro.com/'},
+ {title:'TypingMind · AI 工作台产品',source_url:'https://www.typingmind.com/'},
+ {title:'Photo AI · 创始人与 AI 摄影产品',source_url:'https://photoai.com/faq/who-created-photo-ai-meet-pieter-levels-the-founder-5465077'},
+];
 const AI = /\b(ai|llm|gpt|agent|automation)\b|人工智能|智能体|大模型|自动化/i;
 const BUSINESS = /customer|client|revenue|pricing|paying|subscription|business|design|marketing|workflow|invoice|sell|sales|用户|客户|营收|付费|定价|订单|交付|商家|设计|内容|电商|获客/i;
 const CONTEXT = /TechCrunch|The Verge|a16z|GitHub Trending|X\/@(OpenAI|claudeai|Google)/i;
@@ -23,6 +34,7 @@ export function candidateRank(row, now = Date.now()) {
   if (!AI.test(text) && !BUSINESS.test(text)) return -1; // Short feeds are leads; verify both in the full research pass.
   // Geography is not a quota. Depth and business evidence outrank launch popularity.
   return (age <= 30 ? 30 : 10) + Math.min(20, String(row.snippet || '').length / 80)
+    + (/^官方经营页：/.test(row.source_name || '') ? 30 : 0)
     + (/RevenueCat|IH Podcast|编辑核实/.test(row.source_name || '') ? 20 : 0)
     + (/pricing|revenue|paying|subscription|客户|定价|营收|付费|订单/i.test(text) ? 20 : 0);
 }
