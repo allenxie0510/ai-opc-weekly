@@ -121,3 +121,15 @@ test('source extraction does not mistake a short testimonial for the product pag
  assert.ok(text.includes('pricing and delivery'));
  assert.ok(text.length>1000);
 });
+
+
+test('plain-text editorial inference fields normalize without inventing source evidence',async()=>{
+ const {resolveReportQuotes}=await import('../lib/weekly-report-generator.mjs');
+ const raw=reportPayload();raw.article.editorial_brief.answers.payer='潜在付费对象：需要设计交付的小商家';
+ const fixed=resolveReportQuotes(raw,testMaterial);
+ assert.equal(fixed.article.editorial_brief.answers.payer.basis,'inference');
+ assert.equal(fixed.article.editorial_brief.answers.payer.quote,'');
+ assert.equal(validateReportPayload(fixed,testMaterial,'test').ok,true);
+ raw.article.editorial_brief.answers.problem='没有原文证据的问题陈述';
+ assert.equal(validateReportPayload(resolveReportQuotes(raw,testMaterial),testMaterial,'test').ok,false);
+});
