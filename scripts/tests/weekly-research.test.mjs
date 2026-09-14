@@ -85,3 +85,18 @@ test('quality rejections cool down for seven days; model/network failures stay r
  assert.equal(cacheableRejection('model-rate-limited'),false);
  assert.equal(cacheableRejection('ungrounded-report-fact'),false);
 });
+
+
+test('supplement mode uses a separate stable slug and leaves the published edition untouched',async()=>{
+ const reads=[];
+ await assert.rejects(runWeeklyResearch({supplement:true,db:async path=>{
+  reads.push(path);
+  if(path.includes('weekly_issues?slug=')){
+   assert.ok(path.includes('-supplement&'));
+   return [{id:'supplement',status:'draft'}];
+  }
+  return [];
+ }}),/尚未达交付线/);
+ assert.ok(reads.some(p=>p.includes('weekly_issue_id=eq.supplement')));
+ assert.ok(!reads.some(p=>p.includes('weekly_issue_id=eq.published')));
+});

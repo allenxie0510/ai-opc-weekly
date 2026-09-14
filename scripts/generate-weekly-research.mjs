@@ -21,11 +21,12 @@ export function weekIdentity(date=new Date()) {
   const week=Math.round((mon-jan4)/604800000)+1;const sun=new Date(mon);sun.setUTCDate(mon.getUTCDate()+6);
   return {slug:`${year}-w${week}`,year,week_number:week,week_start:mon.toISOString().slice(0,10),week_end:sun.toISOString().slice(0,10)};
 }
-export async function runWeeklyResearch({db=sb,read=enrichMaterial,generate=generateReport}={}){
+export async function runWeeklyResearch({db=sb,read=enrichMaterial,generate=generateReport,supplement=process.env.WEEKLY_SUPPLEMENT==='true'}={}){
  Object.assign(audit,{started_at:new Date().toISOString(),intake:0,read:0,accepted:0,rejections:[],complete:false,total:0,reports:0});
  const cachePath=process.env.WEEKLY_REVIEW_STATE_PATH;
  const reviewState=readWeeklyReviewCache(cachePath);
  const period=weekIdentity();
+ if(supplement)period.slug+='-supplement';
  let issue=(await db(`/weekly_issues?slug=eq.${period.slug}&select=*&limit=1`))?.[0];
  if(issue?.status==='published'){console.log('本周已发布，保留发布版本，不重复生成。');audit.complete=true;return;}
  const selected=issue?await db(`/news_items?weekly_issue_id=eq.${issue.id}&order=rank.asc`):[];
@@ -68,7 +69,7 @@ export async function runWeeklyResearch({db=sb,read=enrichMaterial,generate=gene
     const latest=await db('/weekly_issues?select=issue_number&order=issue_number.desc&limit=1');
     const number=(latest?.[0]?.issue_number||0)+1;
     if(!dry){
-     await db('/weekly_issues',{method:'POST',body:JSON.stringify({...period,issue_number:number,title:`AI OPC Weekly #${number}`,summary:'研究草稿整理中',status:'draft',published_at:new Date().toISOString(),cover_image:''})});
+     await db('/weekly_issues',{method:'POST',body:JSON.stringify({...period,issue_number:number,title:`AI OPC Weekly #${number}${supplement?' · 本期补充研究':''}`,summary:'研究草稿整理中',status:'draft',published_at:new Date().toISOString(),cover_image:''})});
      issue=(await db(`/weekly_issues?slug=eq.${period.slug}&select=*&limit=1`))?.[0];
      if(!issue)throw new Error('issue-not-created');
     }else issue={id:'dry-run',issue_number:number,status:'draft'};

@@ -10,6 +10,11 @@ on:
     - cron: '5 3 * * 1'
     - cron: '5 4 * * 1'
   workflow_dispatch:
+    inputs:
+      supplement:
+        description: 保留发布版，另建或续跑本期补充草稿
+        type: boolean
+        default: false
 
 concurrency:
   group: weekly-newsletter
@@ -19,6 +24,7 @@ jobs:
   generate:
     env:
       EDITORIAL_RESEARCH_ENABLED: ${{ vars.EDITORIAL_RESEARCH_ENABLED }}
+      WEEKLY_SUPPLEMENT: ${{ inputs.supplement || 'false' }}
       WEEKLY_REVIEW_STATE_PATH: /tmp/weekly-research-review.json
     runs-on: ubuntu-latest
     timeout-minutes: 30
