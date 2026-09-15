@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { BrandLogo } from './brand-logo';
 import { EditorialLinks } from './editorial-links';
 import { WechatContact } from './wechat-contact';
 
@@ -8,7 +9,7 @@ export function SiteFooter() {
       <div className="site-footer-top">
         <div className="site-footer-identity">
           <div className="site-footer-brand-copy">
-            <Link href="/" className="site-footer-logo" aria-label="AI OPC 首页">AI OPC</Link>
+            <Link href="/" className="site-footer-logo" aria-label="AI OPC 首页"><BrandLogo surface="dark" /></Link>
             <p className="site-footer-slogan">一人公司机会情报</p>
           </div>
           <WechatContact />

@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { BrandLogo } from './brand-logo';
 import { useState, useEffect, useRef } from 'react';
 import type { User } from '@supabase/supabase-js';
 import { WeeklyNav } from './weekly-nav';
@@ -144,7 +145,7 @@ export function Header() {
     <nav className="nav">
       <div className="nav-inner">
         <div className="nav-left">
-          <Link href="/" className="brand">AI OPC</Link>
+          <Link href="/" className="brand" aria-label="AI OPC 首页"><BrandLogo /></Link>
           <span className="nav-sep">|</span>
           <Link href="/opportunities" className="x-link">机会库</Link>
           <Link href="/explore" className="x-link">方向探测器</Link>
