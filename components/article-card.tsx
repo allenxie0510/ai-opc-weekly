@@ -112,7 +112,7 @@ export function ArticleCard({ item, index }: { item: NewsItem; index: number }) 
   const catLabel = CAT_LABELS[item.category] || item.category.replace('-', ' ').replace(/\b\w/g, c => c.toUpperCase());
 
   return (
-    <article data-category={item.category} className="article" style={{ position: 'relative' }}>
+    <article data-category={item.category} className={`article${insightOpen ? ' article-expanded' : ''}`} style={{ position: 'relative' }}>
       <AdminEditButton
         type="news_item"
         id={item.id}
@@ -131,7 +131,7 @@ export function ArticleCard({ item, index }: { item: NewsItem; index: number }) 
         <BookmarkBtn item={item} />
       </div>
 
-      <h3>{item.title}</h3>
+      <h3>{report ? <Link href={`/reports/${item.id}`}>{item.title}</Link> : item.title}</h3>
       <p className="desc">{item.description}</p>
 
       <div className="art-meta">
@@ -177,8 +177,8 @@ export function ArticleCard({ item, index }: { item: NewsItem; index: number }) 
             {ref.label}
           </a>
         ))}
-        <button onClick={() => setInsightOpen(!insightOpen)} className="pill insight-tgl">
-          {insightOpen ? '收起 ▴' : '展开洞察 ▾'}
+        <button onClick={() => setInsightOpen(!insightOpen)} aria-expanded={insightOpen} className="pill insight-tgl">
+          {insightOpen ? '收起详情 ▴' : '展开详情 ▾'}
         </button>
       </div>
 

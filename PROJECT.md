@@ -43,6 +43,7 @@
 - **收藏**: localStorage key = `ai_trends_favorites`，存完整 NewsItem
 - **访问量**: 不蒜子 UV 统计，script 在 `layout.tsx`
 - **品牌标识**: `components/brand-logo.tsx` 统一使用 `public/brand/aiopclogo-light.svg`（浅底黑字）与 `aiopclogo-dark.svg`（深底白字）。顶部桌面宽112px、手机99.2px，随 `prefers-color-scheme` 切换 SVG 与导航底色；深色页脚固定使用 dark 版，宽121.6px并可随窄屏收缩。保留原始SVG比例，不再叠加旧文字或蓝点。
+- **编辑视觉**: `docs/design/EDITORIAL-VISUAL-SYSTEM.md` 记录2026-09-16移动列表密度、五张栏目插画及报告头图规范；栏目组件 `components/category-hero.tsx`，WebP资产在 `public/editorial/`。
 - **内容语气**: 周报面向公众，不用「你/你的」，客观第三人称
 - **排版规范**: 内容块与黑色 footer 之间必须保留 56px 间距（`footer` 用 `margin-top:auto` 吸底，内容超一屏时 auto 会归零，兜底样式在 globals.css 末尾「内容与 footer 的统一间距」）；新增页面/区块时主动检查上下左右间距是否符合设计系统（`.container` 容器左右 32px / 移动端 20px，区块间距 56px）
 

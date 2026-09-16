@@ -1,3 +1,4 @@
+import { CategoryHero } from '@/components/category-hero';
 import { getWeeklyIssues } from '@/lib/data';
 import { Header } from '@/components/page-shell';
 import Link from 'next/link';
@@ -25,10 +26,7 @@ export default async function ArchivePage() {
         display: 'flex', flexDirection: 'column', minHeight: 'calc(100vh - var(--header-height, 56px))',
       }}>
         <div className="container page-wrap" style={{ flex: 1 }}>
-        <header style={{ marginBottom: 48 }}>
-          <h1 style={{ fontFamily: 'var(--font-brand)', fontSize: '2.2rem', fontWeight: 700, letterSpacing: '-0.03em', marginBottom: 8 }}>全部周报</h1>
-          <p style={{ color: 'var(--color-steel)', fontSize: '0.95rem' }}>AI OPC · 周报归档</p>
-        </header>
+        <CategoryHero section="weekly" title="每周深读"><p>从真实案例到经营方法，收藏值得反复拆解的创业研究。</p></CategoryHero>
 
         {issues.length === 0 ? (
           <div className="empty" style={{ textAlign: 'center', padding: '60px 0', color: 'var(--color-stone)' }}>
@@ -42,7 +40,7 @@ export default async function ArchivePage() {
                 {byYear[Number(year)].map((i) => (
                   <Link key={i.slug} href={`/weekly/${i.slug}`} className="archive-item">
                     <div>
-                      <span className="week-label">W{i.week_number}</span>
+                      <span className="week-label">W{i.week_number}</span><strong className="archive-title">{i.title}</strong>
                       <span className="date" style={{ marginLeft: 12 }}>
                         {fmtDate(i.week_start)}–{fmtDate(i.week_end)}
                       </span>

@@ -1,3 +1,4 @@
+import { CategoryHero } from '@/components/category-hero';
 import type { Metadata } from 'next';
 import { getOpportunities } from '@/lib/data';
 import { Header } from '@/components/page-shell';
@@ -17,12 +18,7 @@ export default async function OpportunitiesPage() {
     <>
       <Header />
       <div className="container page-wrap">
-        <header className="x-pagehead">
-          <div>
-            <h1 className="x-pagehead-title">机会库</h1>
-            <p className="x-pagehead-meta">从具体客户、痛点和获客渠道出发，找到值得进一步验证的方向。评分是研究判断，不是成功概率。</p>
-          </div>
-        </header>
+        <CategoryHero section="opportunities" title="机会库"><p>从客户、痛点与获客渠道出发，发现值得验证的生意。评分是研究判断，不是成功概率。</p></CategoryHero>
 
         {opps.length === 0 ? (
           <div className="radar-empty">

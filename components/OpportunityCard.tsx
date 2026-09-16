@@ -6,10 +6,8 @@ import { ScoreBadge } from './score-badge';
 import { LineIcon } from './icons';
 
 /**
- * 机会卡片 v2 · MicroConf 式封面卡
- * 顶部 16:10 封面（AI 概念图 / 程序化兜底），左下叠 recommendation 胶囊、右上叠评分徽章；
- * 图下：标题（2行截断）→ thesis 摘要（2行截断）→ 元信息 → 深色 CTA
- * variant="featured" 为首页头条大卡（封面更宽、字号更大、多一行主编判断）
+ * 编辑式机会卡：桌面图文网格，手机缩略图列表。
+ * 列表无图或图片失败时采用纯文字；头条与详情保留原有封面兜底。
  */
 
 // 兜底封面配色：按 category 映射渐变底色 + 单色强调（与站点色板同源的柔和色）
@@ -118,14 +116,9 @@ export function OpportunityCard({ opportunity: o }: { opportunity: Opportunity }
   const metaText = [`${o.evidence?.length || 0} 条来源 · 支持程度待核对`, cat?.label, date].filter(Boolean).join(' · ');
   return (
     <Link href={`/opportunities/${o.slug}`} className="opcard">
-      <div className="opcard-cover">
-        {o.cover_url
-          ? <CoverImg src={o.cover_url} alt={o.title}><CoverFallback category={o.category} seed={o.slug || o.id} /></CoverImg>
-          : <CoverFallback category={o.category} seed={o.slug || o.id} />}
-        <span className="opcard-rec">{rec.label}</span>
-        <ScoreBadge score={o.score_total} variant="cover" trend={o.score_trend} />
-      </div>
+      {o.cover_url && <div className="opcard-cover opcard-thumbnail"><CoverImg src={o.cover_url} alt="" /></div>}
       <div className="opcard-body">
+        <div className="opcard-kicker"><span>{rec.label}</span><span>{cat?.label}</span><ScoreBadge score={o.score_total} variant="text" trend={o.score_trend} /></div>
         <h3 className="opcard-title">{o.title}</h3>
         {o.thesis && <p className="opcard-thesis">{o.thesis}</p>}
         {o.customer && <p className="card-decision-note"><strong>目标客户</strong>{o.customer}</p>}

@@ -1,3 +1,4 @@
+import { CategoryHero } from '@/components/category-hero';
 import type { Metadata } from 'next';
 import { Header } from '@/components/page-shell';
 import { ExploreApp } from '@/modules/explore/ExploreApp';
@@ -17,14 +18,7 @@ export default async function ExplorePage({ searchParams }: { searchParams: Prom
     <>
       <Header />
       <div className="container page-wrap">
-        <header className="x-pagehead">
-          <div>
-            <h1 className="x-pagehead-title">方向探测器</h1>
-            <p className="x-pagehead-meta">
-              从你的技能、资源和限制出发，比较候选方向，明确取舍，再安排下一步验证。
-            </p>
-          </div>
-        </header>
+        <CategoryHero section="explore" title="方向探测器"><p>从技能、资源和限制出发，比较方向，明确取舍，安排下一步验证。</p></CategoryHero>
 
         <ExploreApp example={example ? { title: example.title, slug: example.slug, customer: example.customer, thesis: example.thesis, risk: example.bear_case, firstStep: example.validation_plan?.steps?.[0] || '' } : null} initialDirection={imported?.title || ''} />
 

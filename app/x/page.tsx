@@ -1,3 +1,4 @@
+import { CategoryHero } from '@/components/category-hero';
 import { getTweets, getTwitterAccounts } from '@/lib/data';
 import { Header } from '@/components/page-shell';
 import { TranslateButton } from '@/components/translate-button';
@@ -56,13 +57,8 @@ export default async function XTimelinePage() {
     <>
       <Header />
       <div className="container page-wrap">
-        <header className="x-pagehead">
-          <div>
-            <h1 className="x-pagehead-title">X 时间轴</h1>
-            <p className="x-pagehead-meta">
-              追踪 {accountCount} 位 AI 圈大佬 · 共 {tweets.length} 条推文
-            </p>
-            <p className="product-note" role="status">
+        <CategoryHero section="voices" title="X 时间轴"><p>跟进独立创造者的实践、观察与一手经验。已收录 {accountCount} 个信源账号。</p></CategoryHero>
+        <div className="voices-status"><p className="product-note" role="status">
               {sync.state === 'running' ? '后台正在同步'
                 : sync.state === 'success' ? '最近抓取完成：'
                 : sync.state === 'failed' ? '最近同步异常，部分账号可能未更新：'
@@ -71,10 +67,7 @@ export default async function XTimelinePage() {
               {sync.checkedAt && <time dateTime={sync.checkedAt}>{new Date(sync.checkedAt).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false })}（北京时间）</time>}
               {sync.checkedAt && Date.now() - Date.parse(sync.checkedAt) > 6 * 3600000 && ' · 已超过 6 小时，请留意同步延迟'}
               <br />计划每 4 小时抓取一次，免费来源与定时任务均可能延迟。抓取成功不代表有新增；下方时间是推文发布时间。
-            </p>
-          </div>
-          <Link href="/x/accounts" className="x-manage-link">管理账号 →</Link>
-        </header>
+            </p><Link href="/x/accounts" className="x-manage-link">管理账号 →</Link></div>
 
         {tweets.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '80px 0', color: 'var(--color-stone)' }}>

@@ -1,3 +1,4 @@
+import { CategoryHero } from '@/components/category-hero';
 import { getRadarItems } from '@/lib/data';
 import { Header } from '@/components/page-shell';
 import { RadarCard, dayKey, dayLabel } from '@/components/radar-card';
@@ -21,12 +22,7 @@ export default async function RadarPage() {
     <>
       <Header />
       <div className="container page-wrap">
-        <header className="x-pagehead">
-          <div>
-            <h1 className="x-pagehead-title">一人雷达</h1>
-            <p className="x-pagehead-meta">一人雷达 · 每日扫描 AI × 一人公司创业信号</p>
-          </div>
-        </header>
+        <CategoryHero section="radar" title="每日信号"><p>扫描 AI × 一人公司的新变化，从信号中发现下一步。</p></CategoryHero>
 
         {items.length === 0 ? (
           <div className="radar-empty">

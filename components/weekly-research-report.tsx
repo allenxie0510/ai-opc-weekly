@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { ResearchFrontispiece } from './category-hero';
 import { REPORT_DIMENSIONS, REPORT_SECTIONS, type WeeklyReport } from '@/lib/weekly-report.mjs';
 import { ReportActions } from './weekly-report-actions';
 import type { NewsItem } from '@/lib/types';
@@ -9,6 +10,7 @@ export function WeeklyResearchReport({report,item,issueLabel,issueHref,draft=fal
  return <main className="wr-report">
   <div className="wr-topline"><Link href={issueHref}>← {issueLabel}</Link><span>AI OPC / RESEARCH NOTE</span></div>
   {draft&&<div className="wr-draft">编辑预览 · 本报告尚未公开发布</div>}
+  <ResearchFrontispiece />
   <header className="wr-cover">
    <div className="wr-cover-copy"><p className="wr-eyebrow">创业研究 / 从案例到行动</p><h1>{report.headline}</h1><p className="wr-dek">{report.dek}</p><div className="wr-byline"><span>AI OPC 研究编辑</span><span>{date}</span><span>约 8–12 分钟</span></div><ReportActions item={item}/></div>
    <aside className="wr-score"><span className="wr-label">研究价值</span><strong>{report.score}<small>/100</small></strong><p>用于比较案例的学习价值<br/>不代表创业成功率</p><div className="wr-dimensions">{Object.entries(REPORT_DIMENSIONS).map(([key,label])=><div key={key}><span>{label}</span><meter min={0} max={5} value={report.dimensions[key]||0} aria-label={label}/><b>{report.dimensions[key]}/5</b></div>)}</div></aside>

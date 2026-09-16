@@ -68,6 +68,8 @@ export function RadarCard({ item }: { item: RadarItem }) {
         </div>
 
         {item.summary && <p className="radar-summary">{item.summary}</p>}
+        <details className="radar-analysis"><summary>展开解读与证据</summary>
+        {item.summary && <p className="radar-full-summary">{item.summary}</p>}
         <EditorialBrief brief={item.editorial_brief} />
 
         {item.editor_note && (
@@ -76,6 +78,7 @@ export function RadarCard({ item }: { item: RadarItem }) {
             {item.editor_note}
           </blockquote>
         )}
+        </details>
       </div>
     </article>
   );
