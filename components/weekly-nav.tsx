@@ -39,7 +39,7 @@ export function WeeklyNav({
   };
 
   return (
-    <div style={{ paddingTop: 16 }}>
+    <div className="weekly-navigation">
       <div className="container flex items-center justify-center gap-1">
         {/* Prev */}
         {newer ? (
@@ -50,7 +50,7 @@ export function WeeklyNav({
 
         {/* Week picker */}
         <div ref={ref} className={`week-picker${open ? ' open' : ''}`}>
-          <button onClick={() => setOpen(!open)} className="week-picker-btn">
+          <button onClick={() => setOpen(!open)} className="week-picker-btn" aria-expanded={open} aria-label="切换周报期数">
             {current ? fmt(current) : '...'}
             <span className="picker-arrow">▾</span>
           </button>

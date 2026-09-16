@@ -39,18 +39,17 @@ export function FilterBar({ categories }: { categories: string[] }) {
   if (validCategories.length === 0) return null;
 
   return (
-    <div className="filter-section">
+    <details className="filter-section weekly-filters">
+      <summary>分类筛选<span>{activeCat === 'all' ? '全部' : CAT_LABELS[activeCat]}</span></summary>
       <div className="filter-row">
-        <span className="flabel">分类</span>
-        <span className="vr">|</span>
-        <button onClick={() => filterByCat('all')} className={`fbtn${activeCat === 'all' ? ' on' : ''}`}>全部</button>
+        <button aria-pressed={activeCat === 'all'} onClick={() => filterByCat('all')} className={`fbtn${activeCat === 'all' ? ' on' : ''}`}>全部</button>
         {validCategories.map(cat => (
-          <button key={cat} onClick={() => filterByCat(cat)} className={`fbtn${activeCat === cat ? ' on' : ''}`}>
+          <button key={cat} aria-pressed={activeCat === cat} onClick={() => filterByCat(cat)} className={`fbtn${activeCat === cat ? ' on' : ''}`}>
             {CAT_LABELS[cat] || cat}
           </button>
         ))}
       </div>
-      <div className="results-hint"></div>
-    </div>
+      <div className="results-hint" role="status"></div>
+    </details>
   );
 }

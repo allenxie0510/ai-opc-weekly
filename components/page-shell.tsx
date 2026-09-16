@@ -167,16 +167,19 @@ export function PageShell({
   issue,
   issues,
   children,
+  hero,
 }: {
   issue: { slug: string; week_number: number; week_start: string; week_end: string };
   issues: { slug: string; week_number: number; week_start: string; week_end: string }[];
   children: React.ReactNode;
+  hero: React.ReactNode;
 }) {
   return (
     <>
       <Header />
+      {hero}
       <WeeklyNav currentSlug={issue.slug} issues={issues} />
-      <div className="container">{children}</div>
+      <div className="container weekly-content">{children}</div>
     </>
   );
 }

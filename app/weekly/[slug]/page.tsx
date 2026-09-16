@@ -3,7 +3,6 @@ import type { Metadata } from 'next';
 import { getIssueBySlug, getNewsItems, getWeeklyIssues } from '@/lib/data';
 import { PageShell } from '@/components/page-shell';
 import { ArticleCard } from '@/components/article-card';
-import { ShareBar } from './share-bar';
 import { FilterBar } from './filter-bar';
 import { HeroSection } from './hero-section';
 
@@ -45,6 +44,7 @@ export default async function WeeklyPage({ params }: { params: Promise<{ slug: s
 
   return (
     <PageShell
+      hero={<HeroSection issue={issue} dateStr={dateStr} />}
       issue={{ slug: issue.slug, week_number: issue.week_number, week_start: issue.week_start, week_end: issue.week_end }}
       issues={allIssues.map(i => ({
         slug: i.slug,
@@ -53,8 +53,6 @@ export default async function WeeklyPage({ params }: { params: Promise<{ slug: s
         week_end: i.week_end,
       }))}
     >
-      <HeroSection issue={issue} dateStr={dateStr} />
-      <ShareBar slug={slug} />
 
       {(() => {
         // P2 三段式：存在 deepdive 条目 → 新版分区布局；否则（旧期数）保持平铺
@@ -65,7 +63,7 @@ export default async function WeeklyPage({ params }: { params: Promise<{ slug: s
         if (!isSectioned) {
           return (
             <>
-              <FilterBar categories={Array.from(new Set(items.map(i => i.category).filter(Boolean)))} />
+              <FilterBar key={issue.id} categories={Array.from(new Set(items.map(i => i.category).filter(Boolean)))} />
               <div className="article-list">
                 {items.map((item, idx) => (
                   <ArticleCard key={item.id} item={item} index={idx + 1} />
@@ -78,13 +76,12 @@ export default async function WeeklyPage({ params }: { params: Promise<{ slug: s
         const filterable = [...picks, ...deepdive];
         return (
           <>
-            <FilterBar categories={Array.from(new Set(filterable.map(i => i.category).filter(Boolean)))} />
+            <FilterBar key={issue.id} categories={Array.from(new Set(filterable.map(i => i.category).filter(Boolean)))} />
 
             {picks.length > 0 && (
               <section className="weekly-section">
                 <h2 className="weekly-section-title">
                   本周快讯精选
-                  <span className="weekly-section-sub">来自 OPC Radar 每日信源 · 按相关度排序</span>
                 </h2>
                 <div className="article-list">
                   {picks.map((item, idx) => (
@@ -98,7 +95,6 @@ export default async function WeeklyPage({ params }: { params: Promise<{ slug: s
               <section className="weekly-section">
                 <h2 className="weekly-section-title">
                   深度拆解
-                  <span className="weekly-section-sub">公开原文研究 · 商业拆解 · 两周验证计划</span>
                 </h2>
                 <div className="article-list">
                   {deepdive.map((item, idx) => (

@@ -56,8 +56,9 @@ export default async function XTimelinePage() {
   return (
     <>
       <Header />
+      <CategoryHero section="voices" title="X 时间轴"><p>跟进独立创造者的实践、观察与一手经验。已收录 {accountCount} 个信源账号。</p></CategoryHero>
       <div className="container page-wrap">
-        <CategoryHero section="voices" title="X 时间轴"><p>跟进独立创造者的实践、观察与一手经验。已收录 {accountCount} 个信源账号。</p></CategoryHero>
+
         <div className="voices-status"><p className="product-note" role="status">
               {sync.state === 'running' ? '后台正在同步'
                 : sync.state === 'success' ? '最近抓取完成：'

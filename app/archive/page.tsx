@@ -22,11 +22,12 @@ export default async function ArchivePage() {
   return (
     <>
       <Header />
+      <CategoryHero section="weekly" title="每周深读"><p>从真实案例到经营方法，收藏值得反复拆解的创业研究。</p></CategoryHero>
       <div style={{
         display: 'flex', flexDirection: 'column', minHeight: 'calc(100vh - var(--header-height, 56px))',
       }}>
         <div className="container page-wrap" style={{ flex: 1 }}>
-        <CategoryHero section="weekly" title="每周深读"><p>从真实案例到经营方法，收藏值得反复拆解的创业研究。</p></CategoryHero>
+
 
         {issues.length === 0 ? (
           <div className="empty" style={{ textAlign: 'center', padding: '60px 0', color: 'var(--color-stone)' }}>

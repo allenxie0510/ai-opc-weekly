@@ -17,8 +17,9 @@ export default async function ExplorePage({ searchParams }: { searchParams: Prom
   return (
     <>
       <Header />
+      <CategoryHero section="explore" title="方向探测器"><p>从技能、资源和限制出发，比较方向，明确取舍，安排下一步验证。</p></CategoryHero>
       <div className="container page-wrap">
-        <CategoryHero section="explore" title="方向探测器"><p>从技能、资源和限制出发，比较方向，明确取舍，安排下一步验证。</p></CategoryHero>
+
 
         <ExploreApp example={example ? { title: example.title, slug: example.slug, customer: example.customer, thesis: example.thesis, risk: example.bear_case, firstStep: example.validation_plan?.steps?.[0] || '' } : null} initialDirection={imported?.title || ''} />
 

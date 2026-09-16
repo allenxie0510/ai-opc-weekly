@@ -21,8 +21,9 @@ export default async function RadarPage() {
   return (
     <>
       <Header />
+      <CategoryHero section="radar" title="每日信号"><p>扫描 AI × 一人公司的新变化，从信号中发现下一步。</p></CategoryHero>
       <div className="container page-wrap">
-        <CategoryHero section="radar" title="每日信号"><p>扫描 AI × 一人公司的新变化，从信号中发现下一步。</p></CategoryHero>
+
 
         {items.length === 0 ? (
           <div className="radar-empty">

@@ -17,8 +17,9 @@ export default async function OpportunitiesPage() {
   return (
     <>
       <Header />
+      <CategoryHero section="opportunities" title="机会库"><p>从客户、痛点与获客渠道出发，发现值得验证的生意。评分是研究判断，不是成功概率。</p></CategoryHero>
       <div className="container page-wrap">
-        <CategoryHero section="opportunities" title="机会库"><p>从客户、痛点与获客渠道出发，发现值得验证的生意。评分是研究判断，不是成功概率。</p></CategoryHero>
+
 
         {opps.length === 0 ? (
           <div className="radar-empty">
