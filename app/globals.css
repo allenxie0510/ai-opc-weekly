@@ -1762,8 +1762,9 @@ footer .editorial-links { color: #b8b8bc; }
   .category-kicker { font-size: 8px; letter-spacing: .04em; margin-bottom: 12px; }
   .category-hero h1 { font-size: 28px; margin-bottom: 12px; }
   .category-dek { font-size: 12px; line-height: 1.8; }
-  .category-art { margin-right: -20px; }
-  .category-art img { object-position: 85% center; }
+  /* Let the complete illustration extend beneath the copy instead of clipping it to the right grid column. */
+  .category-art { position: absolute; inset: 0; margin: 0; overflow: visible; pointer-events: none; }
+  .category-art img { object-fit: contain; object-position: right center; }
   .category-hero--weekly .category-hero-inner { grid-template-columns: 1.55fr 1fr; min-height: 250px; }
   .category-hero--weekly h1 { font-size: 25px; }
   .weekly-navigation { padding: 12px 0; }

@@ -20,7 +20,7 @@ export function CategoryHero({ section, title, children, tone = 'light' }: { sec
   return <header className={`category-hero category-hero--${section}`} data-tone={tone} style={{ '--hero-background': backgrounds[section] } as CSSProperties}>
     <div className="category-hero-inner">
     <div className="category-hero-copy"><p className="category-kicker">AI OPC / {labels[section]}</p><h1>{title}</h1><div className="category-dek">{children}</div></div>
-    <div className="category-art"><Image src={`/editorial/${section}.webp`} alt="" fill priority sizes="(max-width: 768px) 55vw, 570px" /></div>
+    <div className="category-art"><Image src={`/editorial/${section}.webp`} alt="" fill priority sizes="(max-width: 768px) 100vw, 570px" /></div>
     </div>
   </header>;
 }
