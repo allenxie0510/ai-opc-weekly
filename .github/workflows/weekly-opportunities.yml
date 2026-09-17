@@ -45,6 +45,14 @@ jobs:
           ZHIPU_API_KEY: ${{ secrets.ZHIPU_API_KEY }}
           ARK_API_KEY: ${{ secrets.ARK_API_KEY }}
         run: node scripts/generate-opportunities.mjs
+      - name: Upload opportunity delivery report
+        if: ${{ always() && inputs.rescore_only != true }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: opportunity-delivery
+          path: opportunity-delivery.json
+          retention-days: 30
+          if-no-files-found: warn
       - name: Rescore published opportunities
         if: github.event_name == 'schedule' || inputs.rescore_only == true
         env:

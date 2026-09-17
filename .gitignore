@@ -43,3 +43,6 @@ yarn-error.log*
 next-env.d.ts
 .env.local
 .cache/editorial-ingestion/
+
+# Per-run opportunity delivery diagnostics
+/opportunity-delivery.json

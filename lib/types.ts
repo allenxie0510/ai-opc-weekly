@@ -124,6 +124,11 @@ export interface OpportunityEvidence {
 }
 
 export interface ValidationPlan {
+  research_version?: string;
+  target_market?: 'china' | 'overseas' | 'cross-border' | 'unknown';
+  china_applicability?: string;
+  solo_delivery?: string;
+  unknowns?: string;
   hypothesis: string;
   steps: string[];
   success_threshold: string;

@@ -229,6 +229,15 @@ export default async function OpportunityPage({ params }: { params: Promise<{ sl
         </section>
 
         {/* ═══ Validation Plan ═══ */}
+        {(vp.china_applicability || vp.solo_delivery || vp.unknowns) && (
+          <section className="opp-section">
+            <h2 className="opp-section-title">落地条件与待验证事项</h2>
+            {vp.target_market && <p>适用市场：{{ china: '中国市场', overseas: '海外市场', 'cross-border': '跨境市场', unknown: '尚待核实' }[vp.target_market]}</p>}
+            {vp.china_applicability && <p><strong>国内适用条件：</strong>{vp.china_applicability}</p>}
+            {vp.solo_delivery && <p><strong>一人交付边界：</strong>{vp.solo_delivery}</p>}
+            {vp.unknowns && <p><strong>还需核实：</strong>{vp.unknowns}</p>}
+          </section>
+        )}
         <div id="validation-plan" />
         {(vp.hypothesis || vp.steps.length > 0) && (
           <section className="opp-section">
