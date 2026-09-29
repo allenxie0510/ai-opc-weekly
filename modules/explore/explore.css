@@ -397,3 +397,20 @@
 .xpl-session-item.current { border-color: var(--color-blue); box-shadow: 0 0 0 1px var(--color-blue); }
 .xpl-session-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .xpl-session-info strong { color: var(--color-ink); font-size: 14px; }
+
+/* 规划方向与完成状态分开呈现，长标题可自然换行。 */
+.xpl-plan-picker { width: 100%; min-width: 0; }
+.xpl-plan-picker details { margin-top: 8px; border: 1px solid var(--color-hairline); border-radius: 10px; background: var(--color-canvas); }
+.xpl-plan-picker summary, .xpl-plan-choices button { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 14px; cursor: pointer; text-align: left; }
+.xpl-plan-picker summary { list-style: none; }
+.xpl-plan-picker summary::-webkit-details-marker { display: none; }
+.xpl-plan-picker summary::after { content: '▾'; color: var(--color-stone); }
+.xpl-plan-picker details[open] summary::after { content: '▴'; }
+.xpl-plan-choice-name { flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: 14px; font-weight: 600; color: var(--color-ink); }
+.xpl-plan-choice-name small { display: block; margin-top: 4px; font-size: 12px; font-weight: 400; color: var(--color-steel); }
+.xpl-plan-status { flex-shrink: 0; padding: 4px 9px; border-radius: 6px; font-size: 12px; font-weight: 600; color: var(--color-steel); background: var(--color-surface-soft); }
+.xpl-plan-status.is-planned { color: #06734a; background: #d9f4e7; border: 1px solid #8dd6b4; }
+.xpl-plan-choices { max-height: 360px; overflow-y: auto; border-top: 1px solid var(--color-hairline); }
+.xpl-plan-choices button { border: 0; border-bottom: 1px solid var(--color-hairline-soft); background: transparent; }
+.xpl-plan-choices button[aria-pressed="true"] { background: var(--color-surface-soft); box-shadow: inset 3px 0 var(--color-blue); }
+.xpl-plan-choices button:hover { background: var(--color-surface-soft); }

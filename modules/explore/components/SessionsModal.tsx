@@ -33,10 +33,11 @@ export function SessionsModal({
   onRetry?: () => void;
 }) {
   const [title, setTitle] = useState('');
+  const currentTitle = sessions.find((session) => session.id === currentSessionId)?.title || '';
 
   useEffect(() => {
-    if (open) setTitle('');
-  }, [open]);
+    if (open) setTitle(currentTitle);
+  }, [open, currentTitle]);
 
   function fmt(d: string) {
     try {

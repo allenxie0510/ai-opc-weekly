@@ -13,6 +13,8 @@ export function StepPlan({
   plans,
   onPlanChange,
   onSave,
+  saving = false,
+  saved = false,
 }: {
   config: AIConfig;
   profile: ThemeProfile;
@@ -20,9 +22,12 @@ export function StepPlan({
   plans: PlansMap;
   onPlanChange: (ideaId: string, plan: BackcastPlan) => void;
   onSave: () => void;
+  saving?: boolean;
+  saved?: boolean;
 }) {
   const [selectedId, setSelectedId] = useState(candidates[0]?.id ?? '');
   const [loading, setLoading] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
   const [error, setError] = useState('');
 
   const selected = candidates.find((c) => c.id === selectedId) ?? candidates[0];
@@ -83,20 +88,30 @@ export function StepPlan({
       />
 
       <div className="xpl-plan-select">
-        <label>选择要规划的方向（短名单 / 收藏）</label>
-        <select className="xpl-select" value={selected?.id} onChange={(e) => setSelectedId(e.target.value)}>
-          {candidates.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}（{c.category}）{plans[c.id] ? ' · 已规划' : ''}
-            </option>
-          ))}
-        </select>
+        <div className="xpl-plan-picker">
+          <span className="xpl-field-label">选择要规划的方向（短名单 / 收藏）</span>
+          <details open={pickerOpen} onToggle={(event) => setPickerOpen(event.currentTarget.open)}>
+            <summary>
+              <span className="xpl-plan-choice-name">{selected?.name || '暂无候选方向'}</span>
+              <span className={`xpl-plan-status ${plan ? 'is-planned' : ''}`}>{plan ? '✓ 已规划' : '待规划'}</span>
+            </summary>
+            <div className="xpl-plan-choices" aria-label="候选方向">
+              {candidates.map((c) => (
+                <button type="button" key={c.id} aria-pressed={selected?.id === c.id}
+                  onClick={() => { setSelectedId(c.id); setPickerOpen(false); }}>
+                  <span className="xpl-plan-choice-name">{c.name}<small>{c.category}</small></span>
+                  <span className={`xpl-plan-status ${plans[c.id] ? 'is-planned' : ''}`}>{plans[c.id] ? '✓ 已规划' : '待规划'}</span>
+                </button>
+              ))}
+            </div>
+          </details>
+        </div>
         <Button onClick={generate} disabled={!selected || loading}>
           {loading ? '逆向规划中…' : plan ? <><LineIcon name="refresh" /> 重新生成</> : <><LineIcon name="compass" /> 生成逆向规划</>}
         </Button>
         {plan && (
           <>
-            <Button onClick={onSave}><LineIcon name="save" /> 保存研究结果</Button>
+            <Button onClick={onSave} disabled={saving}><LineIcon name="save" /> {saving ? '保存中…' : saved ? '保存到当前探索' : '保存研究结果'}</Button>
             <Button variant="accent" onClick={() => exportPlanPdf(selected!, plan, profile)}><LineIcon name="file-text" /> 导出 PDF</Button>
             <Button variant="outline" onClick={copyMarkdown}>复制 Markdown</Button>
           </>
@@ -150,7 +165,7 @@ export function StepPlan({
           <div className="xpl-foot-row">
             <span className="xpl-muted">人的参与：里程碑可与你自己的节奏冲突，请据实调整，再让 AI 重跑。</span>
             <Button variant="ghost" onClick={generate} disabled={loading}>换一个版本重跑</Button>
-            <Button onClick={onSave}><LineIcon name="save" /> 保存研究结果</Button>
+            <Button onClick={onSave} disabled={saving}><LineIcon name="save" /> {saving ? '保存中…' : saved ? '保存到当前探索' : '保存研究结果'}</Button>
           </div>
         </div>
       ) : (

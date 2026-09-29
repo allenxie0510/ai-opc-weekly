@@ -10,6 +10,7 @@ export interface PersistState {
   weights: Record<string, number>;
   opportunities: Opportunity[];
   plans: PlansMap;
+  savedSession?: { id: string; title: string; userId: string } | null;
 }
 
 const KEY = 'ai_opc_explore_v1';
@@ -29,6 +30,7 @@ export function loadState(): PersistState {
     if (!raw) return base;
     const parsed = JSON.parse(raw);
     return {
+      savedSession: parsed.savedSession?.id && parsed.savedSession?.userId ? parsed.savedSession : null,
       config: { ...base.config, ...(parsed.config || {}) },
       profile: { ...base.profile, ...(parsed.profile || {}) },
       weights: { ...weights, ...(parsed.weights || {}) },

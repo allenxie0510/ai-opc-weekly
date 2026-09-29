@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import type { User } from '@supabase/supabase-js';
 import type { AIConfig, BackcastPlan, ExploreSession, Opportunity, PlansMap, ThemeProfile } from './lib/types';
@@ -66,12 +66,19 @@ export function ExploreApp({ example = null, initialDirection = '' }: { example?
   const [sessions, setSessions] = useState<ExploreSession[]>([]);
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [sessionTitle, setSessionTitle] = useState('');
+  const saveLock = useRef(false);
+  const accountId = useRef<string | null>(null);
+  const lastAttempt = useRef('');
+  const explorationVersion = useRef(0);
+  const restoredSession = useRef<ReturnType<typeof loadState>['savedSession']>(null);
   const [sessionNotice, setSessionNotice] = useState('');
   const [sessionError, setSessionError] = useState('');
 
   // 客户端挂载：读本地草稿
   useEffect(() => {
     const s = loadState();
+    restoredSession.current = s.savedSession;
     setConfig(s.config);
     setProfile(s.profile);
     setWeights(s.weights);
@@ -82,8 +89,36 @@ export function ExploreApp({ example = null, initialDirection = '' }: { example?
 
   // 本地兜底存储
   useEffect(() => {
-    if (mounted && user) saveState({ config, profile, weights, opportunities, plans });
-  }, [mounted, user, config, profile, weights, opportunities, plans]);
+    if (mounted && user) saveState({ config, profile, weights, opportunities, plans, savedSession: currentSessionId ? { id: currentSessionId, title: sessionTitle, userId: user.id } : null });
+  }, [mounted, user, config, profile, weights, opportunities, plans, currentSessionId, sessionTitle]);
+
+  useEffect(() => {
+    if (accountId.current && accountId.current !== user?.id) {
+      explorationVersion.current += 1;
+      setCurrentSessionId(null);
+      setSessionTitle('');
+      lastAttempt.current = '';
+    }
+    accountId.current = user?.id || null;
+    const saved = restoredSession.current;
+    if (user && saved) {
+      restoredSession.current = null;
+      if (saved.userId === user.id) {
+        setCurrentSessionId(saved.id);
+        setSessionTitle(saved.title);
+      }
+    }
+  }, [user]);
+
+  // 已命名探索的变更自动更新原记录；串行保存，避免较旧请求覆盖新规划。
+  const saveFingerprint = JSON.stringify({ currentSessionId, profile, weights, opportunities, plans });
+  useEffect(() => {
+    if (!user || !currentSessionId || saving || lastAttempt.current === saveFingerprint) return;
+    const timer = setTimeout(() => { void saveSession(''); }, 800);
+    return () => clearTimeout(timer);
+    // saveSession uses this render's full snapshot. Every persisted field is in the fingerprint.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, currentSessionId, saving, saveFingerprint]);
 
   // 登录态监听
   useEffect(() => {
@@ -146,7 +181,10 @@ export function ExploreApp({ example = null, initialDirection = '' }: { example?
   }
 
   async function saveSession(title: string) {
-    if (saving) return;
+    if (saveLock.current) return;
+    saveLock.current = true;
+    const version = explorationVersion.current;
+    lastAttempt.current = saveFingerprint;
     setSaving(true);
     setSessionNotice('');
     setSessionError('');
@@ -154,9 +192,10 @@ export function ExploreApp({ example = null, initialDirection = '' }: { example?
     const t = await getToken();
     if (!t) {
       setLoginOpen(true);
-      return;
+      throw new Error('请登录后重试保存。');
     }
-    const payload = { title: title.trim() || sessions.find((s) => s.id === currentSessionId)?.title || profile.direction.trim() || '未命名探索', profile, weights, opportunities, plans };
+    if (version !== explorationVersion.current) return;
+    const payload = { title: title.trim() || sessionTitle || sessions.find((s) => s.id === currentSessionId)?.title || profile.direction.trim() || '未命名探索', profile, weights, opportunities, plans };
     const res = await fetch(currentSessionId ? `/api/explore/sessions/${currentSessionId}` : '/api/explore/sessions', {
       method: currentSessionId ? 'PUT' : 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
@@ -164,19 +203,30 @@ export function ExploreApp({ example = null, initialDirection = '' }: { example?
     });
     if (res.ok) {
       const d = await res.json();
-      if (d.session?.id) setCurrentSessionId(d.session.id);
+      if (version !== explorationVersion.current) return;
+      if (!d.session?.id) throw new Error('保存响应不完整，请重试。');
+      if (d.session?.id) {
+        setCurrentSessionId(d.session.id);
+        setSessionTitle(payload.title);
+        lastAttempt.current = JSON.stringify({ currentSessionId: d.session.id, profile, weights, opportunities, plans });
+      }
+      if (!currentSessionId) setSessionsOpen(false);
       await loadSessions();
-      setSessionNotice('已保存到账号，可在其他设备登录后加载。');
+      if (version !== explorationVersion.current) return;
+      setSessionNotice(`已保存到「${payload.title}」，后续修改将自动保存。`);
     } else {
       const d = await res.json().catch(() => ({}));
       throw new Error(d.error || '保存失败，请重试。');
     }
     } catch (error) {
-      setSessionError(error instanceof Error ? error.message : '保存失败，当前草稿仍在，请重试。');
-    } finally { setSaving(false); }
+      if (version === explorationVersion.current) setSessionError(`未能保存到账号，当前草稿仍在。${error instanceof Error ? error.message : '请重试。'}`);
+    } finally { saveLock.current = false; setSaving(false); }
   }
 
   function loadSession(s: ExploreSession) {
+    explorationVersion.current += 1;
+    lastAttempt.current = JSON.stringify({ currentSessionId: s.id, profile: s.profile, weights: s.weights, opportunities: s.opportunities, plans: s.plans });
+    setSessionTitle(s.title);
     setCurrentSessionId(s.id);
     setProfile(s.profile || { ...EMPTY_PROFILE });
     setWeights(s.weights || defaultWeights());
@@ -194,7 +244,7 @@ export function ExploreApp({ example = null, initialDirection = '' }: { example?
     if (!t) return;
     const res = await fetch(`/api/explore/sessions/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${t}` } });
     if (res.ok) {
-      if (currentSessionId === id) setCurrentSessionId(null);
+      if (currentSessionId === id) { explorationVersion.current += 1; setSessionTitle(''); setCurrentSessionId(null); }
       await loadSessions();
     } else {
       const d = await res.json().catch(() => ({}));
@@ -205,6 +255,8 @@ export function ExploreApp({ example = null, initialDirection = '' }: { example?
   function newExploration() {
     const hasContent = opportunities.length > 0 || profile.vision || profile.direction || profile.interests;
     if (hasContent && !confirm('新建空白探索会清空当前进度，建议先「保存当前探索」。确定继续？')) return;
+    explorationVersion.current += 1;
+    setSessionTitle('');
     setCurrentSessionId(null);
     setProfile({ ...EMPTY_PROFILE });
     setWeights(defaultWeights());
@@ -253,6 +305,8 @@ export function ExploreApp({ example = null, initialDirection = '' }: { example?
     setWeights(defaultWeights());
     setOpportunities([]);
     setPlans({});
+    explorationVersion.current += 1;
+    setSessionTitle('');
     setCurrentSessionId(null);
   }
 
@@ -307,9 +361,10 @@ export function ExploreApp({ example = null, initialDirection = '' }: { example?
     <div className="xpl-wrap">
       {initialDirection && <div className="reading-cta"><div><strong>从机会库继续：{initialDirection}</strong><p>将其设为研究方向，再填写你的个人条件。应用后会清空当前候选与规划。</p></div><Button small onClick={() => {
         if ((opportunities.length || profile.direction || Object.keys(plans).length) && !confirm('应用新方向会清空当前候选与规划，请先保存需要保留的探索。继续？')) return;
-        setProfile({ ...profile, direction: initialDirection }); setOpportunities([]); setPlans({}); setCurrentSessionId(null); setStep(0); setView('engine');
+        setProfile({ ...profile, direction: initialDirection }); setOpportunities([]); setPlans({}); explorationVersion.current += 1; setSessionTitle(''); setCurrentSessionId(null); setStep(0); setView('engine');
       }}>应用这个方向</Button></div>}
-      {sessionNotice && <p role="status" className="product-note">{sessionNotice}</p>}
+      {saving ? <p role="status" className="product-note">正在保存到当前探索…</p> : sessionNotice && <p role="status" className="product-note">{sessionNotice}</p>}
+      {sessionError && <div role="alert" className="xpl-error">{sessionError} <button type="button" disabled={saving} onClick={() => void saveSession('')}>重试保存</button></div>}
       <div className="xpl-tabs">
         <button className={`xpl-tab ${view === 'engine' ? 'on' : ''}`} onClick={() => setView('engine')}>
           探索引擎
@@ -320,7 +375,7 @@ export function ExploreApp({ example = null, initialDirection = '' }: { example?
         <button className="xpl-tab" onClick={() => (user ? setSessionsOpen(true) : setLoginOpen(true))}>
           <LineIcon name="folder" /> 我的探索
         </button>
-        <button className="xpl-tab" onClick={() => setSessionsOpen(true)}><LineIcon name="save" /> 保存进度</button>
+        <button className="xpl-tab" onClick={() => currentSessionId ? void saveSession('') : setSessionsOpen(true)}><LineIcon name="save" /> {saving ? '保存中…' : '保存进度'}</button>
         <button className="xpl-tab xpl-tab-ghost" onClick={resetAll}>
           清空
         </button>
@@ -361,7 +416,7 @@ export function ExploreApp({ example = null, initialDirection = '' }: { example?
             />
           )}
           {step === 3 && (
-            <StepPlan config={config} profile={profile} candidates={candidates} plans={plans} onPlanChange={onPlanChange} onSave={() => setSessionsOpen(true)} />
+            <StepPlan config={config} profile={profile} candidates={candidates} plans={plans} onPlanChange={onPlanChange} onSave={() => currentSessionId ? void saveSession('') : setSessionsOpen(true)} saving={saving} saved={!!currentSessionId} />
           )}
         </>
       )}
