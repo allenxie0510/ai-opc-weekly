@@ -255,12 +255,13 @@
 .xpl-rank-card.status-shortlist { border-color: rgba(20,86,240,0.45); }
 .xpl-rank-card.status-favorite { border-color: rgba(180,83,9,0.4); }
 .xpl-rank-card.status-rejected { opacity: 0.5; }
-.xpl-rank-head { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+.xpl-rank-head { display: grid; grid-template-columns: auto auto auto minmax(0, 1fr); align-items: center; gap: 10px; cursor: pointer; }
 .xpl-rank-no { font-size: 13px; color: var(--color-stone); font-weight: 700; min-width: 30px; font-variant-numeric: tabular-nums; }
 .xpl-rank-total { font-size: 26px; font-weight: 800; color: var(--color-blue); min-width: 52px; text-align: center; font-variant-numeric: tabular-nums; }
-.xpl-rank-title { flex: 1; min-width: 0; overflow-wrap: anywhere; }
-.xpl-rank-title h3 { margin: 0 0 5px; font-size: 15px; color: var(--color-ink); font-weight: 700; }
+.xpl-rank-title { grid-column: 1 / -1; grid-row: 2; min-width: 0; overflow-wrap: anywhere; }
+.xpl-rank-title h3 { margin: 0 0 8px; font-size: 16px; line-height: 1.5; color: var(--color-ink); font-weight: 700; }
 .xpl-chev { color: var(--color-stone); }
+.xpl-rank-head > .xpl-chev { grid-column: 4; grid-row: 1; justify-self: end; }
 .xpl-rank-detail { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--color-hairline-soft); }
 .xpl-detail-scores { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 18px; margin-bottom: 14px; }
 @media (max-width: 700px) { .xpl-detail-scores { grid-template-columns: 1fr; } }
