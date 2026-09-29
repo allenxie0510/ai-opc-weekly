@@ -43,10 +43,10 @@ export default async function Home() {
           <div className="home-masthead-art" aria-hidden="true"><Image src="/editorial/home.webp" alt="" fill priority sizes="(max-width: 768px) 100vw, 900px" /></div>
           <div className="product-intro home-masthead-copy">
           <p className="product-eyebrow">AI OPC · 一人公司机会情报</p>
-          <h1>从 AI 的新可能，<br />找到你值得验证的下一步。</h1>
-          <p>为设计师、开发者和专业服务者整理真实案例与创业信号。看清客户、证据和风险，再决定是否投入时间。</p>
+          <h1><span className="home-masthead-desktop">从 AI 的新可能，<br />找到你值得验证的下一步。</span><span className="home-masthead-mobile">从 AI 新可能，<br />找到创业下一步。</span></h1>
+          <p><span className="home-masthead-desktop">为设计师、开发者和专业服务者整理真实案例与创业信号。看清客户、证据和风险，再决定是否投入时间。</span><span className="home-masthead-mobile">读真实案例，看清客户与风险，找到值得验证的机会。</span></p>
           <div className="product-actions"><Link href="/explore" className="product-action">找到适合我的方向</Link><Link href="/opportunities" className="product-action secondary">浏览公开机会</Link></div>
-          <p className="product-note">公开资讯免费阅读 · 方向探测器可先看示例，登录后开始研究</p>
+          <p className="product-note"><span className="home-masthead-desktop">公开资讯免费阅读 · 方向探测器可先看示例，登录后开始研究</span><span className="home-masthead-mobile">资讯免费阅读 · 登录后探索适合的方向</span></p>
           </div>
         </div>
       </header>
