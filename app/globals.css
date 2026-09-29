@@ -1794,3 +1794,22 @@ footer .editorial-links { color: #b8b8bc; }
   .weekly-filters { margin-bottom: 16px; }
   .weekly-content .weekly-section { margin-top: 16px; }
 }
+
+/* Homepage masthead: original editorial art, full-bleed surface, intact artwork. */
+.home-masthead { background: #f8efdd; width: 100%; }
+.home-masthead-inner { position: relative; min-height: 520px; display: flex; align-items: center; }
+.home-masthead-art { position: absolute; inset: 0; pointer-events: none; }
+.home-masthead-art img { object-fit: contain; object-position: right center; }
+.home-masthead-copy { position: relative; z-index: 1; width: 59%; max-width: 700px; padding: 64px 0; }
+.home-masthead-copy h1 { font-size: clamp(32px, 3.3vw, 46px); }
+.home-masthead-copy > p:not(.product-eyebrow):not(.product-note) { max-width: 540px; }
+.home-masthead-copy .product-action.secondary { border-color: rgba(35,35,35,.25); }
+.home-masthead-copy .product-note { max-width: 500px; margin-bottom: 0; }
+@media (max-width: 768px) {
+  .home-masthead-inner { min-height: 590px; align-items: flex-start; }
+  .home-masthead-copy { width: 100%; max-width: none; padding: 36px 0 240px; }
+  .home-masthead-copy h1 { font-size: clamp(28px, 5.7vw, 38px); }
+  .home-masthead-copy > p:not(.product-eyebrow):not(.product-note) { font-size: 15px; margin: 18px 0; }
+  .home-masthead-art { top: auto; height: 300px; }
+  .home-masthead-art img { object-position: right bottom; }
+}

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { getRadarItems, getLatestIssue, getOpportunities, getMarketPulse, formatShortLabel } from '@/lib/data';
 import { Header } from '@/components/page-shell';
 import { RadarCard, dayKey, dayLabel } from '@/components/radar-card';
@@ -37,15 +38,19 @@ export default async function Home() {
   return (
     <>
       <Header />
-      <div className="container page-wrap">
-        <header className="product-intro">
+      <header className="home-masthead">
+        <div className="container home-masthead-inner">
+          <div className="home-masthead-art" aria-hidden="true"><Image src="/editorial/home.webp" alt="" fill priority sizes="(max-width: 768px) 100vw, 900px" /></div>
+          <div className="product-intro home-masthead-copy">
           <p className="product-eyebrow">AI OPC · 一人公司机会情报</p>
           <h1>从 AI 的新可能，<br />找到你值得验证的下一步。</h1>
           <p>为设计师、开发者和专业服务者整理真实案例与创业信号。看清客户、证据和风险，再决定是否投入时间。</p>
           <div className="product-actions"><Link href="/explore" className="product-action">找到适合我的方向</Link><Link href="/opportunities" className="product-action secondary">浏览公开机会</Link></div>
           <p className="product-note">公开资讯免费阅读 · 方向探测器可先看示例，登录后开始研究</p>
-        </header>
-
+          </div>
+        </div>
+      </header>
+      <div className="container page-wrap">
         {/* ═══ 最新机会（头条大卡 + 副卡） ═══ */}
         {featured && (
           <section className="home-section">
