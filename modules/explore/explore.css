@@ -214,11 +214,30 @@
 .xpl-minibtn.reject.on { color: #b91c1c; border-color: rgba(185,28,28,0.4); background: rgba(185,28,28,0.06); }
 
 /* ── 筛选布局 ── */
-.xpl-screen-layout { display: grid; grid-template-columns: 260px 1fr; gap: 18px; }
-@media (max-width: 860px) { .xpl-screen-layout { grid-template-columns: 1fr; } }
+.xpl-screen-layout { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 18px; }
+@media (max-width: 860px) { .xpl-screen-layout { grid-template-columns: minmax(0, 1fr); } }
 .xpl-weights {
   background: var(--color-surface); border: 1px solid var(--color-hairline); border-radius: 14px;
   padding: 16px; height: fit-content; position: sticky; top: 72px;
+}
+.xpl-weights-toggle, .xpl-weights-close { display: none; }
+@media (max-width: 860px) {
+  .xpl-weights { position: static; padding: 0; min-width: 0; }
+  .xpl-weights-toggle {
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    width: 100%; min-height: 48px; padding: 12px 16px; border: 0; border-radius: 14px;
+    background: transparent; color: var(--color-ink); cursor: pointer; text-align: left; font-size: 14px;
+  }
+  .xpl-weights-toggle span { color: var(--color-blue); font-size: 13px; white-space: nowrap; }
+  .xpl-weights-content { display: none; padding: 0 16px 16px; }
+  .xpl-weights.is-open .xpl-weights-content { display: block; }
+  .xpl-weights-content .xpl-weights-head { justify-content: flex-end; }
+  .xpl-weights-head strong { display: none; }
+  .xpl-weights-close {
+    display: block; width: 100%; min-height: 44px; margin-top: 16px;
+    border: 1px solid var(--color-hairline); border-radius: 8px;
+    background: var(--color-surface-soft); color: var(--color-ink); cursor: pointer; font-size: 13px;
+  }
 }
 .xpl-weights-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; }
 .xpl-weights-head strong { font-size: 14px; color: var(--color-ink); }
@@ -239,7 +258,7 @@
 .xpl-rank-head { display: flex; align-items: center; gap: 10px; cursor: pointer; }
 .xpl-rank-no { font-size: 13px; color: var(--color-stone); font-weight: 700; min-width: 30px; font-variant-numeric: tabular-nums; }
 .xpl-rank-total { font-size: 26px; font-weight: 800; color: var(--color-blue); min-width: 52px; text-align: center; font-variant-numeric: tabular-nums; }
-.xpl-rank-title { flex: 1; }
+.xpl-rank-title { flex: 1; min-width: 0; overflow-wrap: anywhere; }
 .xpl-rank-title h3 { margin: 0 0 5px; font-size: 15px; color: var(--color-ink); font-weight: 700; }
 .xpl-chev { color: var(--color-stone); }
 .xpl-rank-detail { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--color-hairline-soft); }

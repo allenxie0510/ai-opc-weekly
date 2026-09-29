@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useId, useMemo, useRef, useState } from 'react';
 import type { AIConfig, DeepDive, Opportunity, PlansMap, ThemeProfile } from '../lib/types';
 import { CRITERIA } from '../lib/criteria';
 import { ai } from '../lib/ai';
@@ -29,6 +29,10 @@ export function StepScreen({
 }) {
   const [filter, setFilter] = useState<'all' | 'shortlist' | 'favorite' | 'rejected'>('all');
   const [q, setQ] = useState('');
+  const [weightsOpen, setWeightsOpen] = useState(false);
+  const weightsId = useId();
+  const weightsToggle = useRef<HTMLButtonElement>(null);
+
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [dive, setDive] = useState<{ opp: Opportunity; result?: DeepDive; loading: boolean } | null>(null);
 
@@ -50,6 +54,11 @@ export function StepScreen({
     }
     return true;
   });
+
+  function closeWeights() {
+    setWeightsOpen(false);
+    weightsToggle.current?.focus();
+  }
 
   function toggle(id: string) {
     setExpanded((prev) => {
@@ -94,29 +103,46 @@ export function StepScreen({
       />
 
       <div className="xpl-screen-layout">
-        <aside className="xpl-weights">
-          <div className="xpl-weights-head">
+        <aside className={`xpl-weights${weightsOpen ? ' is-open' : ''}`}>
+          <button
+            ref={weightsToggle}
+            type="button"
+            className="xpl-weights-toggle"
+            aria-expanded={weightsOpen}
+            aria-controls={weightsId}
+            onClick={() => setWeightsOpen((open) => !open)}
+          >
             <strong>筛选标准与权重</strong>
-            <button className="xpl-link" onClick={onResetWeights}>重置</button>
-          </div>
-          <p className="xpl-small">拖动权重（0–5），更看重什么就调高什么。</p>
-          {CRITERIA.map((c) => (
-            <div key={c.id} className="xpl-weight-row" title={`${c.desc}｜${c.origin}`}>
-              <div className="xpl-weight-row-head">
-                <span className={c.kind === 'subjective' ? 'xpl-w-subj' : 'xpl-w-obj'}>{c.name}</span>
-                <span className="xpl-weight-val">×{weights[c.id] ?? c.weight}</span>
-              </div>
-              <input
-                className="xpl-range"
-                type="range"
-                min={0}
-                max={5}
-                step={1}
-                value={weights[c.id] ?? c.weight}
-                onChange={(e) => onSetWeight(c.id, Number(e.target.value))}
-              />
+            <span>{weightsOpen ? '收起 ▴' : '调整权重 ▾'}</span>
+          </button>
+          <div id={weightsId} className="xpl-weights-content">
+            <div className="xpl-weights-head">
+              <strong>筛选标准与权重</strong>
+              <button className="xpl-link" onClick={onResetWeights}>重置</button>
             </div>
-          ))}
+            <p className="xpl-small">拖动权重（0–5），更看重什么就调高什么。</p>
+            {CRITERIA.map((c) => (
+              <div key={c.id} className="xpl-weight-row" title={`${c.desc}｜${c.origin}`}>
+                <div className="xpl-weight-row-head">
+                  <span className={c.kind === 'subjective' ? 'xpl-w-subj' : 'xpl-w-obj'}>{c.name}</span>
+                  <span className="xpl-weight-val">×{weights[c.id] ?? c.weight}</span>
+                </div>
+                <input
+                  className="xpl-range"
+                  aria-label={`${c.name}权重`}
+                  type="range"
+                  min={0}
+                  max={5}
+                  step={1}
+                  value={weights[c.id] ?? c.weight}
+                  onChange={(e) => onSetWeight(c.id, Number(e.target.value))}
+                />
+              </div>
+            ))}
+            <button type="button" className="xpl-weights-close" onClick={closeWeights}>
+              收起权重，查看候选方向
+            </button>
+          </div>
         </aside>
 
         <div>
