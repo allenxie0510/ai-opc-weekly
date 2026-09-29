@@ -75,7 +75,7 @@ export function StepPlan({
   }
 
   return (
-    <div className="xpl-panel">
+    <div className="xpl-step-body">
       <Head
         kicker="第四步 · 逆向规划"
         title="从 10 年后的终局，倒推回「本周该做什么」"

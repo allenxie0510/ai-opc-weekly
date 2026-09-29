@@ -95,7 +95,7 @@ export function StepScreen({
   const shortlistCount = opportunities.filter((o) => o.status === 'shortlist').length;
 
   return (
-    <div className="xpl-panel">
+    <div className="xpl-step-body">
       <Head
         kicker="第三步 · 系统筛选"
         title="按你的条件，筛出值得验证的少量方向"

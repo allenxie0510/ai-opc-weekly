@@ -76,6 +76,7 @@
   background: var(--color-canvas); border: 1px solid var(--color-hairline);
   border-radius: 16px; padding: 28px 32px;
 }
+.xpl-step-body { min-width: 0; padding-top: 8px; }
 .xpl-head { margin-bottom: 24px; }
 .xpl-kicker {
   font-family: var(--font-brand); font-size: 14px; font-weight: 600;
@@ -313,7 +314,7 @@
 .xpl-tl-marker span { font-size: 16px; line-height: 1; }
 .xpl-tl-marker::after { content: ''; width: 2px; flex: 1; background: var(--color-hairline); margin-top: 6px; }
 .xpl-tl-item:last-child .xpl-tl-marker::after { display: none; }
-.xpl-tl-card { flex: 1; background: var(--color-canvas); border: 1px solid var(--color-hairline); border-radius: 12px; padding: 15px 18px; margin-bottom: 12px; }
+.xpl-tl-card { flex: 1; min-width: 0; overflow-wrap: anywhere; background: var(--color-canvas); border: 1px solid var(--color-hairline); border-radius: 12px; padding: 15px 18px; margin-bottom: 12px; }
 .xpl-tl-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
 .xpl-tl-time { font-weight: 700; color: var(--color-blue); font-size: 15px; }
 .xpl-tl-arrow { font-size: 11px; color: var(--color-stone); }
@@ -323,6 +324,19 @@
 .xpl-tl-meta strong { color: var(--color-charcoal); margin-right: 5px; font-weight: 600; }
 .xpl-first-step { background: rgba(10,125,79,0.06); border: 1px solid rgba(10,125,79,0.3); border-radius: 14px; padding: 18px; }
 .xpl-first-step p { margin: 10px 0 0; font-size: 15px; color: var(--color-charcoal); }
+
+/* 手机端时间轴以线条分节，避免卡片内再叠加横向留白。 */
+@media (max-width: 640px) {
+  .xpl-tl-item { gap: 8px; }
+  .xpl-tl-marker { flex: 0 0 18px; }
+  .xpl-tl-card {
+    background: transparent; border: 0; border-bottom: 1px solid var(--color-hairline);
+    border-radius: 0; padding: 0 0 20px; margin-bottom: 20px;
+  }
+  .xpl-tl-item:last-child .xpl-tl-card { border-bottom: 0; padding-bottom: 0; margin-bottom: 0; }
+  .xpl-tl-head { flex-wrap: wrap; gap: 6px 12px; }
+  .xpl-vision, .xpl-first-step { padding: 14px; }
+}
 
 /* ── 批量删除 ── */
 .xpl-bulk { display: flex; flex-direction: column; gap: 16px; }

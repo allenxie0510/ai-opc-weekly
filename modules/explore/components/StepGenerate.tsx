@@ -110,7 +110,7 @@ export function StepGenerate({
   }
 
   return (
-    <div className="xpl-panel">
+    <div className="xpl-step-body">
       <Head
         kicker="第二步 · 比较候选"
         title="在选定方向内，寻找不同的切入点"

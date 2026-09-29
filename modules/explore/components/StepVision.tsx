@@ -42,7 +42,7 @@ export function StepVision({
     profile.direction.trim().length > 0;
 
   return (
-    <div className="xpl-panel">
+    <div className="xpl-step-body">
       <Head
         kicker="第一步 · 决策门 ①"
         title="先定方向：你的愿景与探索主题"
