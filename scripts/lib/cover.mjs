@@ -72,14 +72,14 @@ async function deriveScene(zk, { title, thesis, category }) {
     `从这个机会的核心主题/张力出发，构想一个封面视觉画面描述，要让人看到图能联想到这条机会的具体论点；`,
     `隐喻优先从内容的具体张力出发自由发挥：可以是人物场景，也可以是静物、抽象构图、空间关系——不要默认植入人物；仅当"个体 vs 巨大之力"的尺度对比真正契合这条机会的论点时，才使用小人物与巨大之物的对比；`,
     ``,
-    `画面将以扁平编辑插画风格呈现，隐喻要让人联想到商业的高效与品质感。视觉主体表面保持干净（无蚀刻、印刷、标签、刻度等装饰性假文字）；如果有助于传递概念，画面可以出现少量与主题直接相关的英文单词（如 AI、Agent），但必须拼写正确、是构图的有机部分；绝不出现中文；`,
+    `画面采用纸感颗粒、柔和立体层次的编辑插画，主体有纸雕般的体积与柔和投影。背景必须是明亮的单色，可用暖白、浅蓝、浅桃、浅绿或淡紫；禁止黑色、炭灰、近黑和深海军蓝背景。用与机会主题直接相关的具体物件表达概念，避免泛化的悬浮界面。视觉主体表面保持干净（无蚀刻、印刷、标签、刻度等装饰性假文字）；如果有助于传递概念，画面可以出现少量与主题直接相关的英文单词（如 AI、Agent），但必须拼写正确、是构图的有机部分；绝不出现中文；`,
     `如果场景描述里包含要渲染进画面的英文单词，用明确措辞表达（如 with the word "AI" on...），避免描述性文字被误当作要渲染的内容；`,
     `只输出场景描述本身：1-2 句英文场景描述。不要任何解释、前缀、引号或换行。`,
     ``,
     brief,
   ].join('\n');
   const bare = [
-    `根据下面的创业机会情报，用 1-2 句英文描述一个能隐喻其核心理念的封面画面（扁平编辑插画、极简几何构图）。视觉主体表面保持干净，不出现装饰性假文字；如有助于传递概念可出现少量拼写正确的主题相关英文单词（如 AI、Agent），绝不出现中文。只输出英文场景描述本身，不要解释。`,
+    `根据下面的创业机会情报，用 1-2 句英文描述一个能隐喻其核心理念的封面画面（纸感颗粒、柔和立体纸雕编辑插画、清晰构图；背景使用明亮单色，禁止黑色及近黑背景）。视觉主体表面保持干净，不出现装饰性假文字；如有助于传递概念可出现少量拼写正确的主题相关英文单词（如 AI、Agent），绝不出现中文。只输出英文场景描述本身，不要解释。`,
     ``,
     brief,
   ].join('\n');
@@ -168,18 +168,11 @@ async function deriveScene(zk, { title, thesis, category }) {
 }
 
 /**
- * 生成 prompt 组装：场景（deriveScene）嵌入统一风格模板。
- * 2026-08-20 四次修订（用户亲定，逐字实施；渐变落点限定为与用户确认的微调）：
- * ① 背景固定单色（Monochrome background）——上轮渐变漏到背景上，本轮收口；
- * ② 配色池只管强调色（medium-blue / off-white / soft peach / pale blue / pale green
- *   随机 1-2 个）；③ 双色渐变限定在主体元素内（within the subject elements）。
- * 2026-08-20 渐变子句加强（用户批准，仅改代码不重生成现有封面）：
- *   "subtle two-color gradients allowed within the subject elements for depth"
- *   → "gradients ONLY on the subject, background stays flat solid color"。
- * 不变项：颗粒点纹质感、印刷哑光、大留白、单一视觉焦点、文字政策（只禁中文/标志/水印）。
+ * 2026-10-27：参考用户提供的四张运营插画，采用纸感颗粒与柔和立体层次。
+ * 明亮单色背景可自由选色，禁止黑色/近黑背景；不复刻参考海报的文字、标志或二维码。
  */
 export function buildCoverPrompt(scene) {
-  return `Editorial-style conceptual illustration. ${scene}. Flat shapes with visible grainy stipple texture, printed-paper matte feel. a dominant color chosen to fit the scene's mood, varying across images; Monochrome background; randomly select 1-2 Accent colors(medium-blue , off-white, soft peach, pale blue or pale green), gradients ONLY on the subject, background stays flat solid color. Generous negative space, single clear focal point. No chinese text, no logos, no watermarks anywhere in the image.`;
+  return `Editorial conceptual illustration with tactile paper grain and softly dimensional paper-sculpture forms. Scene: ${scene}. Clear tangible objects, layered matte paper surfaces, refined stipple texture, soft natural daylight, gentle contact shadows and believable illustrative depth. Cohesive blue and powder-blue main forms with restrained warm orange, peach or pink accents, adapted to the subject. Spacious composition with one clear visual narrative and generous negative space. Choose a LIGHT solid background from warm ivory, powder blue, pale peach, pale mint or light lavender; background colors may vary between images. The background MUST remain bright and airy: NO black, charcoal, near-black, dark navy, dark vignette or dramatic dark background, even if the scene suggests otherwise. Subtle shading and gradients are allowed only on the subject; keep the background a clean solid color. Avoid glossy plastic CGI, metallic sci-fi dashboards, generic floating UI panels and excessive decoration. No Chinese text, no logos, no watermarks, no QR codes or poster headers.`;
 }
 
 /** Include low-level transport codes without dumping request headers or credentials. */
