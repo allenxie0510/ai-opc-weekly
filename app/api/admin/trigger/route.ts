@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
     if (body.force_rescore) inputs.force_rescore = 'true';
     if (Object.keys(inputs).length > 0) dispatchBody.inputs = inputs;
   }
-  // backfill-covers 支持 clear 输入：先把指定 slug 的 cover_url 置 NULL 再回填
+  // backfill-covers 支持 clear 输入：仅重生成指定 slug，成功后替换封面
   // （admin 机会行「重生成封面」按钮用，slug 校验见下）
   if (body.workflow === 'backfill-covers' && body.clear) {
     const clear = String(body.clear).trim();

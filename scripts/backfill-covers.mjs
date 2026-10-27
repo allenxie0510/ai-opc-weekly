@@ -5,24 +5,22 @@
  *
  * 用法：node scripts/backfill-covers.mjs [--force] [--clear=slug1,slug2] [--prune]
  *   默认只处理 cover_url 为空的；--force（或 BACKFILL_FORCE=1）重生成全部
- *   --clear=slug1,slug2（或 BACKFILL_CLEAR）先把指定 slug 的 cover_url 置 NULL，再走正常回填
+ *   --clear=slug1,slug2（或 BACKFILL_CLEAR）只为指定 slug 重新生图；成功后替换，失败保留原图
  *   --prune（或 BACKFILL_PRUNE=1）回填结束后清理 covers 桶里未被任何机会引用的 opp-* 孤儿文件
  * 由 GitHub Actions 手动触发（backfill-covers.yml，workflow_dispatch）
  *
  * 环境变量：NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY
- *   （ZHIPU_API_KEY / ARK_API_KEY 仅 Track 2 生成兜底需要，cover.mjs 内部优雅降级）
+ *   （手动重生成需要 ZHIPU_API_KEY / ARK_API_KEY；失败会使任务失败）
  * 前置条件：opportunities 表已有 cover_url 列
  *   alter table opportunities add column if not exists cover_url text;
  */
 
+import { pathToFileURL } from 'node:url';
 import { generateOpportunityCover, sha256Hex } from './lib/cover.mjs';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SRK = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const BUCKET = 'covers';
-
-if (!SUPABASE_URL) { console.error('❌ 缺少 NEXT_PUBLIC_SUPABASE_URL'); process.exit(1); }
-if (!SRK) { console.error('❌ 缺少 SUPABASE_SERVICE_ROLE_KEY'); process.exit(1); }
 
 async function sb(path, opts = {}) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1${path}`, { ...opts,
@@ -34,18 +32,6 @@ async function sb(path, opts = {}) {
 }
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-
-/** 把指定 slug 的 cover_url 置 NULL（下一步正常回填会重新生成） */
-async function clearCovers(slugs) {
-  for (const slug of slugs) {
-    await sb(`/opportunities?slug=eq.${encodeURIComponent(slug)}`, {
-      method: 'PATCH',
-      headers: { Prefer: 'return=minimal' },
-      body: JSON.stringify({ cover_url: null }),
-    });
-    console.log(`   🧹 已清空封面: ${slug}`);
-  }
-}
 
 /** 下载现有封面算 sha256 预载入 usedHashes（防新封面与保留封面内容撞图） */
 async function seedExistingHashes(usedHashes) {
@@ -95,26 +81,30 @@ async function pruneOrphans() {
   console.log(`   孤儿文件清理完成: 删除 ${deleted} / 扫描 ${objects.length}`);
 }
 
-async function main() {
-  const force = process.argv.includes('--force') || process.env.BACKFILL_FORCE === '1';
-  const prune = process.argv.includes('--prune') || process.env.BACKFILL_PRUNE === '1';
-  const clearArg = process.argv.find(a => a.startsWith('--clear='));
-  const clearList = (clearArg ? clearArg.slice(8) : (process.env.BACKFILL_CLEAR || ''))
-    .split(',').map(s => s.trim()).filter(Boolean);
-  console.log(`🎨 AI OPC · 机会封面回填${force ? '（force：全量重生成）' : ''}\n`);
-
-  if (clearList.length) await clearCovers(clearList);
-
+export async function runBackfill({ force = false, prune = false, slugs = [] } = {}, {
+  query = sb, generateCover = generateOpportunityCover, seedHashes = seedExistingHashes,
+  pruneCovers = pruneOrphans, wait = sleep,
+} = {}) {
+  if (slugs.some(slug => !/^[a-z0-9-]+$/i.test(slug))) throw new Error('无效的机会 slug');
+  console.log(`🎨 AI OPC · 机会封面回填${slugs.length ? '（指定机会重新生图）' : ''}\n`);
   let rows;
   try {
-    rows = await sb(
-      `/opportunities?select=id,slug,title,thesis,category,evidence${force ? '' : '&cover_url=is.null'}&status=in.(draft,published)&order=published_at.desc&limit=50`
-    );
+    const select = '/opportunities?select=id,slug,title,thesis,category,evidence,cover_url&status=in.(draft,published)';
+    if (slugs.length) {
+      rows = [];
+      for (const slug of new Set(slugs)) {
+        const found = await query(`${select}&slug=eq.${encodeURIComponent(slug)}`);
+        if (found?.length !== 1) throw new Error(`未找到可生成封面的机会: ${slug}`);
+        rows.push(found[0]);
+      }
+    } else {
+      rows = await query(`${select}${force ? '' : '&cover_url=is.null'}&order=published_at.desc&limit=50`);
+    }
   } catch (e) {
     if (/42703|column.*cover_url|cover_url.*column/i.test(e.message)) {
       console.error('❌ opportunities 表缺少 cover_url 列，请先在 Supabase 执行：');
       console.error('   alter table opportunities add column if not exists cover_url text;');
-      process.exit(1);
+      throw e;
     }
     throw e;
   }
@@ -124,28 +114,41 @@ async function main() {
   let ok = 0, fail = 0;
   const usedOgUrls = new Set(); // 本轮已占用的 og 图 URL（URL 级去重）
   const usedHashes = new Set(); // 已有封面的 sha256（内容级去重）
-  if (!force && rows?.length) await seedExistingHashes(usedHashes);
+  if (!force && !slugs.length && rows?.length) await seedHashes(usedHashes);
   for (const row of rows || []) {
-    const coverUrl = await generateOpportunityCover(row, { usedOgUrls, usedHashes });
-    if (!coverUrl) { fail++; continue; }
     try {
-      await sb(`/opportunities?id=eq.${row.id}`, {
+      const coverUrl = await generateCover(row, { usedOgUrls, usedHashes, forceGenerate: force || slugs.length > 0 });
+      if (!coverUrl) throw new Error('封面生成失败，保留原封面');
+      const saved = await query(`/opportunities?id=eq.${row.id}`, {
         method: 'PATCH',
-        headers: { Prefer: 'return=minimal' },
+        headers: { Prefer: 'return=representation' },
         body: JSON.stringify({ cover_url: coverUrl }),
       });
+      if (!Array.isArray(saved) || saved.length !== 1 || saved[0].cover_url !== coverUrl) throw new Error('封面未成功写入机会记录');
       ok++;
       console.log(`   ✅ ${String(row.title).slice(0, 30)} → ${coverUrl.slice(-50)}`);
     } catch (e) {
       fail++;
-      console.log(`   ❌ 回写失败 ${String(row.title).slice(0, 30)}: ${e.message.slice(0, 60)}`);
+      console.log(`   ❌ 生成或回写失败 ${String(row.title).slice(0, 30)}: ${e.message.slice(0, 60)}`);
     }
-    await sleep(1500); // 限速，避免抓取/生图并发挤压
+    await wait(1500); // 限速，避免抓取/生图并发挤压
   }
 
   console.log(`\n📊 汇总: 回填成功 ${ok} / 失败 ${fail}`);
-  if (prune) await pruneOrphans();
+  if (fail) throw new Error(`封面回填失败 ${fail} 条 / 成功 ${ok} 条；原封面未清空`);
+  if (prune) await pruneCovers();
   console.log('✅ 回填完成');
+  return { ok, fail };
 }
 
-main().catch(e => { console.error('\n💥', e.message); process.exit(1); });
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const clearArg = process.argv.find(a => a.startsWith('--clear='));
+  const slugs = (clearArg ? clearArg.slice(8) : (process.env.BACKFILL_CLEAR || ''))
+    .split(',').map(s => s.trim()).filter(Boolean);
+  if (!SUPABASE_URL || !SRK) throw new Error('缺少 Supabase 环境变量');
+  runBackfill({
+    slugs,
+    force: process.argv.includes('--force') || process.env.BACKFILL_FORCE === '1',
+    prune: process.argv.includes('--prune') || process.env.BACKFILL_PRUNE === '1',
+  }).catch(e => { console.error('\n💥', e.message); process.exitCode = 1; });
+}

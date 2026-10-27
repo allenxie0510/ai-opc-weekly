@@ -256,7 +256,7 @@ export default function AdminPage() {
     }
   }
 
-  // 为单个机会重新生成/补生成封面：dispatch backfill-covers.yml（clear=slug 先置 NULL 再回填），
+  // 为单个机会重新生成/补生成封面：dispatch backfill-covers.yml（clear=slug 精确选择目标，成功后替换），
   // 覆盖 GLM 429 等瞬时失败留下的无封面记录（2026-08-20 本地AI开发工具事件的自助补救入口）
   async function recoverCover(slug: string) {
     if (busy) return;
@@ -272,7 +272,7 @@ export default function AdminPage() {
       if (!res.ok) {
         setMessage(data.error || '触发失败');
       } else {
-        setMessage(`已触发封面生成（${slug}），约 1–2 分钟后点「刷新」查看`);
+        setMessage(`已触发封面生成（${slug}），约 2–5 分钟后点「刷新」查看；生成失败将保留原封面，详情见 GitHub Actions`);
       }
     } catch {
       setMessage('网络错误');
@@ -888,7 +888,7 @@ export default function AdminPage() {
                             <button
                               className="admin-btn sm"
                               disabled={busy}
-                              title={o.cover_url ? '清空现有封面并重新生成' : '封面缺失，点击生成'}
+                              title={o.cover_url ? '重新生成封面，成功后替换现有图片' : '封面缺失，点击生成'}
                               onClick={() => void recoverCover(o.slug)}
                             >
                               <LineIcon name="palette" /> {o.cover_url ? '重生成封面' : '补封面'}

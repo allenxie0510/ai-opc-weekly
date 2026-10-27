@@ -12,7 +12,7 @@
  * 铁律：
  * - 只用 Seedream 4.5，没有任何回退模型——生成失败 cover_url 留 null（前端有渐变兜底）
  * - 中文原文绝不进生图 prompt（模型会把原文当标注文字渲染进图）
- * - 任何一步失败返回 ''（不阻塞主流程，exit 0 不挂 workflow）
+ * - 任何一步失败返回 ''；自动生产线可继续，手动回填必须报告失败
  *
  * 环境变量：NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY
  *   Track 1 只需以上两个；Track 2 另需 ZHIPU_API_KEY（场景提炼）+ ARK_API_KEY（出图）
@@ -182,15 +182,22 @@ export function buildCoverPrompt(scene) {
   return `Editorial-style conceptual illustration. ${scene}. Flat shapes with visible grainy stipple texture, printed-paper matte feel. a dominant color chosen to fit the scene's mood, varying across images; Monochrome background; randomly select 1-2 Accent colors(medium-blue , off-white, soft peach, pale blue or pale green), gradients ONLY on the subject, background stays flat solid color. Generous negative space, single clear focal point. No chinese text, no logos, no watermarks anywhere in the image.`;
 }
 
+/** Include low-level transport codes without dumping request headers or credentials. */
+export function describeCoverError(error) {
+  const cause = error?.cause;
+  const codes = [cause?.code, ...(cause?.errors || []).map(e => e.code)].filter(Boolean);
+  return [String(error?.message || error).slice(0, 150), ...new Set(codes)].join(' / ');
+}
+
 /**
  * 调火山引擎 Seedream 4.5 生成一张图，返回临时 URL；失败抛错。
- * 只用 4.5，无回退模型；429 / 5xx 指数退避最多重试 2 次。
+ * 只用 4.5，无回退模型；网络错误、超时、429 / 5xx 指数退避最多重试 2 次。
  */
-async function seedreamGenerate(arkKey, prompt) {
+export async function seedreamGenerate(arkKey, prompt, { request = fetch, wait = sleep } = {}) {
   let lastErr;
   for (let attempt = 0; attempt <= 2; attempt++) {
     try {
-      const res = await fetch(ARK_API, {
+      const res = await request(ARK_API, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${arkKey}` },
         body: JSON.stringify({
@@ -214,10 +221,10 @@ async function seedreamGenerate(arkKey, prompt) {
       return url;
     } catch (e) {
       lastErr = e;
-      if (e.retryable && attempt < 2) {
-        const wait = 10000 * 2 ** attempt; // 10s → 20s
-        console.log(`   ⚠️ Seedream 可重试错误（${e.message.slice(0, 50)}），${wait / 1000}s 后重试...`);
-        await sleep(wait);
+      if ((e.retryable || e.name === 'TimeoutError' || (e instanceof TypeError && e.cause)) && attempt < 2) {
+        const delay = 10000 * 2 ** attempt; // 10s → 20s
+        console.log(`   ⚠️ Seedream 可重试错误（${describeCoverError(e)}），${delay / 1000}s 后重试...`);
+        await wait(delay);
         continue;
       }
       break;
@@ -279,9 +286,11 @@ function extOf(contentType) {
 async function downloadImage(url) {
   const imgRes = await fetch(url, { signal: AbortSignal.timeout(30000) });
   if (!imgRes.ok) throw new Error(`下载图片失败 HTTP ${imgRes.status}`);
+  const contentType = imgRes.headers.get('content-type') || '';
+  if (!contentType.toLowerCase().startsWith('image/')) throw new Error('下载结果不是图片');
   const bytes = Buffer.from(await imgRes.arrayBuffer());
   if (bytes.length < 1024) throw new Error(`图片字节异常（${bytes.length}B）`);
-  return { bytes, contentType: imgRes.headers.get('content-type') || '' };
+  return { bytes, contentType };
 }
 
 function slugOf(opp) {
@@ -293,7 +302,8 @@ function slugOf(opp) {
  * 为一个机会生成封面并上传，返回公共 URL；失败返回 ''（绝不抛错）
  * Track 1：evidence og:image 原图转存；Track 2：Seedream 4.5 生成兜底（PHOTO/ILLUSTRATION 两路线）。
  * @param {{ title: string, thesis?: string, category?: string, slug?: string, id?: string, evidence?: Array }} opp
- * @param {{ usedOgUrls?: Set<string>, usedHashes?: Set<string> }} [opts]
+ * @param {{ usedOgUrls?: Set<string>, usedHashes?: Set<string>, forceGenerate?: boolean }} [opts]
+ *   forceGenerate：手动重生成时跳过来源配图，必须调用生图模型；
  *   usedOgUrls：本轮已被占用的 og 图 URL（URL 级去重）；
  *   usedHashes：本轮 + 线上已有封面的 sha256（内容级去重，防"不同文章共用一张素材图"）
  */
@@ -309,7 +319,7 @@ export async function generateOpportunityCover(opp, opts = {}) {
     const name = slugOf(opp);
 
     // ── Track 1：evidence 网页 og:image 原图转存 ──────────────────────────
-    if (Array.isArray(opp.evidence) && opp.evidence.length > 0) {
+    if (!opts.forceGenerate && Array.isArray(opp.evidence) && opp.evidence.length > 0) {
       try {
         // accept 回调里下载 + sha256 内容级去重（防"不同文章引用同一张素材图"），
         // 撞 hash 返回 false，findEvidenceImage 自动跳下一条证据
@@ -332,7 +342,7 @@ export async function generateOpportunityCover(opp, opts = {}) {
           },
         });
         if (ogUrl && stashed) {
-          const filename = `opp-${name}-og.${extOf(stashed.contentType)}`;
+          const filename = `opp-${name}-${stashed.hash.slice(0, 12)}-og.${extOf(stashed.contentType)}`;
           const publicUrl = await uploadToStorage(supabaseUrl, srk, filename, stashed.bytes,
             stashed.contentType.startsWith('image/') ? stashed.contentType.split(';')[0] : 'image/jpeg');
           opts.usedOgUrls?.add(ogUrl);
@@ -365,11 +375,14 @@ export async function generateOpportunityCover(opp, opts = {}) {
     console.log(`   💡 场景隐喻（插画）: ${scene.slice(0, 80)}`);
     const prompt = buildCoverPrompt(scene);
     const tmpUrl = await seedreamGenerate(arkKey, prompt);
-    const { bytes } = await downloadImage(tmpUrl);
-    const filename = `opp-${name}.png`;
-    return await uploadToStorage(supabaseUrl, srk, filename, bytes, 'image/png');
+    const { bytes, contentType } = await downloadImage(tmpUrl);
+    const hash = sha256Hex(bytes);
+    const filename = `opp-${name}-${hash.slice(0, 12)}.${extOf(contentType)}`;
+    const publicUrl = await uploadToStorage(supabaseUrl, srk, filename, bytes, contentType.split(';')[0]);
+    opts.usedHashes?.add(hash);
+    return publicUrl;
   } catch (e) {
-    console.log(`   ⚠️ 封面生成失败（不阻塞，cover_url 留空）: ${e.message.slice(0, 100)}`);
+    console.log(`   ⚠️ 封面生成失败（不阻塞，cover_url 留空）: ${describeCoverError(e)}`);
     return '';
   }
 }
