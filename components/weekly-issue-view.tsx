@@ -13,7 +13,7 @@ export function WeeklyIssueView({ issue, items, allIssues }: {
 
   return (
     <PageShell
-      hero={<HeroSection issue={issue} dateStr={dateStr} items={items} />}
+      hero={<HeroSection issue={issue} dateStr={dateStr} />}
       issue={{ slug: issue.slug, week_number: issue.week_number, week_start: issue.week_start, week_end: issue.week_end }}
       issues={allIssues.map(i => ({
         slug: i.slug,
