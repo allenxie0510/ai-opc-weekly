@@ -8,6 +8,7 @@ export async function getWeeklyIssues(): Promise<WeeklyIssue[]> {
     .from('weekly_issues')
     .select('*')
     .eq('status', 'published')
+    .order('week_start', { ascending: false })
     .order('published_at', { ascending: false });
 
   if (error) { console.error('getWeeklyIssues:', error.message); return []; }
@@ -45,6 +46,7 @@ export async function getLatestIssue(): Promise<WeeklyIssue | null> {
     .from('weekly_issues')
     .select('*')
     .eq('status', 'published')
+    .order('week_start', { ascending: false })
     .order('published_at', { ascending: false })
     .limit(1)
     .single();

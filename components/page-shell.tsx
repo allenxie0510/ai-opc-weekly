@@ -177,9 +177,9 @@ export function PageShell({
   return (
     <>
       <Header />
-      {hero}
       <WeeklyNav currentSlug={issue.slug} issues={issues} />
-      <div className="container weekly-content">{children}</div>
+      {hero}
+      <main id="weekly-articles" className="container weekly-content">{children}</main>
     </>
   );
 }

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { isWeeklyReport } from '@/lib/weekly-report.mjs';
+import { SourceCover } from '@/components/source-cover';
 import type { NewsItem } from '@/lib/types';
 import { EditorialBrief } from '@/components/editorial-brief';
 import { AdminEditButton } from '@/components/admin-edit';
@@ -61,13 +62,16 @@ export function BookmarkBtn({ item }: { item: NewsItem }) {
   const sk = stableKey(item);
 
   useEffect(() => {
-    try {
-      const favs = JSON.parse(localStorage.getItem('ai_trends_favorites') || '[]');
-      // 兼容旧格式（id 匹配）和新格式（stableKey 匹配）
-      setFaved(favs.some((f: { id?: string; _sk?: string }) =>
-        f._sk === sk || (!f._sk && f.id === item.id)
-      ));
-    } catch {}
+    const timer = window.setTimeout(() => {
+      try {
+        const favs = JSON.parse(localStorage.getItem('ai_trends_favorites') || '[]');
+        // 兼容旧格式（id 匹配）和新格式（stableKey 匹配）
+        setFaved(favs.some((f: { id?: string; _sk?: string }) =>
+          f._sk === sk || (!f._sk && f.id === item.id)
+        ));
+      } catch {}
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [item.id, sk]);
 
   const toggle = () => {
@@ -131,6 +135,9 @@ export function ArticleCard({ item, index }: { item: NewsItem; index: number }) 
         <BookmarkBtn item={item} />
       </div>
 
+      <div className="article-layout">
+      <SourceCover src={item.image_url} alt={`${item.title} · 来源配图`} sourceUrl={item.image_source_url} sourceLabel={item.refs?.find(ref => ref.url === item.image_source_url)?.label} />
+      <div className="article-copy">
       <h3>{report ? <Link href={`/reports/${item.id}`}>{item.title}</Link> : item.title}</h3>
       <p className="desc">{item.description}</p>
 
@@ -183,6 +190,9 @@ export function ArticleCard({ item, index }: { item: NewsItem; index: number }) 
       </div>
 
       <EditorialBrief brief={item.editorial_brief} />
+      </div>
+      </div>
+
       <div className={`insight-panel${insightOpen ? ' open' : ''}`}>
         <strong>{item.section === 'picks' ? '编辑点评：' : item.section === 'deepdive' ? '编辑判断：' : '落地路径：'}</strong>{item.insight}
       </div>

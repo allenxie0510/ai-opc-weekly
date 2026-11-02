@@ -15,6 +15,8 @@ export interface WeeklyIssue {
 }
 
 export interface NewsItem {
+  image_url?: string | null;
+  image_source_url?: string | null;
   editorial_brief?: EditorialBrief | null;
   id: string;
   weekly_issue_id: string;

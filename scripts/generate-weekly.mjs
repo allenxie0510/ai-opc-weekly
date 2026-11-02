@@ -23,6 +23,7 @@
  * - Supabase INSERT 空响应 → 回查 slug 取 id
  */
 
+import { backfillWeeklyImages } from './lib/weekly-images.mjs';
 import { extractProductTerms, validateSourceUrl } from './lib/source-validation.mjs';
 import { selectCandidateMaterials } from './lib/radar-policy.mjs';
 import { canUseMaterial, inferOperatingMarket, validateEditorialBrief, EDITORIAL_PROMPT, EDITORIAL_BRIEF_TEMPLATE, assertEditorialShape, candidateMix } from '../lib/editorial-policy.mjs';
@@ -534,6 +535,10 @@ ${EDITORIAL_ENABLED ? `- editorial_brief: 每个数组条目内必须包含此�
       method: 'PATCH',
       body: JSON.stringify({ summary, published_at: new Date().toISOString() }),
     });
+  }
+
+  if (!DRY_RUN) {
+    try { await backfillWeeklyImages(slug); } catch (e) { console.warn(`周报配图未完成，正文已保留：${e.message}`); }
   }
 
   // 6. 汇总

@@ -1,5 +1,6 @@
 import { appendFileSync, writeFileSync, realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { backfillWeeklyImages } from './lib/weekly-images.mjs';
 import { weeklyDb as sb } from './lib/weekly-db.mjs';
 import { canonicalSourceUrl } from './lib/weekly-policy.mjs';
 import { selectWeeklyCandidates, portfolioAllows, WEEKLY_TARGET, WEEKLY_MINIMUM } from './lib/weekly-research-policy.mjs';
@@ -92,7 +93,8 @@ export async function runWeeklyResearch({db=sb,read=enrichMaterial,generate=gene
  if(audit.complete)return {...audit};
  if(!audit.complete)throw new Error(`周报尚未达交付线：${selected.length}/${WEEKLY_MINIMUM} 篇、${reports} 份报告。已有草稿已保存，下轮从缺口继续。`);
 }
-if(process.argv[1] && fileURLToPath(import.meta.url)===realpathSync(process.argv[1])) runWeeklyResearch().catch(e=>{console.error(e.message);process.exitCode=1;}).finally(()=>{
+if(process.argv[1] && fileURLToPath(import.meta.url)===realpathSync(process.argv[1])) runWeeklyResearch().catch(e=>{console.error(e.message);process.exitCode=1;}).finally(async()=>{
+ if(!dry){try{await backfillWeeklyImages(weekIdentity().slug+(process.env.WEEKLY_SUPPLEMENT==='true'?'-supplement':''));}catch(e){console.warn(`周报配图未完成，研究内容已保留：${e.message}`);}}
  audit.finished_at=new Date().toISOString();
  writeFileSync(process.env.WEEKLY_AUDIT_PATH||'/tmp/weekly-research-audit.json',JSON.stringify(audit,null,2));
  if(process.env.GITHUB_STEP_SUMMARY)appendFileSync(process.env.GITHUB_STEP_SUMMARY,`\n## 周报研究交付\n候选 ${audit.intake} → 读原文 ${audit.read} → 新增 ${audit.accepted}。本期 ${audit.total??0} 篇，完整报告 ${audit.reports??0} 份。状态：${audit.complete?'达到交付线':'待补足（已保存成果）'}。\n\n${audit.rejections.map(r=>`- ${r.title}: ${r.reason}`).join('\n')}\n`);
