@@ -117,3 +117,22 @@ test('publication dates survive JSX dateTime casing instead of becoming undated 
  const a=extractArticle(source,{url:article.url,title:'Release',snippet:'',publishedAt:null},`<html><body><time dateTime="2026-10-20T00:00:00.000Z">Oct 20, 2026</time><article><p>${article.body}</p></article></body></html>`);
  assert.equal(a.publishedAt,'2026-10-20T00:00:00.000Z');
 });
+
+test('X intake preserves original evidence, rejects short or stale context, and never treats self-report as fact', async () => {
+  const {xArticle,xSource,xCollection} = await import('../../lib/news/x-intake');
+  const now=Date.parse('2026-11-18T00:00:00Z');
+  const post={tweet_id:'123456789',author_username:'builder',content:sentence.repeat(8),published_at:'2026-11-17T00:00:00Z',media_urls:[]};
+  const a=xArticle(post,now); const s=xSource('builder');
+  assert.equal(a.body,post.content); assert.equal(a.state,'ready');
+  assert.equal(a.url,'https://x.com/builder/status/123456789');
+  assert.equal(xArticle({...post,content:'Amazing! Buy now'},now).state,'blocked');
+  assert.equal(xArticle({...post,content:'RT '+post.content},now).state,'blocked');
+  assert.equal(xArticle({...post,published_at:'2026-10-01'},now).state,'blocked');
+  assert.equal(xArticle({...post,published_at:'2027-01-01'},now).state,'blocked');
+  assert.equal(xCollection(s,[post,{...post,author_username:'someone_else'}],now).articles.length,1);
+  assert.ok(validateDraft({...draft,claims:[{...draft.claims[0],kind:'fact'}]},a).includes('X 自述必须明确归属作者，不能标为独立事实'));
+  assert.equal(selectDrafts([{article:a,source:s,draft:{...draft,lane:'tools',usefulness:4}}]).accepted.length,1);
+  assert.equal(selectDrafts([{article:a,source:s,draft:{...draft,sensitive:true}}]).accepted.length,0);
+  assert.equal(selectDrafts([{article:a,source:s,draft:{...draft,lane:'business'}}]).accepted.length,0);
+  assert.equal(selectDrafts([{article:a,source:s,draft:{...draft,importance:2,usefulness:2,evidence:2}}]).accepted.length,0);
+});

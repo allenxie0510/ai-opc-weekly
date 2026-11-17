@@ -9,6 +9,7 @@ export function validateDraft(draft: Draft, article: Article): string[] {
   }
   if (!lanes.includes(draft?.lane)) errors.push('分类无效');
   for (const field of ['importance', 'usefulness', 'evidence'] as const) if (!Number.isInteger(draft?.[field]) || draft[field] < 0 || draft[field] > 5) errors.push(`${field} 必须为 0—5`);
+  if (article.sourceId.startsWith('x-') && Array.isArray(draft?.claims) && draft.claims.some(c => c?.kind !== 'attributed')) errors.push('X 自述必须明确归属作者，不能标为独立事实');
   if (typeof draft?.sensitive !== 'boolean') errors.push('缺少重大争议标记');
   if (draft?.eventDate !== null && (typeof draft?.eventDate !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(draft.eventDate) || !Number.isFinite(Date.parse(draft.eventDate)))) errors.push('事件日期无效');
   if (!Array.isArray(draft?.claims) || !draft.claims.length || draft.claims.length > 12) errors.push('需要 1—12 条事实证据');
@@ -27,6 +28,7 @@ export function selectDrafts(rows: { article: Article; draft: Draft; source: Sou
     const { draft: d, article: a, source: s } = row;
     const reasons = validateDraft(d, a);
     if (d.evidence < 3 || (d.importance < 4 && d.usefulness < 4)) reasons.push('重要性和实际用途均不足，或证据不足');
+    if (s.id.startsWith('x-') && d.sensitive) reasons.push('X 重大争议仅作线索，需要独立来源核实');
     if (s.tier === 'discovery' && d.lane === 'business') reasons.push('社区发布只作线索，经营判断需要进一步证据');
     if ((counts.get(s.id) || 0) >= perSourceCap) reasons.push('单来源上限');
     if (laneCounts[d.lane] >= limits[d.lane] || accepted.length >= cap) reasons.push('本轮审核容量上限');
