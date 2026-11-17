@@ -84,3 +84,8 @@ npm run news:audit -- --sources=cursor,deepseek
 ### 模型配置修正
 
 P0 资讯生成已切换 DeepSeek 官方接口，默认 deepseek-flash；JSON输出、关闭思考、最多6000输出token。GitHub Actions与Vercel环境分开配置，不共享密钥。仅改变P0工作流，旧雷达脚本仍保留原配置。报告记录provider/model，不记录密钥。
+
+
+### DeepSeek 云端验收：2026-11-17
+
+Run 44100750272 成功完成，报告 provider=deepseek、model=deepseek-flash、modelErrors=0。新增9条待审稿、7条系统筛出；5篇引用校验失败，4篇旧内容与1篇重复正文跳过。15/18来源取得正文。本次只验证一轮成功生成，不代表长期稳定性；所有新增内容仍须人工核验，未自动发布。新增模型隔离测试与原有相关测试共9项通过，TypeScript通过。
