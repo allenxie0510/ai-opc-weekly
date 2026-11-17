@@ -92,8 +92,8 @@ export function imageFromDocument(page: {text:string;url:string}):string|null {
 }
 export function extractArticle(source: Source, item: Discovered, raw: string, now = new Date()): Article {
   const { document } = parseHTML(raw);
-  const timeElement = document.querySelector('time[datetime],time[dateTime]');
-  const metaDate = document.querySelector('meta[property="article:published_time"],meta[name="date"]')?.getAttribute('content') || timeElement?.getAttribute('datetime') || timeElement?.getAttribute('dateTime');
+  const timeDate = [...document.querySelectorAll('time')].map(t => t.getAttribute('datetime') || t.getAttribute('dateTime')).find(Boolean);
+  const metaDate = document.querySelector('meta[property="article:published_time"],meta[name="date"]')?.getAttribute('content') || timeDate;
   const imageUrl = imageFromDocument({text:raw,url:item.url});
   const metaTitle = document.querySelector('meta[property="og:title"]')?.getAttribute('content');
   document.querySelectorAll('script,style,nav,footer,header,aside,noscript').forEach(n => n.remove());

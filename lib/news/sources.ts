@@ -33,3 +33,5 @@ export const SOURCES: Source[] = [
 ];
 // Known legitimate migrations only. Redirects to arbitrary hosts are rejected.
 SOURCES.find(s => s.id === 'gemini')!.allowedHosts.push('aistudio.google.com');
+
+SOURCES.find(s => s.id === 'deepmind')!.allowedHosts.push('blog.google');
