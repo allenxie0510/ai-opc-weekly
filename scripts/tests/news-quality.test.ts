@@ -112,3 +112,8 @@ test('multi-day backfill increases source capacity without weakening evidence or
   const unsupported=rows.map(r=>({...r,draft:{...r.draft,claims:[{text:'Unsupported',quote:'An invented claim with no original evidence.',kind:'fact' as const}]}}));
   assert.equal(selectDrafts(unsupported,120,10).accepted.length,0);
 });
+
+test('publication dates survive JSX dateTime casing instead of becoming undated news',()=>{
+ const a=extractArticle(source,{url:article.url,title:'Release',snippet:'',publishedAt:null},`<html><body><time dateTime="2026-10-20T00:00:00.000Z">Oct 20, 2026</time><article><p>${article.body}</p></article></body></html>`);
+ assert.equal(a.publishedAt,'2026-10-20T00:00:00.000Z');
+});
