@@ -16,7 +16,7 @@ export function xArticle(tweet: Pick<Tweet,'tweet_id'|'author_username'|'content
   if (!Number.isFinite(stamp) || stamp > now + 300000 || now - stamp > 14 * 86400000) issues.push('原文日期无效或不在近期窗口');
   if (/^(RT|R to|Replying to)\b/i.test(body)) issues.push('转帖或回复缺少完整上下文，仅保留来源动态');
   const image = tweet.media_urls?.find(url => /^https:\/\/pbs\.twimg\.com\//.test(url));
-  return { sourceId: source.id, url: `https://x.com/${tweet.author_username}/status/${tweet.tweet_id}`, title: `${tweet.author_username} 的原始动态`, publishedAt: Number.isFinite(stamp) ? new Date(stamp).toISOString() : null, imageUrl: image || null, snippet: body.slice(0,240), body, bodyHash: hash(body), fetchedAt: new Date(now).toISOString(), state: issues.length ? 'blocked' : 'ready', issues };
+  return { sourceId: source.id, url: `https://x.com/${tweet.author_username}/status/${tweet.tweet_id}`, title: `${tweet.author_username} 的原始动态`, publishedAt: Number.isFinite(stamp) ? new Date(stamp).toISOString() : null, imageUrl: image || null, snippet: Array.from(body).slice(0,240).join(''), body, bodyHash: hash(body), fetchedAt: new Date(now).toISOString(), state: issues.length ? 'blocked' : 'ready', issues };
 }
 export function xCollection(source: Source, tweets: Parameters<typeof xArticle>[0][], now = Date.now()) {
   const articles = tweets.filter(t => source.id === `x-${t.author_username.toLowerCase()}`).map(t => xArticle(t,now));
