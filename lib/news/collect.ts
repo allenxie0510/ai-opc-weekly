@@ -85,9 +85,15 @@ export function discover(source: Source, raw: string): Discovered[] {
     } catch { return []; }
   }).slice(0, 20);
 }
+export function imageFromDocument(page: {text:string;url:string}):string|null {
+  const {document}=parseHTML(page.text);
+  const raw=document.querySelector('meta[property="og:image"],meta[name="twitter:image"]')?.getAttribute('content');
+  try{return raw?canonicalUrl(raw,page.url):null;}catch{return null;}
+}
 export function extractArticle(source: Source, item: Discovered, raw: string, now = new Date()): Article {
   const { document } = parseHTML(raw);
   const metaDate = document.querySelector('meta[property="article:published_time"],meta[name="date"]')?.getAttribute('content') || document.querySelector('time[datetime]')?.getAttribute('datetime');
+  const imageUrl = imageFromDocument({text:raw,url:item.url});
   const metaTitle = document.querySelector('meta[property="og:title"]')?.getAttribute('content');
   document.querySelectorAll('script,style,nav,footer,header,aside,noscript').forEach(n => n.remove());
   const parsed = new Readability(document as unknown as Document).parse();
@@ -100,7 +106,7 @@ export function extractArticle(source: Source, item: Discovered, raw: string, no
   if (publishedAt && Date.parse(publishedAt) > now.getTime() + 86400000) issues.push('发布时间异常');
   if (!publishedAt) issues.push('发布时间待核对');
   if (source.id === 'indiehackers' && !/transcript|逐字稿/i.test(body)) issues.push('播客简介不足以支持经营判断，需完整访谈');
-  return { sourceId: source.id, url: canonicalUrl(item.url), title: metaTitle || item.title, snippet: item.snippet, publishedAt, body: body.slice(0, 60000), bodyHash: hash(body), fetchedAt: now.toISOString(), state: issues.some(i => i !== '发布时间待核对') ? 'blocked' : 'ready', issues };
+  return { sourceId: source.id, url: canonicalUrl(item.url), title: metaTitle || item.title, snippet: item.snippet, publishedAt, imageUrl, body: body.slice(0, 60000), bodyHash: hash(body), fetchedAt: now.toISOString(), state: issues.some(i => i !== '发布时间待核对') ? 'blocked' : 'ready', issues };
 }
 export async function collect(source: Source, limit = 3): Promise<{ run: SourceRun; articles: Article[] }> {
   const start = Date.now(); const articles: Article[] = [];
