@@ -69,7 +69,7 @@ npm run news:audit -- --sources=cursor,deepseek
 
 ## 本轮验证结果
 
-生产构建与 TypeScript 通过；原有21项测试及新增7项测试通过。未配置生产 Supabase 与模型密钥，因此尚未应用生产迁移、调用真实模型生成或启用定时任务。新增接口未授权 GET/POST 均返回401，采编台页面返回200。
+与最新主分支整合后，生产构建与 TypeScript 通过，全套155项测试通过。新增接口未授权 GET/POST 均返回401，采编台页面返回200。2026-11-17 已通过 Supabase SQL Editor 在目标项目应用事务迁移，页面返回 Success。首次云端任务因缺少新表失败；迁移后已重跑，真实模型与采集验收结果待补充。定时任务尚未启用。
 
 本次还修正了已有未提交 StepPlan.tsx 中一个 Pill tone 类型值（default 改为 neutral），其余已有用户改动保留。
 
