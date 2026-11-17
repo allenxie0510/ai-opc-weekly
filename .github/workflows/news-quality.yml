@@ -11,7 +11,7 @@ on:
     - cron: '47 22 * * *'
     - cron: '47 11 * * *'
 concurrency:
-  group: news-quality
+  group: ${{ inputs.mode == 'translate' && 'news-translation' || 'news-quality' }}
   cancel-in-progress: false
 jobs:
   pipeline:

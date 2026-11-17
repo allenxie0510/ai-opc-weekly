@@ -19,7 +19,7 @@ export function mergeReading(items: ReadingItem[]) {
     if (url) { url.hash = ''; for (const name of [...url.searchParams.keys()]) if (/^utm_|^(fbclid|gclid)$/i.test(name)) url.searchParams.delete(name); url.searchParams.sort(); }
     const key = url ? url.href.replace(/\/$/, '') : i.id;
     if (seen.has(key)) return false; seen.add(key); return true;
-  }).sort((a,b) => b.publishedAt.localeCompare(a.publishedAt) || a.id.localeCompare(b.id));
+  }).sort((a,b) => (b.sourcePublishedAt || b.publishedAt).localeCompare(a.sourcePublishedAt || a.publishedAt) || b.publishedAt.localeCompare(a.publishedAt) || a.id.localeCompare(b.id));
 }
 export function filterReading(items: ReadingItem[], options: { lane?: string; source?: string; view?: string }) {
   return items.filter(i => (options.view === 'all' || i.reviewed) && (!options.lane || options.lane === 'all' || i.lane === options.lane) && (!options.source || options.source === 'all' || (options.source === 'x' ? i.kind === 'x' : i.source === options.source)));

@@ -78,3 +78,9 @@ test('X uses stored Chinese translations and preserves original text separately'
  assert.equal(translated.summary,'新的 Agent 工具已上线。');assert.equal(translated.originalText,base.content);assert.equal(translated.translated,true);
  const pending=tweetItem(base);assert.equal(pending.summary,'');assert.equal(pending.originalText,base.content);assert.equal(pending.translated,false);
 });
+
+test('backfilled stories sort by original publication date rather than insertion order',()=>{
+ const recent={...item,id:'r-recent',sourceUrl:'https://example.com/recent',sourcePublishedAt:'2026-11-17T10:00:00Z',publishedAt:'2026-11-17T12:00:00Z'};
+ const older={...item,id:'r-old',sourceUrl:'https://example.com/older',sourcePublishedAt:'2026-11-12T10:00:00Z',publishedAt:'2026-11-18T12:00:00Z'};
+ assert.deepEqual(mergeReading([older,recent]),[recent,older]);
+});
