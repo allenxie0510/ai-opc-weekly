@@ -80,3 +80,14 @@ test('model retries transient rate limits but bounds attempts and rejects auth f
   await assert.rejects(requestModel(async () => { calls++; return new Response('', { status: 401 }); }, async () => {}), /HTTP 401/);
   assert.equal(calls, 1);
 });
+
+
+test('news generation requires DeepSeek credentials and never falls back to Zhipu', async () => {
+  const { newsModelConfig } = await import('../../lib/news/model-request');
+  assert.throws(() => newsModelConfig({ ZHIPU_API_KEY: 'old-provider-key' }), /DEEPSEEK_API_KEY/);
+  const config = newsModelConfig({ DEEPSEEK_API_KEY: 'test-key', ZHIPU_API_KEY: 'old-provider-key' });
+  assert.equal(config.endpoint, 'https://api.deepseek.com/chat/completions');
+  assert.equal(config.apiKey, 'test-key');
+  assert.equal(config.model, 'deepseek-flash');
+  assert.throws(() => newsModelConfig({ DEEPSEEK_API_KEY: 'test-key', NEWS_MODEL: 'glm-4.7-flash' }), /DeepSeek model/);
+});

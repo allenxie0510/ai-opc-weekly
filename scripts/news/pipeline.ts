@@ -1,6 +1,6 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { createClient } from '@supabase/supabase-js';
-import { requestModel } from '../../lib/news/model-request';
+import { newsModelConfig, requestModel } from '../../lib/news/model-request';
 import { SOURCES } from '../../lib/news/sources';
 import { collect, hash } from '../../lib/news/collect';
 import { EDITOR_PROMPT, eventIdentity, selectDrafts, validateDraft } from '../../lib/news/policy';
@@ -11,7 +11,8 @@ const auditOnly = args.has('--audit');
 const persist = args.has('--persist');
 const modelEnabled = args.has('--generate');
 if (persist && (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY)) throw new Error('Persist requires Supabase server credentials');
-if (modelEnabled && !process.env.ZHIPU_API_KEY) throw new Error('--generate requires ZHIPU_API_KEY');
+const modelConfig = modelEnabled ? newsModelConfig(process.env) : null;
+if (modelConfig) console.log(`News model: DeepSeek / ${modelConfig.model}`);
 const db = persist ? createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!) : null;
 const only = process.argv.find(v => v.startsWith('--sources='))?.slice(10).split(',');
 const sources = SOURCES.filter(s => s.enabled && (!only || only.includes(s.id)));
@@ -27,13 +28,15 @@ async function save(table: string, value: Record<string, unknown>, conflict?: st
   const { error } = await q; if (error) throw new Error(`${table}: ${error.message}`);
 }
 async function generate(article: Article, source: Source): Promise<Draft> {
-  const response = await requestModel(() => fetch('https://open.bigmodel.cn/api/paas/v4/chat/completions', {
+  if (!modelConfig) throw new Error('Generation is disabled');
+  const response = await requestModel(() => fetch(modelConfig.endpoint, {
     method: 'POST', signal: AbortSignal.timeout(90000),
-    headers: { Authorization: `Bearer ${process.env.ZHIPU_API_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: process.env.NEWS_MODEL || 'glm-4.7-flash', temperature: .1,
+    headers: { Authorization: `Bearer ${modelConfig.apiKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model: modelConfig.model, temperature: .1, max_tokens: 6000, thinking: { type: 'disabled' }, response_format: { type: 'json_object' },
       messages: [{ role: 'system', content: EDITOR_PROMPT }, { role: 'user', content: JSON.stringify({ source: source.name, tier: source.tier, publishedAt: article.publishedAt, title: article.title, body: article.body.slice(0, 24000) }) }] }),
   }));
   const payload = await response.json(); const content = payload.choices?.[0]?.message?.content;
+  if (payload.choices?.[0]?.finish_reason === 'length') throw new Error('Model output truncated');
   if (typeof content !== 'string') throw new Error('Missing model output');
   return JSON.parse(content.replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, ''));
 }
@@ -87,7 +90,7 @@ for (const row of drafts) {
 }
 await mkdir('output/news-audit', { recursive: true });
 const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-const report = { generatedAt: new Date().toISOString(), mode: { persist, modelEnabled }, modelErrors, runs, samples: articles, selection, failures };
+const report = { generatedAt: new Date().toISOString(), mode: { persist, modelEnabled }, model: modelConfig ? { provider: 'deepseek', name: modelConfig.model } : null, modelErrors, runs, samples: articles, selection, failures };
 await writeFile(`output/news-audit/${stamp}.json`, JSON.stringify(report, null, 2));
 await writeFile('output/news-audit/latest.json', JSON.stringify(report, null, 2));
 await writeFile('output/news-audit/latest.md', `# 信源检查\n\n检查时间：${report.generatedAt}\n\n|信源|状态|发现|原文可读|问题|\n|---|---|---:|---:|---|\n${runs.map(r => `|${r.sourceId}|${r.state}|${r.discovered}|${r.readable}|${(r.error || '').replace(/\|/g, '/')}|`).join('\n')}\n\n只表示本次采集结果，健康不代表每篇内容可信。正文样本和筛选原因见 latest.json。\n`);

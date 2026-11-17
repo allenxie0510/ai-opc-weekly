@@ -1,3 +1,10 @@
+export function newsModelConfig(env: Record<string, string | undefined>) {
+  if (!env.DEEPSEEK_API_KEY) throw new Error('News generation requires DEEPSEEK_API_KEY');
+  const model = env.NEWS_MODEL || 'deepseek-flash';
+  if (!/^deepseek-[a-zA-Z0-9.-]+$/.test(model)) throw new Error('NEWS_MODEL must be a DeepSeek model ID');
+  return { endpoint: 'https://api.deepseek.com/chat/completions', model, apiKey: env.DEEPSEEK_API_KEY };
+}
+
 // Retry transient provider failures only; never log response bodies or credentials.
 export async function requestModel(
   request: () => Promise<Response>,

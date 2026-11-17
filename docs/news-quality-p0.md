@@ -31,8 +31,8 @@
 - NEXT_PUBLIC_SUPABASE_URL
 - SUPABASE_SERVICE_ROLE_KEY（仅服务器/Actions）
 - ADMIN_PASSWORD（采编台）
-- ZHIPU_API_KEY（生成时）
-- NEWS_MODEL 可选，默认沿用项目 glm-4.7-flash
+- DEEPSEEK_API_KEY（生成时，GitHub Actions Secrets 需单独配置）
+- NEWS_MODEL 可选，默认 deepseek-flash，仅接受 DeepSeek 模型；不会回退到智谱
 
 本地：
 ```
@@ -79,3 +79,8 @@ npm run news:audit -- --sources=cursor,deepseek
 ### 云端复验：2026-11-17
 
 重试后多篇依然返回 HTTP 429 / provider code 1305，智谱官方定义为模型访问量过大（https://docs.bigmodel.cn/cn/api/api-code）。已停止本轮重复请求；原文和处理日志保留。当前不能宣称稳定生成已通过，也未启用新定时任务或合并到生产。后续需要模型恢复或配置可用的 NEWS_MODEL 后复验。
+
+
+### 模型配置修正
+
+P0 资讯生成已切换 DeepSeek 官方接口，默认 deepseek-flash；JSON输出、关闭思考、最多6000输出token。GitHub Actions与Vercel环境分开配置，不共享密钥。仅改变P0工作流，旧雷达脚本仍保留原配置。报告记录provider/model，不记录密钥。
