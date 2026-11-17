@@ -50,7 +50,7 @@ const candidates: { article: Article; source: Source; id: string }[] = [];
 for (let i = 0; i < sources.length; i += 3) {
   const results = await Promise.allSettled(sources.slice(i, i + 3).map(async s => {
     if (db) await save('news_sources', { id: s.id, definition: s }, 'id');
-    const result = await collect(s, auditOnly ? 2 : backfill ? 16 : 6, backfill ? 10 : 14);
+    const result = await collect(s, auditOnly ? 2 : backfill ? 20 : 6, backfill ? 10 : 14);
     console.log(`${s.id}: ${result.run.state}, ${result.run.discovered} discovered, ${result.run.readable} readable`);
     return { ...result, source: s };
   }));
@@ -73,7 +73,7 @@ for (let i = 0; i < sources.length; i += 3) {
         if (error) throw new Error(error.message);
         if (data?.length) continue;
       }
-      if (sourceGenerated >= (backfill ? 12 : 4) || generationCounts[source.lane] >= generationLimits[source.lane]) continue;
+      if (sourceGenerated >= (backfill ? 16 : 4) || generationCounts[source.lane] >= generationLimits[source.lane]) continue;
       sourceGenerated++; generationCounts[source.lane]++;
       candidates.push({article, source, id});
     }
