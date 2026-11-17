@@ -35,7 +35,7 @@ export async function readingItem(id: string): Promise<ReadingItem|null> {
 }
 export async function publishedBriefs(): Promise<Brief[]> {
   const db=createServerSupabase(true) || createServerSupabase(); if(!db)return [];
-  const {data,error}=await db.from('news_briefs').select('*,news_queue!inner(state)').eq('status','published').eq('news_queue.state','published').order('slug',{ascending:false}).limit(52);
+  const {data,error}=await db.from('news_briefs').select('*').eq('status','published').order('slug',{ascending:false}).limit(52);
   if(error) { console.error('Briefs unavailable',error.code); return []; } return data||[];
 }
 export async function publishedBrief(slug: string): Promise<{brief:Brief;items:ReadingItem[]}|null> {
