@@ -27,6 +27,7 @@ concurrency:
 
 jobs:
   generate:
+    if: vars.NEWS_PIPELINE_ENABLED != 'true'
     timeout-minutes: 35
     env:
       EDITORIAL_RESEARCH_ENABLED: ${{ vars.EDITORIAL_RESEARCH_ENABLED }}

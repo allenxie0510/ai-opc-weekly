@@ -1,0 +1,49 @@
+name: News Quality Pipeline
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'audit 只检查；collect 保存原文；generate 保存并生成待审资讯（永不自动发布）'
+        type: choice
+        options: [audit, collect, generate]
+        default: audit
+  schedule:
+    - cron: '47 22 * * *'
+    - cron: '47 11 * * *'
+concurrency:
+  group: news-quality
+  cancel-in-progress: false
+jobs:
+  pipeline:
+    # Enable scheduled writes only after database migration and staging review.
+    if: github.event_name == 'workflow_dispatch' || vars.NEWS_PIPELINE_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Run quality pipeline
+        env:
+          NEWS_MODE: ${{ inputs.mode || 'generate' }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          ZHIPU_API_KEY: ${{ secrets.ZHIPU_API_KEY }}
+        run: |
+          case "$NEWS_MODE" in
+            audit) npm run news:audit ;;
+            collect) npm run news:collect -- --persist ;;
+            generate) npm run news:generate ;;
+            *) exit 1 ;;
+          esac
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: news-source-audit
+          path: output/news-audit/
+          retention-days: 14

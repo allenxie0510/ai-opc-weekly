@@ -20,14 +20,21 @@
     "test:x-deletion": "node --test scripts/tests/x-account-deletion.test.mjs",
     "test:sources": "node --test scripts/tests/source-validation.test.mjs scripts/tests/evidence-policy.test.mjs scripts/tests/opportunity-research.test.mjs",
     "test:weekly": "node --test scripts/tests/weekly-policy.test.mjs scripts/tests/editorial-pipeline.test.mjs scripts/tests/weekly-research.test.mjs scripts/tests/weekly-images.test.mjs",
-    "test:all": "npm run test:radar && npm run test:explore && npm run test:icons && npm run test:tweets && npm run test:x-deletion && npm run test:sources && npm run test:weekly && npm run test:product-radar && npm run test:analytics && npm run test:admin && npm run test:covers",
-    "test:covers": "node --test scripts/tests/cover-backfill.test.mjs"
+    "test:all": "npm run test:radar && npm run test:explore && npm run test:icons && npm run test:tweets && npm run test:x-deletion && npm run test:sources && npm run test:weekly && npm run test:product-radar && npm run test:analytics && npm run test:admin && npm run test:covers && npm run test:news",
+    "test:covers": "node --test scripts/tests/cover-backfill.test.mjs",
+    "news:audit": "node --env-file-if-exists=.env.local --import tsx scripts/news/pipeline.ts --audit",
+    "news:collect": "node --env-file-if-exists=.env.local --import tsx scripts/news/pipeline.ts",
+    "news:generate": "node --env-file-if-exists=.env.local --import tsx scripts/news/pipeline.ts --generate --persist",
+    "test:news": "tsx --test scripts/tests/news-quality.test.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.108.2",
     "next": "16.2.9",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "@mozilla/readability": "^0.6.0",
+    "fast-xml-parser": "^5.12.1",
+    "linkedom": "^0.18.15"
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.5.8",

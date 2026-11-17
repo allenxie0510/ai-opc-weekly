@@ -93,14 +93,14 @@ export function StepPlan({
           <details open={pickerOpen} onToggle={(event) => setPickerOpen(event.currentTarget.open)}>
             <summary>
               <span className="xpl-plan-choice-name">{selected?.name || '暂无候选方向'}</span>
-              <span className={`xpl-plan-status ${plan ? 'is-planned' : ''}`}>{plan ? '✓ 已规划' : '待规划'}</span>
+              <span className={`xpl-plan-status ${plan ? 'is-planned' : ''}`}>{plan ? <><LineIcon name="check" /> 已规划</> : '待规划'}</span>
             </summary>
             <div className="xpl-plan-choices" aria-label="候选方向">
               {candidates.map((c) => (
                 <button type="button" key={c.id} aria-pressed={selected?.id === c.id}
                   onClick={() => { setSelectedId(c.id); setPickerOpen(false); }}>
                   <span className="xpl-plan-choice-name">{c.name}<small>{c.category}</small></span>
-                  <span className={`xpl-plan-status ${plans[c.id] ? 'is-planned' : ''}`}>{plans[c.id] ? '✓ 已规划' : '待规划'}</span>
+                  <span className={`xpl-plan-status ${plans[c.id] ? 'is-planned' : ''}`}>{plans[c.id] ? <><LineIcon name="check" /> 已规划</> : '待规划'}</span>
                 </button>
               ))}
             </div>
