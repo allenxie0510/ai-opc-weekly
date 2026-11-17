@@ -8,6 +8,10 @@ on:
     - cron: '47 11 * * *'
   workflow_dispatch:
     inputs:
+      news_p0_only:
+        description: '只运行 P0 新版资讯链路（需要已迁移，永不自动发布）'
+        type: boolean
+        default: false
       readiness_only:
         description: '仅检查数据库迁移与队列负荷，不抓取、不生成。'
         type: boolean
@@ -23,6 +27,7 @@ concurrency:
 
 jobs:
   radar:
+    if: vars.NEWS_PIPELINE_ENABLED != 'true' && inputs.news_p0_only != true
     env:
       EDITORIAL_RESEARCH_ENABLED: ${{ vars.EDITORIAL_RESEARCH_ENABLED }}
     runs-on: ubuntu-latest
@@ -76,4 +81,29 @@ jobs:
           name: radar-audit
           path: radar-audit.json
           if-no-files-found: warn
+          retention-days: 14
+
+  news-p0:
+    if: inputs.news_p0_only == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Verify schema and generate review candidates
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          NEWS_MODEL: ${{ vars.NEWS_MODEL }}
+        run: npm run news:generate
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: news-p0-audit
+          path: output/news-audit/
           retention-days: 14

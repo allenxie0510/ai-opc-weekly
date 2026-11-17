@@ -1,0 +1,30 @@
+export function newsModelConfig(env: Record<string, string | undefined>) {
+  if (!env.DEEPSEEK_API_KEY) throw new Error('News generation requires DEEPSEEK_API_KEY');
+  const model = env.NEWS_MODEL || 'deepseek-flash';
+  if (!/^deepseek-[a-zA-Z0-9.-]+$/.test(model)) throw new Error('NEWS_MODEL must be a DeepSeek model ID');
+  return { endpoint: 'https://api.deepseek.com/chat/completions', model, apiKey: env.DEEPSEEK_API_KEY };
+}
+
+// Retry transient provider failures only; never log response bodies or credentials.
+export async function requestModel(
+  request: () => Promise<Response>,
+  sleep: (ms: number) => Promise<void> = ms => new Promise(resolve => setTimeout(resolve, ms)),
+): Promise<Response> {
+  for (let attempt = 0; ; attempt++) {
+    const response = await request();
+    if (response.ok) return response;
+    if (![429, 502, 503, 504].includes(response.status) || attempt >= 2) {
+      const payload = await response.json().catch(() => null);
+      const rawCode = String(payload?.error?.code ?? "");
+      const code = /^[a-zA-Z0-9_-]{1,32}$/.test(rawCode) ? rawCode : "unknown";
+      throw new Error(`Model HTTP ${response.status} after ${attempt + 1} attempt(s); provider code ${code}`);
+    }
+    const header = response.headers.get('retry-after');
+    const seconds = header === null ? NaN : Number(header);
+    const delay = Number.isFinite(seconds) ? seconds * 1000 : header ? Date.parse(header) - Date.now() : NaN;
+    const waitMs = Math.min(60000, Math.max(10000 * (attempt + 1), Number.isFinite(delay) ? delay : 0));
+    await response.body?.cancel();
+    console.warn(`Model HTTP ${response.status}; retry ${attempt + 1}/2 in ${Math.ceil(waitMs / 1000)}s`);
+    await sleep(waitMs);
+  }
+}
