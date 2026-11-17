@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { PGlite } from '@electric-sql/pglite';
-import { canonicalUrl, discover, extractArticle, publicAddress } from '../../lib/news/collect';
+import { canonicalUrl, discover, extractArticle, publicAddress, imageFromDocument } from '../../lib/news/collect';
 import { SOURCES } from '../../lib/news/sources';
 import { sameEvent, selectDrafts, validateDraft } from '../../lib/news/policy';
 import type { Article, Draft } from '../../lib/news/types';
@@ -96,4 +96,9 @@ test('article images come from source metadata and reject executable URLs',()=>{
  const html='<meta property="og:image" content="/cover.jpg"><article>'+sentence.repeat(10)+'</article>';
  assert.equal(extractArticle(source,{url:'https://example.com/news',title:'News',snippet:'',publishedAt:null},html).imageUrl,'https://example.com/cover.jpg');
  assert.equal(extractArticle(source,{url:'https://example.com/news',title:'News',snippet:'',publishedAt:null},html.replace('/cover.jpg','javascript:alert(1)')).imageUrl,null);
+});
+
+test('thumbnail extraction accepts the fetched document envelope and resolves against its final URL',()=>{
+ assert.equal(imageFromDocument({url:'https://example.com/final/post',text:'<meta property="og:image" content="../cover.png">'}),'https://example.com/cover.png');
+ assert.equal(imageFromDocument({url:'https://example.com',text:'<title>No image</title>'}),null);
 });

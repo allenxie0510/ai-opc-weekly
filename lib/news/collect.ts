@@ -85,12 +85,15 @@ export function discover(source: Source, raw: string): Discovered[] {
     } catch { return []; }
   }).slice(0, 20);
 }
+export function imageFromDocument(page: {text:string;url:string}):string|null {
+  const {document}=parseHTML(page.text);
+  const raw=document.querySelector('meta[property="og:image"],meta[name="twitter:image"]')?.getAttribute('content');
+  try{return raw?canonicalUrl(raw,page.url):null;}catch{return null;}
+}
 export function extractArticle(source: Source, item: Discovered, raw: string, now = new Date()): Article {
   const { document } = parseHTML(raw);
   const metaDate = document.querySelector('meta[property="article:published_time"],meta[name="date"]')?.getAttribute('content') || document.querySelector('time[datetime]')?.getAttribute('datetime');
-  const imageMeta = document.querySelector('meta[property="og:image"],meta[name="twitter:image"]')?.getAttribute('content');
-  let imageUrl: string | null = null;
-  try { if (imageMeta) imageUrl = canonicalUrl(imageMeta, item.url); } catch { /* Ignore invalid source artwork. */ }
+  const imageUrl = imageFromDocument({text:raw,url:item.url});
   const metaTitle = document.querySelector('meta[property="og:title"]')?.getAttribute('content');
   document.querySelectorAll('script,style,nav,footer,header,aside,noscript').forEach(n => n.remove());
   const parsed = new Readability(document as unknown as Document).parse();
