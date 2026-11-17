@@ -74,3 +74,8 @@ npm run news:audit -- --sources=cursor,deepseek
 本次还修正了已有未提交 StepPlan.tsx 中一个 Pill tone 类型值（default 改为 neutral），其余已有用户改动保留。
 
 本次完整信源实测：18个来源中，12个取得至少一篇可读正文。失败/仅线索来源：openai, gemini, huggingface, n8n, indiehackers, v2ex。最新明细见 output/news-audit/latest.md；该文件为本地检查产物，不应作为长期可用性承诺。
+
+
+### 云端复验：2026-11-17
+
+重试后多篇依然返回 HTTP 429 / provider code 1305，智谱官方定义为模型访问量过大（https://docs.bigmodel.cn/cn/api/api-code）。已停止本轮重复请求；原文和处理日志保留。当前不能宣称稳定生成已通过，也未启用新定时任务或合并到生产。后续需要模型恢复或配置可用的 NEWS_MODEL 后复验。
