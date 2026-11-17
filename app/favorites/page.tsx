@@ -51,7 +51,7 @@ export default function FavoritesPage() {
 
   return (
     <>
-      <Header />
+      <Header /><div className="reading-wrap" style={{paddingBottom:0}}><Link href="/news/saved">查看收藏的资讯 →</Link></div>
       <div style={{
         display: 'flex', flexDirection: 'column', minHeight: 'calc(100vh - var(--header-height, 56px))',
       }}>

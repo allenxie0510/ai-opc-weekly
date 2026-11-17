@@ -1,6 +1,10 @@
 import type { ReactNode, SVGProps } from 'react';
 
 export type LineIconName =
+  | 'thumb-up'
+  | 'thumb-down'
+  | 'share'
+  | 'bookmark'
   | 'archive'
   | 'check'
   | 'check-square'
@@ -46,6 +50,10 @@ export function LineIcon({ name, className = '', ...props }: LineIconProps) {
   };
 
   const paths: Record<LineIconName, ReactNode> = {
+    'thumb-up': <><path d="M7 10v11H3V10h4Zm0 0 5-7c2 0 2 2 1 6h6a2 2 0 0 1 2 2l-2 8a2 2 0 0 1-2 2H7" /></>,
+    'thumb-down': <g transform="rotate(180 12 12)"><path d="M7 10v11H3V10h4Zm0 0 5-7c2 0 2 2 1 6h6a2 2 0 0 1 2 2l-2 8a2 2 0 0 1-2 2H7" /></g>,
+    share: <><path d="M12 16V3m-4 4 4-4 4 4M5 12v8h14v-8" /></>,
+    bookmark: <path d="M6 3h12v18l-6-4-6 4V3Z" />,
     archive: <><path d="M4 7h16v12H4z" /><path d="M3 4h18v3H3zM9 11h6" /></>,
     check: <path d="m5 12 4 4L19 6" />,
     'check-square': <><rect x="3" y="3" width="18" height="18" rx="3" /><path d="m7 12 3 3 7-7" /></>,

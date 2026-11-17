@@ -55,3 +55,19 @@ test('P1 migration keeps drafts and anonymous feedback private; writes are idemp
 test('new recommendations and weekly generation require the new editorial approval record',async()=>{
  for(const path of ['../../lib/reading/data.ts','../news/brief.ts']){const source=await readFile(new URL(path,import.meta.url),'utf8');assert.match(source,/news_queue!inner\(state\)/);assert.match(source,/eq\('news_queue.state','published'\)/);}
 });
+
+
+test('reading scores use existing editorial dimensions and omit missing scores',()=>{
+ const base={id:'a',source_url:'https://example.com',score:0} as RadarItem;
+ assert.equal(radarItem(base,{scores:[4,5,4]}).score,87);
+ assert.equal(radarItem(base).score,null);
+ assert.equal(radarItem({...base,score:78}).score,78);
+ assert.equal(radarItem(base,{imageUrl:'javascript:alert(1)'}).imageUrl,null);
+});
+test('saved articles tolerate corrupt storage and deduplicate without touching legacy favorites',async()=>{
+ const {parseBookmarks,BOOKMARK_KEY}=await import('../../lib/reading/bookmarks');
+ const saved={...item,id:'r-00000000-0000-4000-8000-000000000001'};
+ assert.deepEqual(parseBookmarks('{broken'),[]);assert.deepEqual(parseBookmarks('{}'),[]);
+ assert.equal(parseBookmarks(JSON.stringify([saved,saved,null,{id:'invalid'}])).length,1);
+ assert.notEqual(BOOKMARK_KEY,'ai_trends_favorites');
+});

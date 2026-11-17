@@ -14,7 +14,7 @@ export async function publishedRadar(ids?: string[]): Promise<ReadingItem[]> {
   const rows = (data || []) as RadarItem[];
   // Only whitelisted public metadata, never bodies, draft records or editorial logs.
   const { data: meta } = rows.length ? await db.from('news_queue').select('radar_id,draft,news_documents(article)').eq('state','published').in('radar_id',rows.map(r=>r.id)) : { data: [] };
-  const byId = new Map((meta||[]).map(m => { const doc = m.news_documents as unknown as {article?: {publishedAt?: string}}; return [m.radar_id,{lane:m.draft?.lane,sourcePublishedAt:doc?.article?.publishedAt}]; }));
+  const byId = new Map((meta||[]).map(m => { const doc = m.news_documents as unknown as {article?: {publishedAt?: string; imageUrl?:string}}; return [m.radar_id,{lane:m.draft?.lane,sourcePublishedAt:doc?.article?.publishedAt,imageUrl:doc?.article?.imageUrl,scores:[m.draft?.importance,m.draft?.usefulness,m.draft?.evidence]}]; }));
   return rows.map(r => radarItem(r,byId.get(r.id)));
 }
 export async function readingFeed(includeX = false) {

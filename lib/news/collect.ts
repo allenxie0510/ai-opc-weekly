@@ -88,6 +88,9 @@ export function discover(source: Source, raw: string): Discovered[] {
 export function extractArticle(source: Source, item: Discovered, raw: string, now = new Date()): Article {
   const { document } = parseHTML(raw);
   const metaDate = document.querySelector('meta[property="article:published_time"],meta[name="date"]')?.getAttribute('content') || document.querySelector('time[datetime]')?.getAttribute('datetime');
+  const imageMeta = document.querySelector('meta[property="og:image"],meta[name="twitter:image"]')?.getAttribute('content');
+  let imageUrl: string | null = null;
+  try { if (imageMeta) imageUrl = canonicalUrl(imageMeta, item.url); } catch { /* Ignore invalid source artwork. */ }
   const metaTitle = document.querySelector('meta[property="og:title"]')?.getAttribute('content');
   document.querySelectorAll('script,style,nav,footer,header,aside,noscript').forEach(n => n.remove());
   const parsed = new Readability(document as unknown as Document).parse();
@@ -100,7 +103,7 @@ export function extractArticle(source: Source, item: Discovered, raw: string, no
   if (publishedAt && Date.parse(publishedAt) > now.getTime() + 86400000) issues.push('发布时间异常');
   if (!publishedAt) issues.push('发布时间待核对');
   if (source.id === 'indiehackers' && !/transcript|逐字稿/i.test(body)) issues.push('播客简介不足以支持经营判断，需完整访谈');
-  return { sourceId: source.id, url: canonicalUrl(item.url), title: metaTitle || item.title, snippet: item.snippet, publishedAt, body: body.slice(0, 60000), bodyHash: hash(body), fetchedAt: now.toISOString(), state: issues.some(i => i !== '发布时间待核对') ? 'blocked' : 'ready', issues };
+  return { sourceId: source.id, url: canonicalUrl(item.url), title: metaTitle || item.title, snippet: item.snippet, publishedAt, imageUrl, body: body.slice(0, 60000), bodyHash: hash(body), fetchedAt: now.toISOString(), state: issues.some(i => i !== '发布时间待核对') ? 'blocked' : 'ready', issues };
 }
 export async function collect(source: Source, limit = 3): Promise<{ run: SourceRun; articles: Article[] }> {
   const start = Date.now(); const articles: Article[] = [];

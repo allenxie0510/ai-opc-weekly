@@ -91,3 +91,9 @@ test('news generation requires DeepSeek credentials and never falls back to Zhip
   assert.equal(config.model, 'deepseek-flash');
   assert.throws(() => newsModelConfig({ DEEPSEEK_API_KEY: 'test-key', NEWS_MODEL: 'glm-4.7-flash' }), /DeepSeek model/);
 });
+
+test('article images come from source metadata and reject executable URLs',()=>{
+ const html='<meta property="og:image" content="/cover.jpg"><article>'+sentence.repeat(10)+'</article>';
+ assert.equal(extractArticle(source,{url:'https://example.com/news',title:'News',snippet:'',publishedAt:null},html).imageUrl,'https://example.com/cover.jpg');
+ assert.equal(extractArticle(source,{url:'https://example.com/news',title:'News',snippet:'',publishedAt:null},html.replace('/cover.jpg','javascript:alert(1)')).imageUrl,null);
+});

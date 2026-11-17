@@ -8,7 +8,7 @@ export interface Source {
 }
 export interface Article {
   sourceId: string; url: string; title: string; publishedAt: string | null;
-  snippet: string; body: string; bodyHash: string; fetchedAt: string;
+  imageUrl?: string | null; snippet: string; body: string; bodyHash: string; fetchedAt: string;
   state: 'ready' | 'blocked'; issues: string[];
 }
 export interface Claim { text: string; quote: string; kind: 'fact' | 'attributed'; }
