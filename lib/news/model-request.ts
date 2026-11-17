@@ -7,7 +7,10 @@ export async function requestModel(
     const response = await request();
     if (response.ok) return response;
     if (![429, 502, 503, 504].includes(response.status) || attempt >= 2) {
-      throw new Error(`Model HTTP ${response.status} after ${attempt + 1} attempt(s)`);
+      const payload = await response.json().catch(() => null);
+      const rawCode = String(payload?.error?.code ?? "");
+      const code = /^[a-zA-Z0-9_-]{1,32}$/.test(rawCode) ? rawCode : "unknown";
+      throw new Error(`Model HTTP ${response.status} after ${attempt + 1} attempt(s); provider code ${code}`);
     }
     const header = response.headers.get('retry-after');
     const seconds = header === null ? NaN : Number(header);
