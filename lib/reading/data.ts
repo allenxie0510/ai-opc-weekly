@@ -7,7 +7,7 @@ const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
 export async function publishedRadar(ids?: string[]): Promise<ReadingItem[]> {
   const db = createServerSupabase(true) || createServerSupabase();
   if (!db || (ids && !ids.length)) return [];
-  let query = db.from('radar_items').select('*').eq('status','published').order('published_at',{ascending:false});
+  let query = db.from('radar_items').select('*,news_queue!inner(state)').eq('status','published').eq('news_queue.state','published').order('published_at',{ascending:false});
   if (ids) query = query.in('id',ids); else query = query.limit(200);
   const { data, error } = await query;
   if (error) { console.error('Reading feed unavailable',error.code); return []; }
@@ -35,7 +35,7 @@ export async function readingItem(id: string): Promise<ReadingItem|null> {
 }
 export async function publishedBriefs(): Promise<Brief[]> {
   const db=createServerSupabase(true) || createServerSupabase(); if(!db)return [];
-  const {data,error}=await db.from('news_briefs').select('*').eq('status','published').order('slug',{ascending:false}).limit(52);
+  const {data,error}=await db.from('news_briefs').select('*,news_queue!inner(state)').eq('status','published').eq('news_queue.state','published').order('slug',{ascending:false}).limit(52);
   if(error) { console.error('Briefs unavailable',error.code); return []; } return data||[];
 }
 export async function publishedBrief(slug: string): Promise<{brief:Brief;items:ReadingItem[]}|null> {
