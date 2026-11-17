@@ -53,7 +53,7 @@ test('抓取成功与实际新增分开报告，零新增不能推断来源已�
   assert.equal(partial.accountsWithNewTweets, 2);
   const script = readFileSync(new URL('../fetch-tweets.mjs', import.meta.url), 'utf8');
   const workflow = readFileSync(new URL('../../.github/workflows/fetch-tweets.yml', import.meta.url), 'utf8');
-  const page = readFileSync(new URL('../../app/x/page.tsx', import.meta.url), 'utf8');
+  const page = readFileSync(new URL('../../components/reading/feed.tsx', import.meta.url), 'utf8');
   assert.match(script, /INTERVAL_MS = 30_000/);
   assert.match(workflow, /cron: '17 \*\/4 \* \* \*'/);
   assert.match(page, /每 4 小时抓取一次/);

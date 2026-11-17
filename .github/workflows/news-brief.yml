@@ -1,0 +1,27 @@
+name: News Weekly Brief
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '15 0 * * 1'
+concurrency:
+  group: news-weekly-brief
+  cancel-in-progress: false
+jobs:
+  draft:
+    if: github.event_name == 'workflow_dispatch' || vars.NEWS_PIPELINE_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Reuse published news in a weekly draft
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: node --import tsx scripts/news/brief.ts

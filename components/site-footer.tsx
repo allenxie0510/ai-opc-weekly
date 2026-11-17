@@ -10,17 +10,17 @@ export function SiteFooter() {
         <div className="site-footer-identity">
           <div className="site-footer-brand-copy">
             <Link href="/" className="site-footer-logo" aria-label="AI OPC 首页"><BrandLogo surface="dark" /></Link>
-            <p className="site-footer-slogan">一人公司机会情报</p>
+            <p className="site-footer-slogan">AI 一人公司精选资讯</p>
           </div>
           <WechatContact />
         </div>
         <nav className="site-footer-content" aria-label="页脚内容导航">
           <h2 className="site-footer-heading">探索内容</h2>
-          <Link href="/opportunities">机会库</Link>
+          <Link href="/opportunities">历史机会案例</Link>
           <Link href="/explore">方向探测器</Link>
-          <Link href="/radar">每日信号</Link>
+          <Link href="/news">精选资讯</Link>
           <Link href="/archive">周报</Link>
-          <Link href="/x">X 动态</Link>
+          <Link href="/news?view=all&source=x">X 来源动态</Link>
         </nav>
         <div className="site-footer-support">
           <h2 className="site-footer-heading">关于与联系</h2>

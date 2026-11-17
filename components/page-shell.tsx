@@ -147,12 +147,10 @@ export function Header() {
         <div className="nav-left">
           <Link href="/" className="brand" aria-label="AI OPC 首页"><BrandLogo /></Link>
           <span className="nav-sep">|</span>
-          <Link href="/opportunities" className="x-link">机会库</Link>
-          <Link href="/explore" className="x-link">方向探测器</Link>
-          <Link href="/radar" className="x-link">每日信号</Link>
+          <Link href="/news" className="x-link">资讯</Link>
           <Link href="/archive" className="x-link">周报</Link>
+          <Link href="/explore" className="x-link">方向探测器</Link>
           {showTools && <Link href="/tools" className="x-link">工具</Link>}
-          <Link href="/x" className="x-link">X 动态</Link>
         </div>
         <div className="nav-links">
           <Link href="/about" className="nav-auth-link">关于</Link>
