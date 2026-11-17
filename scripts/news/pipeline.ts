@@ -1,5 +1,6 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { createClient } from '@supabase/supabase-js';
+import { requestModel } from '../../lib/news/model-request';
 import { SOURCES } from '../../lib/news/sources';
 import { collect, hash } from '../../lib/news/collect';
 import { EDITOR_PROMPT, eventIdentity, selectDrafts, validateDraft } from '../../lib/news/policy';
@@ -17,6 +18,7 @@ const sources = SOURCES.filter(s => s.enabled && (!only || only.includes(s.id)))
 if (!sources.length) throw new Error('No matching sources');
 const runs: SourceRun[] = []; const articles: Article[] = [];
 const drafts: { article: Article; draft: Draft; source: Source }[] = [];
+let modelErrors = 0;
 const failures: { url: string; reasons: string[] }[] = [];
 
 async function save(table: string, value: Record<string, unknown>, conflict?: string) {
@@ -25,13 +27,12 @@ async function save(table: string, value: Record<string, unknown>, conflict?: st
   const { error } = await q; if (error) throw new Error(`${table}: ${error.message}`);
 }
 async function generate(article: Article, source: Source): Promise<Draft> {
-  const response = await fetch('https://open.bigmodel.cn/api/paas/v4/chat/completions', {
+  const response = await requestModel(() => fetch('https://open.bigmodel.cn/api/paas/v4/chat/completions', {
     method: 'POST', signal: AbortSignal.timeout(90000),
     headers: { Authorization: `Bearer ${process.env.ZHIPU_API_KEY}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ model: process.env.NEWS_MODEL || 'glm-4.7-flash', temperature: .1,
       messages: [{ role: 'system', content: EDITOR_PROMPT }, { role: 'user', content: JSON.stringify({ source: source.name, tier: source.tier, publishedAt: article.publishedAt, title: article.title, body: article.body.slice(0, 24000) }) }] }),
-  });
-  if (!response.ok) throw new Error(`Model HTTP ${response.status}`);
+  }));
   const payload = await response.json(); const content = payload.choices?.[0]?.message?.content;
   if (typeof content !== 'string') throw new Error('Missing model output');
   return JSON.parse(content.replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, ''));
@@ -73,7 +74,7 @@ for (let i = 0; i < sources.length; i += 3) {
         const draft = await generate(article, source); const errors = validateDraft(draft, article);
         if (errors.length) { failures.push({ url: article.url, reasons: errors }); await save('news_processing_log', { document_id: id, outcome: 'blocked', reasons: errors }); }
         else drafts.push({ article, draft, source });
-      } catch (e) { failures.push({ url: article.url, reasons: [String(e)] }); await save('news_processing_log', { document_id: id, outcome: 'error', reasons: [String(e)] }); }
+      } catch (e) { modelErrors++; failures.push({ url: article.url, reasons: [String(e)] }); await save('news_processing_log', { document_id: id, outcome: 'error', reasons: [String(e)] }); }
     }
   }
 }
@@ -86,12 +87,13 @@ for (const row of drafts) {
 }
 await mkdir('output/news-audit', { recursive: true });
 const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-const report = { generatedAt: new Date().toISOString(), mode: { persist, modelEnabled }, runs, samples: articles, selection, failures };
+const report = { generatedAt: new Date().toISOString(), mode: { persist, modelEnabled }, modelErrors, runs, samples: articles, selection, failures };
 await writeFile(`output/news-audit/${stamp}.json`, JSON.stringify(report, null, 2));
 await writeFile('output/news-audit/latest.json', JSON.stringify(report, null, 2));
 await writeFile('output/news-audit/latest.md', `# 信源检查\n\n检查时间：${report.generatedAt}\n\n|信源|状态|发现|原文可读|问题|\n|---|---|---:|---:|---|\n${runs.map(r => `|${r.sourceId}|${r.state}|${r.discovered}|${r.readable}|${(r.error || '').replace(/\|/g, '/')}|`).join('\n')}\n\n只表示本次采集结果，健康不代表每篇内容可信。正文样本和筛选原因见 latest.json。\n`);
 console.log(`Report: output/news-audit/latest.md; ${selection.accepted.length} review candidates; ${failures.length} failures`);
-if (!runs.some(r => r.state === 'healthy') || failures.some(f => f.url === 'source')) process.exitCode = 1;
+if (modelErrors) console.error(`Generation incomplete: ${modelErrors} model request/parse failures; valid drafts retained for review.`);
+if (modelErrors || !runs.some(r => r.state === 'healthy') || failures.some(f => f.url === 'source')) process.exitCode = 1;
 
 }
 main().catch(e => { console.error(String(e)); process.exitCode = 1; });

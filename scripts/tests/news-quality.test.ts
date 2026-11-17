@@ -63,3 +63,20 @@ test('database review is atomic, private, versioned, and cannot publish unsuppor
     await db.exec('set role anon'); await assert.rejects(db.query('select * from news_documents'),/permission denied/); await assert.rejects(review(5,'unpublish',null),/permission denied/); await db.exec('reset role');
   } finally { await db.close(); }
 });
+
+
+test('model retries transient rate limits but bounds attempts and rejects auth failures', async () => {
+  const { requestModel } = await import('../../lib/news/model-request');
+  const waits: number[] = [];
+  let calls = 0;
+  const response = await requestModel(async () => ++calls === 1
+    ? new Response('', { status: 429, headers: { 'Retry-After': '25' } })
+    : new Response('{}'), async ms => { waits.push(ms); });
+  assert.equal(response.status, 200); assert.equal(calls, 2); assert.deepEqual(waits, [25000]);
+  calls = 0;
+  await assert.rejects(requestModel(async () => { calls++; return new Response('', { status: 429 }); }, async () => {}), /after 3 attempt/);
+  assert.equal(calls, 3);
+  calls = 0;
+  await assert.rejects(requestModel(async () => { calls++; return new Response('', { status: 401 }); }, async () => {}), /HTTP 401/);
+  assert.equal(calls, 1);
+});
