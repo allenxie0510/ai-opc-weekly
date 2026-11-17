@@ -5,13 +5,13 @@ on:
       mode:
         description: 'audit 只检查；collect 保存原文；generate 保存并生成待审资讯（永不自动发布）'
         type: choice
-        options: [audit, collect, generate]
+        options: [audit, collect, generate, backfill, translate]
         default: audit
   schedule:
     - cron: '47 22 * * *'
     - cron: '47 11 * * *'
 concurrency:
-  group: news-quality
+  group: ${{ inputs.mode == 'translate' && 'news-translation' || 'news-quality' }}
   cancel-in-progress: false
 jobs:
   pipeline:
@@ -40,6 +40,8 @@ jobs:
             audit) npm run news:audit ;;
             collect) npm run news:collect -- --persist ;;
             generate) npm run news:generate ;;
+            backfill) npm run news:generate -- --backfill ;;
+            translate) npx tsx scripts/news/translate-tweets.ts ;;
             *) exit 1 ;;
           esac
       - uses: actions/upload-artifact@v4

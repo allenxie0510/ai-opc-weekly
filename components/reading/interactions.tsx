@@ -39,5 +39,25 @@ export function Bookmark({item}:{item:ReadingItem}){
 }
 export function ReadingThumbnail({item}:{item:ReadingItem}){
  const [failed,setFailed]=useState(false);if(failed||(!item.imageUrl&&item.kind==='x'))return null;
- return <Image unoptimized className="reading-thumbnail" src={item.imageUrl||`/api/reading/thumbnail?id=${encodeURIComponent(item.id)}`} alt="" width={160} height={106} loading="lazy" referrerPolicy="no-referrer" onError={()=>setFailed(true)}/>;
+ return <Image unoptimized className="reading-thumbnail" src={item.imageUrl||`/api/reading/thumbnail?id=${encodeURIComponent(item.id)}`} alt="" width={440} height={292} loading="lazy" referrerPolicy="no-referrer" onError={()=>setFailed(true)}/>;
+}
+
+export function ReadingSummary({item,detail=false}:{item:ReadingItem;detail?:boolean}){
+ const [translated,setTranslated]=useState(item.translated?item.summary:'');
+ const [state,setState]=useState<'idle'|'loading'|'failed'>('idle');
+ const [attempt,setAttempt]=useState(0);const ref=useRef<HTMLDivElement>(null);
+ useEffect(()=>{
+  if(item.kind!=='x'||translated)return;
+  let cancelled=false,started=false;
+  const observer=new IntersectionObserver(entries=>{
+   if(started||!entries.some(e=>e.isIntersecting))return;started=true;observer.disconnect();
+   setState('loading');
+   void fetch('/api/translate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tweet_id:item.id.slice(2)}),signal:AbortSignal.timeout(60000)})
+    .then(async r=>{if(!r.ok)throw new Error();const data=await r.json();if(typeof data.translated_text!=='string'||!data.translated_text.trim())throw new Error();if(!cancelled){setTranslated(data.translated_text);setState('idle');}})
+    .catch(()=>{if(!cancelled)setState('failed');});
+  },{rootMargin:'100px'});
+  if(ref.current)observer.observe(ref.current);
+  return()=>{cancelled=true;observer.disconnect();};
+ },[item.id,item.kind,translated,attempt]);
+ return <div ref={ref}><p className={detail?'reading-detail-copy':'reading-summary'}>{item.kind==='x'?(translated||(state==='failed'?'中文翻译暂不可用，可重试或展开原文。':'正在准备中文翻译…')):item.summary}</p>{item.kind==='x'&&<>{state==='failed'&&<button className="reading-translate-retry" onClick={()=>setAttempt(n=>n+1)}>重试翻译</button>}<details className="reading-translation"><summary>{translated?'机器翻译 · 查看原文':'查看原文'}</summary><p>{item.originalText||item.summary}</p></details></>}</div>;
 }

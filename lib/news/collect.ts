@@ -108,7 +108,7 @@ export function extractArticle(source: Source, item: Discovered, raw: string, no
   if (source.id === 'indiehackers' && !/transcript|逐字稿/i.test(body)) issues.push('播客简介不足以支持经营判断，需完整访谈');
   return { sourceId: source.id, url: canonicalUrl(item.url), title: metaTitle || item.title, snippet: item.snippet, publishedAt, imageUrl, body: body.slice(0, 60000), bodyHash: hash(body), fetchedAt: now.toISOString(), state: issues.some(i => i !== '发布时间待核对') ? 'blocked' : 'ready', issues };
 }
-export async function collect(source: Source, limit = 3): Promise<{ run: SourceRun; articles: Article[] }> {
+export async function collect(source: Source, limit = 3, maxAgeDays = 14): Promise<{ run: SourceRun; articles: Article[] }> {
   const start = Date.now(); const articles: Article[] = [];
   const run: SourceRun = { sourceId: source.id, checkedAt: new Date().toISOString(), state: 'error', discovered: 0, readable: 0, durationMs: 0, error: null, sampleUrls: [], latestPublishedAt: null };
   try {
@@ -116,7 +116,7 @@ export async function collect(source: Source, limit = 3): Promise<{ run: SourceR
     const items = discover({ ...source, url: index.url }, index.text);
     run.discovered = items.length; run.sampleUrls = items.slice(0, 3).map(i => i.url);
     run.latestPublishedAt = items.map(i => i.publishedAt).filter((d): d is string => !!d).sort().at(-1) || null;
-    for (const item of items.slice(0, limit)) {
+    for (const item of items.filter(i => !i.publishedAt || Date.now() - Date.parse(i.publishedAt) <= maxAgeDays * 86400000).slice(0, limit)) {
       try {
         const raw = source.kind === 'page' ? index : await fetchDocument(item.url, source.tier === 'official' ? source.allowedHosts : undefined);
         articles.push(extractArticle(source, { ...item, url: raw.url }, raw.text));

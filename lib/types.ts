@@ -54,6 +54,7 @@ export interface TwitterAccount {
 }
 
 export interface Tweet {
+  translated_text?: string | null;
   id: string;
   tweet_id: string;
   author_username: string;

@@ -102,3 +102,13 @@ test('thumbnail extraction accepts the fetched document envelope and resolves ag
  assert.equal(imageFromDocument({url:'https://example.com/final/post',text:'<meta property="og:image" content="../cover.png">'}),'https://example.com/cover.png');
  assert.equal(imageFromDocument({url:'https://example.com',text:'<title>No image</title>'}),null);
 });
+
+test('multi-day backfill increases source capacity without weakening evidence or relevance requirements',()=>{
+  const rows=Array.from({length:6},(_,i)=>({article:{...article,url:`https://example.com/${i}`},source,draft:{...draft,eventKey:`release-${i}`}}));
+  assert.equal(selectDrafts(rows,24).accepted.length,3);
+  assert.equal(selectDrafts(rows,120,10).accepted.length,6);
+  const weak=rows.map(r=>({...r,draft:{...r.draft,importance:2,usefulness:2}}));
+  assert.equal(selectDrafts(weak,120,10).accepted.length,0);
+  const unsupported=rows.map(r=>({...r,draft:{...r.draft,claims:[{text:'Unsupported',quote:'An invented claim with no original evidence.',kind:'fact' as const}]}}));
+  assert.equal(selectDrafts(unsupported,120,10).accepted.length,0);
+});

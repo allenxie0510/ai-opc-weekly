@@ -18,7 +18,7 @@ export function validateDraft(draft: Draft, article: Article): string[] {
   }
   return [...new Set(errors)];
 }
-export function selectDrafts(rows: { article: Article; draft: Draft; source: Source }[], cap = 15) {
+export function selectDrafts(rows: { article: Article; draft: Draft; source: Source }[], cap = 15, perSourceCap = 3) {
   const accepted: typeof rows = []; const rejected: { url: string; reasons: string[] }[] = [];
   const counts = new Map<string, number>(); const laneCounts: Record<Lane, number> = { industry: 0, tools: 0, business: 0 };
   const limits: Record<Lane, number> = { industry: Math.ceil(cap * .3), tools: Math.ceil(cap * .45), business: Math.ceil(cap * .3) };
@@ -28,7 +28,7 @@ export function selectDrafts(rows: { article: Article; draft: Draft; source: Sou
     const reasons = validateDraft(d, a);
     if (d.evidence < 3 || (d.importance < 4 && d.usefulness < 4)) reasons.push('重要性和实际用途均不足，或证据不足');
     if (s.tier === 'discovery' && d.lane === 'business') reasons.push('社区发布只作线索，经营判断需要进一步证据');
-    if ((counts.get(s.id) || 0) >= 3) reasons.push('单来源上限');
+    if ((counts.get(s.id) || 0) >= perSourceCap) reasons.push('单来源上限');
     if (laneCounts[d.lane] >= limits[d.lane] || accepted.length >= cap) reasons.push('本轮审核容量上限');
     if (reasons.length) rejected.push({ url: a.url, reasons });
     else { accepted.push(row); counts.set(s.id, (counts.get(s.id) || 0) + 1); laneCounts[d.lane]++; }

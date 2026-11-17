@@ -4,6 +4,11 @@ function source(id: string, name: string, url: string, kind: SourceKind, tier: T
 }
 // Each endpoint is a discovery channel, never a blanket endorsement of its claims.
 export const SOURCES: Source[] = [
+  source('langchain', 'LangChain Blog', 'https://www.langchain.com/blog/rss.xml', 'rss', 'official', 'tools', 'Agent 开发、调试与部署；效果按厂商自述标注。'),
+  source('vercel', 'Vercel Blog', 'https://vercel.com/atom', 'rss', 'official', 'tools', '个人 AI 应用开发与交付；排除常规维护。'),
+  source('google', 'Google Blog', 'https://blog.google/rss/', 'rss', 'official', 'industry', '仅筛选模型供给、创作工具与商业规则变化。'),
+  source('github', 'GitHub Blog', 'https://github.blog/feed/', 'rss', 'official', 'tools', 'AI 编程、Agent 与软件交付工作流。'),
+  source('nvidia', 'NVIDIA Blog', 'https://blogs.nvidia.com/feed/', 'rss', 'official', 'industry', '关注模型与开发生态；排除与个人应用开发无关的硬件宣传。'),
   source('openai', 'OpenAI News', 'https://openai.com/news/rss.xml', 'rss', 'official', 'industry', '产品与开发者变化；效果声明保留官方归属。'),
   source('anthropic', 'Anthropic News', 'https://www.anthropic.com/news', 'index', 'official', 'industry', '原文核对发布范围与使用条件。', '^/news/(?!announcements|features|research|policy|science|economics|agents)[^/]+/?$'),
   source('gemini', 'Gemini API Changelog', 'https://aistudio.google.com/docs/changelog', 'page', 'official', 'tools', '接口变化与弃用；单页按内容版本监控。'),
