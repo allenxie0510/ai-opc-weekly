@@ -50,7 +50,7 @@ const candidates: { article: Article; source: Source; id: string }[] = [];
 for (let i = 0; i < sources.length; i += 3) {
   const results = await Promise.allSettled(sources.slice(i, i + 3).map(async s => {
     if (db) await save('news_sources', { id: s.id, definition: s }, 'id');
-    const result = await collect(s, auditOnly ? 2 : backfill ? 16 : 6, backfill ? 10 : 14);
+    const result = await collect(s, auditOnly ? 2 : backfill ? 20 : 6, backfill ? 10 : 14);
     console.log(`${s.id}: ${result.run.state}, ${result.run.discovered} discovered, ${result.run.readable} readable`);
     return { ...result, source: s };
   }));
@@ -64,6 +64,7 @@ for (let i = 0; i < sources.length; i += 3) {
       const id = hash(`${article.url}:${article.bodyHash}`);
       await save('news_documents', { id, source_id: source.id, url: article.url, body_hash: article.bodyHash, article }, 'id');
       if (!modelEnabled || article.state !== 'ready') continue;
+      if (!article.publishedAt) { failures.push({ url: article.url, reasons: ['发布时间未核实，仅保留原文，禁止作为近期新闻生成'] }); continue; }
       if (seenBodies.has(article.bodyHash)) { failures.push({ url: article.url, reasons: ['重复原文，保留证据但不重复生成'] }); continue; }
       seenBodies.add(article.bodyHash);
       // Known old stories stay available for audit, not fresh-news generation.
@@ -73,7 +74,7 @@ for (let i = 0; i < sources.length; i += 3) {
         if (error) throw new Error(error.message);
         if (data?.length) continue;
       }
-      if (sourceGenerated >= (backfill ? 12 : 4) || generationCounts[source.lane] >= generationLimits[source.lane]) continue;
+      if (sourceGenerated >= (backfill ? 16 : 4) || generationCounts[source.lane] >= generationLimits[source.lane]) continue;
       sourceGenerated++; generationCounts[source.lane]++;
       candidates.push({article, source, id});
     }

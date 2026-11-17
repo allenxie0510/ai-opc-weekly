@@ -4,6 +4,9 @@ function source(id: string, name: string, url: string, kind: SourceKind, tier: T
 }
 // Each endpoint is a discovery channel, never a blanket endorsement of its claims.
 export const SOURCES: Source[] = [
+  source('deepmind', 'Google DeepMind', 'https://deepmind.google/blog/rss.xml', 'rss', 'official', 'industry', '模型能力与开放条件；研究基准不能替代实际收益。'),
+  source('openrouter', 'OpenRouter Blog', 'https://openrouter.ai/blog/feed.xml', 'rss', 'official', 'tools', '模型接入、路由、价格与开发实践。'),
+  source('elevenlabs', 'ElevenLabs Blog', 'https://elevenlabs.io/blog', 'index', 'official', 'tools', '语音、配音、内容制作与 Agent 交互能力。', '^/blog/(?!category|page)[^/]+/?$'),
   source('langchain', 'LangChain Blog', 'https://www.langchain.com/blog/rss.xml', 'rss', 'official', 'tools', 'Agent 开发、调试与部署；效果按厂商自述标注。'),
   source('vercel', 'Vercel Blog', 'https://vercel.com/atom', 'rss', 'official', 'tools', '个人 AI 应用开发与交付；排除常规维护。'),
   source('google', 'Google Blog', 'https://blog.google/rss/', 'rss', 'official', 'industry', '仅筛选模型供给、创作工具与商业规则变化。'),
@@ -30,3 +33,5 @@ export const SOURCES: Source[] = [
 ];
 // Known legitimate migrations only. Redirects to arbitrary hosts are rejected.
 SOURCES.find(s => s.id === 'gemini')!.allowedHosts.push('aistudio.google.com');
+
+SOURCES.find(s => s.id === 'deepmind')!.allowedHosts.push('blog.google');
