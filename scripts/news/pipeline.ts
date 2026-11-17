@@ -29,7 +29,7 @@ const failures: { url: string; reasons: string[] }[] = [];
 async function save(table: string, value: Record<string, unknown>, conflict?: string) {
   if (!db) return;
   const q = conflict ? db.from(table).upsert(value, { onConflict: conflict, ignoreDuplicates: ['news_documents', 'news_queue'].includes(table) }) : db.from(table).insert(value);
-  const { error } = await q; if (error) throw new Error(`${table}: ${error.message}`);
+  const { error } = await q; if (error) throw new Error(`${table} ${String(value.id || value.source_id || '')}: ${error.code} ${error.message}`);
 }
 async function generate(article: Article, source: Source): Promise<Draft> {
   if (!modelConfig) throw new Error('Generation is disabled');

@@ -123,6 +123,8 @@ test('X intake preserves original evidence, rejects short or stale context, and 
   const now=Date.parse('2026-11-18T00:00:00Z');
   const post={tweet_id:'123456789',author_username:'builder',content:sentence.repeat(8),published_at:'2026-11-17T00:00:00Z',media_urls:[]};
   const a=xArticle(post,now); const s=xSource('builder');
+  const unicode=xArticle({...post,content:'a'.repeat(239)+'🚀'+sentence.repeat(8)},now);
+  assert.ok(!/[\uD800-\uDBFF]$/.test(unicode.snippet));
   assert.equal(a.body,post.content); assert.equal(a.state,'ready');
   assert.equal(a.url,'https://x.com/builder/status/123456789');
   assert.equal(xArticle({...post,content:'Amazing! Buy now'},now).state,'blocked');
