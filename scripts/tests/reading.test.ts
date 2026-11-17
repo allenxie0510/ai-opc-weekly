@@ -71,3 +71,10 @@ test('saved articles tolerate corrupt storage and deduplicate without touching l
  assert.equal(parseBookmarks(JSON.stringify([saved,saved,null,{id:'invalid'}])).length,1);
  assert.notEqual(BOOKMARK_KEY,'ai_trends_favorites');
 });
+
+test('X uses stored Chinese translations and preserves original text separately',()=>{
+ const base={tweet_id:'123',author_username:'author',content:'New agent tools are available.',url:'https://x.com/author/status/123',published_at:'2026-11-18'} as Tweet;
+ const translated=tweetItem({...base,translated_text:'新的 Agent 工具已上线。'});
+ assert.equal(translated.summary,'新的 Agent 工具已上线。');assert.equal(translated.originalText,base.content);assert.equal(translated.translated,true);
+ const pending=tweetItem(base);assert.equal(pending.summary,'');assert.equal(pending.originalText,base.content);assert.equal(pending.translated,false);
+});
