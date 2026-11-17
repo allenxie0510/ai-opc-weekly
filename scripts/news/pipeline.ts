@@ -8,6 +8,7 @@ import type { Article, Draft, Source, SourceRun } from '../../lib/news/types';
 
 const args = new Set(process.argv.slice(2));
 const auditOnly = args.has('--audit');
+const backfill = args.has('--backfill');
 const persist = args.has('--persist');
 const modelEnabled = args.has('--generate');
 if (persist && (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY)) throw new Error('Persist requires Supabase server credentials');
@@ -43,12 +44,13 @@ async function generate(article: Article, source: Source): Promise<Draft> {
 async function main() {
 const seenBodies = new Set<string>();
 const generationCounts = { industry: 0, tools: 0, business: 0 };
-const generationLimits = { industry: 6, tools: 10, business: 6 };
+const generationLimits = backfill ? { industry: 60, tools: 90, business: 35 } : { industry: 12, tools: 18, business: 10 };
+const candidates: { article: Article; source: Source; id: string }[] = [];
 // Bounded concurrency, one source's outage never hides the rest.
 for (let i = 0; i < sources.length; i += 3) {
   const results = await Promise.allSettled(sources.slice(i, i + 3).map(async s => {
     if (db) await save('news_sources', { id: s.id, definition: s }, 'id');
-    const result = await collect(s, auditOnly ? 2 : 3);
+    const result = await collect(s, auditOnly ? 2 : backfill ? 16 : 6, backfill ? 10 : 14);
     console.log(`${s.id}: ${result.run.state}, ${result.run.discovered} discovered, ${result.run.readable} readable`);
     return { ...result, source: s };
   }));
@@ -65,23 +67,33 @@ for (let i = 0; i < sources.length; i += 3) {
       if (seenBodies.has(article.bodyHash)) { failures.push({ url: article.url, reasons: ['重复原文，保留证据但不重复生成'] }); continue; }
       seenBodies.add(article.bodyHash);
       // Known old stories stay available for audit, not fresh-news generation.
-      if (article.publishedAt && Date.now() - Date.parse(article.publishedAt) > 14 * 86400000) { failures.push({ url: article.url, reasons: ['旧内容，仅作资料'] }); continue; }
+      if (article.publishedAt && Date.now() - Date.parse(article.publishedAt) > (backfill ? 10 : 14) * 86400000) { failures.push({ url: article.url, reasons: ['旧内容，仅作资料'] }); continue; }
       if (db) {
         const { data, error } = await db.from('news_queue').select('id').eq('document_id', id).limit(1);
         if (error) throw new Error(error.message);
         if (data?.length) continue;
       }
-      if (sourceGenerated >= 2 || generationCounts[source.lane] >= generationLimits[source.lane]) continue;
+      if (sourceGenerated >= (backfill ? 12 : 4) || generationCounts[source.lane] >= generationLimits[source.lane]) continue;
       sourceGenerated++; generationCounts[source.lane]++;
-      try {
-        const draft = await generate(article, source); const errors = validateDraft(draft, article);
-        if (errors.length) { failures.push({ url: article.url, reasons: errors }); await save('news_processing_log', { document_id: id, outcome: 'blocked', reasons: errors }); }
-        else drafts.push({ article, draft, source });
-      } catch (e) { modelErrors++; failures.push({ url: article.url, reasons: [String(e)] }); await save('news_processing_log', { document_id: id, outcome: 'error', reasons: [String(e)] }); }
+      candidates.push({article, source, id});
     }
   }
 }
-const selection = selectDrafts(drafts);
+// Three bounded model workers; preserve all valid results when a provider fails.
+let cursor = 0;
+await Promise.all(Array.from({length: 3}, async () => {
+  while (cursor < candidates.length) {
+    const {article, source, id} = candidates[cursor++];
+    try {
+      const draft = await generate(article, source); const errors = validateDraft(draft, article);
+      if (errors.length) { failures.push({ url: article.url, reasons: errors }); await save('news_processing_log', { document_id: id, outcome: 'blocked', reasons: errors }); }
+      else drafts.push({ article, draft, source });
+    } catch (e) { modelErrors++; failures.push({ url: article.url, reasons: [String(e)] }); await save('news_processing_log', { document_id: id, outcome: 'error', reasons: [String(e)] }); }
+    console.log(`Reviewed candidate ${cursor}/${candidates.length}: ${source.id}`);
+  }
+}));
+const selection = selectDrafts(drafts, backfill ? 120 : 24, backfill ? 10 : 3);
+
 for (const row of drafts) {
   const accepted = selection.accepted.includes(row);
   const reasons = selection.rejected.find(r => r.url === row.article.url)?.reasons || [];

@@ -5,7 +5,7 @@ on:
       mode:
         description: 'audit 只检查；collect 保存原文；generate 保存并生成待审资讯（永不自动发布）'
         type: choice
-        options: [audit, collect, generate]
+        options: [audit, collect, generate, backfill]
         default: audit
   schedule:
     - cron: '47 22 * * *'
@@ -40,6 +40,7 @@ jobs:
             audit) npm run news:audit ;;
             collect) npm run news:collect -- --persist ;;
             generate) npm run news:generate ;;
+            backfill) npm run news:generate -- --backfill ;;
             *) exit 1 ;;
           esac
       - uses: actions/upload-artifact@v4
