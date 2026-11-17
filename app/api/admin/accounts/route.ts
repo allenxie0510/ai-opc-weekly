@@ -94,6 +94,7 @@ export async function DELETE(request: Request) {
     const row = Array.isArray(rpcRows) ? rpcRows[0] : null;
     if (!row) return Response.json({ error: `未找到 @${username}` }, { status: 404 });
     revalidatePath('/x');
+    revalidatePath('/news');
     return Response.json({
       status: 'ok',
       username: row.deleted_username || username,
@@ -154,6 +155,7 @@ export async function DELETE(request: Request) {
   }
 
   revalidatePath('/x');
+    revalidatePath('/news');
   return Response.json({
     status: 'ok',
     username: account?.username || username,

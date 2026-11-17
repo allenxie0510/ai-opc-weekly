@@ -4,6 +4,8 @@ import { readFileSync } from 'node:fs';
 
 const route = readFileSync(new URL('../../app/api/admin/accounts/route.ts', import.meta.url), 'utf8');
 const page = readFileSync(new URL('../../app/x/page.tsx', import.meta.url), 'utf8');
+const unified = readFileSync(new URL('../../lib/reading/data.ts', import.meta.url), 'utf8');
+const newsPage = readFileSync(new URL('../../app/news/page.tsx', import.meta.url), 'utf8');
 const data = readFileSync(new URL('../../lib/data.ts', import.meta.url), 'utf8');
 const migration = readFileSync(
   new URL('../../supabase/migrations/20260902110000_x_account_cascade.sql', import.meta.url),
@@ -11,10 +13,12 @@ const migration = readFileSync(
 );
 
 test('X timeline is never served from a stale ISR snapshot', () => {
-  assert.match(page, /export const dynamic = 'force-dynamic'/);
-  assert.match(page, /export const revalidate = 0/);
+  assert.match(page, /export const dynamic\s*=\s*'force-dynamic'/);
+  assert.match(newsPage, /export const dynamic\s*=\s*'force-dynamic'/);
+  assert.match(page, /export const revalidate\s*=\s*0/);
   assert.doesNotMatch(page, /export const revalidate = 300/);
-  assert.match(page, /authors: accounts\.map/);
+  assert.match(unified, /authors:\s*accounts\.map/);
+  assert.match(page, /permanentRedirect\('\/news\?view=all&source=x'\)/);
   assert.match(data, /q\.in\('author_username', options\.authors\)/);
 });
 

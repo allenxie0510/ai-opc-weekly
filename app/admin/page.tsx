@@ -368,6 +368,7 @@ export default function AdminPage() {
   return (
     <>
       <a href="/admin/news" style={{ display: 'block', padding: 12 }}>新版资讯采编台 →</a>
+      <a href="/admin/briefs" style={{ display: 'block', padding: 12 }}>周报与阅读反馈 →</a>
       <Header />
       <main className="container admin-page" style={{ paddingTop: 48, paddingBottom: 80 }}>
         {!authed ? (
