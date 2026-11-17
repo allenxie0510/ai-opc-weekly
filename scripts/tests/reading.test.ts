@@ -84,3 +84,11 @@ test('backfilled stories sort by original publication date rather than insertion
  const older={...item,id:'r-old',sourceUrl:'https://example.com/older',sourcePublishedAt:'2026-11-12T10:00:00Z',publishedAt:'2026-11-18T12:00:00Z'};
  assert.deepEqual(mergeReading([older,recent]),[recent,older]);
 });
+
+test('X source filter retains reviewed X coverage after canonical source deduplication', () => {
+ const base={id:'x-123',kind:'x' as const,title:'来源',summary:'正文',relevance:'',source:'X · @builder',sourceUrl:'https://x.com/builder/status/123',lane:'other' as const,publishedAt:'2026-11-17T00:00:00Z',sourcePublishedAt:null,reviewed:false};
+ const reviewed={...base,id:'r-reviewed',kind:'radar' as const,reviewed:true};
+ const merged=mergeReading([base,reviewed]);
+ assert.deepEqual(filterReading(merged,{view:'all',source:'x'}).map(i=>i.id),['r-reviewed']);
+ assert.equal(filterReading([base],{view:'selected'}).length,0);
+});

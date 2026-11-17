@@ -5,7 +5,7 @@ on:
       mode:
         description: 'audit 只检查；collect 保存原文；generate 保存并生成待审资讯（永不自动发布）'
         type: choice
-        options: [audit, collect, generate, backfill, translate]
+        options: [audit, collect, generate, backfill, translate, x-review]
         default: audit
   schedule:
     - cron: '47 22 * * *'
@@ -41,6 +41,7 @@ jobs:
             collect) npm run news:collect -- --persist ;;
             generate) npm run news:generate ;;
             backfill) npm run news:generate -- --backfill ;;
+            x-review) npm run news:generate -- --x-only ;;
             translate) npx tsx scripts/news/translate-tweets.ts ;;
             *) exit 1 ;;
           esac

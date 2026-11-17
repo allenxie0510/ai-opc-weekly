@@ -22,7 +22,7 @@ export function mergeReading(items: ReadingItem[]) {
   }).sort((a,b) => (b.sourcePublishedAt || b.publishedAt).localeCompare(a.sourcePublishedAt || a.publishedAt) || b.publishedAt.localeCompare(a.publishedAt) || a.id.localeCompare(b.id));
 }
 export function filterReading(items: ReadingItem[], options: { lane?: string; source?: string; view?: string }) {
-  return items.filter(i => (options.view === 'all' || i.reviewed) && (!options.lane || options.lane === 'all' || i.lane === options.lane) && (!options.source || options.source === 'all' || (options.source === 'x' ? i.kind === 'x' : i.source === options.source)));
+  return items.filter(i => (options.view === 'all' || i.reviewed) && (!options.lane || options.lane === 'all' || i.lane === options.lane) && (!options.source || options.source === 'all' || (options.source === 'x' ? (i.kind === 'x' || i.source.startsWith('X · @')) : i.source === options.source)));
 }
 export function chinaDate(value: string) { return new Date(value).toLocaleDateString('zh-CN', { timeZone: 'Asia/Shanghai', year: 'numeric', month: '2-digit', day: '2-digit' }); }
 export function weekStart(value = new Date().toISOString()) {
