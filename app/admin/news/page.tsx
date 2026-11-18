@@ -1,5 +1,6 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import {usePathname} from 'next/navigation';
 import type { Article, Draft, Source, SourceRun } from '@/lib/news/types';
 import { LANE_LABELS } from '@/lib/news/types';
 type Row = { id: string; version: number; draft: Draft; state: string; reasons: string[]; event_key: string; news_documents: { article: Article; url: string }; news_sources: { definition: Source } };
@@ -49,7 +50,8 @@ function ReviewItem({ row, all, act, busy }: { row: Row; all: Row[]; act: (row: 
   </article>;
 }
 export default function NewsDesk() {
-  const [loadedAt,setLoadedAt] = useState(0); const [token,setToken] = useState(''); const [data,setData] = useState<Data | null>(null); const [state,setState] = useState('pending'); const [busy,setBusy] = useState(false); const [message,setMessage] = useState('');
+  const sourcesOnly=usePathname()==='/admin/sources';
+  const [loadedAt,setLoadedAt] = useState(0); const token = '';  const [data,setData] = useState<Data | null>(null); const [state,setState] = useState('pending'); const [busy,setBusy] = useState(false); const [message,setMessage] = useState('');
   async function load(next = state) {
     setBusy(true); setMessage('');
     try { const res = await fetch(`/api/admin/news?state=${next}`, { headers: { 'x-admin-token': token }, cache: 'no-store' }); const json = await res.json(); if (!res.ok) throw new Error(json.error); setData(json); setLoadedAt(Date.now()); setState(next); }
@@ -63,16 +65,19 @@ export default function NewsDesk() {
       await load(); setMessage('操作已保存，审核记录已留档。');
     } catch(e) { setMessage(String(e)); } finally { setBusy(false); }
   }
+  useEffect(()=>{const timer=setTimeout(()=>{const initial=new URLSearchParams(window.location.search).get('state');void load(initial&&['pending','filtered','published','rejected','merged'].includes(initial)?initial:'pending');},0);return ()=>clearTimeout(timer);
+  // Initial route state only; tabs control subsequent fetches.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  },[]);
   return <main style={{ maxWidth: 1100, margin: '0 auto', padding: '32px 20px', color: '#17202c' }}>
-    <a href="/admin">← 原管理后台</a><h1 style={{ fontSize: 30, fontWeight: 750, margin: '20px 0 8px' }}>资讯采编台</h1><p><a href="/admin/briefs">周报编辑与阅读反馈</a></p><p>先验证来源与事实，再决定是否发布。自动评分仅用于候选排序。</p>
-    <form onSubmit={e => { e.preventDefault(); void load(); }} style={{ display: 'flex', gap: 12, margin: '20px 0' }}><input aria-label="管理员密码" type="password" placeholder="管理员密码（仅保留在当前页面内存）" style={input} value={token} onChange={e => setToken(e.target.value)} /><button disabled={busy || !token}>加载／刷新</button></form>
+    <h1 style={{fontSize:30,fontWeight:700}}>{sourcesOnly?'信源与采集':'资讯审核'}</h1><p>原始线索经价值筛选进入待审；核对证据后才能发布。系统筛出与待审核分别管理。</p><button disabled={busy} onClick={()=>void load()}>刷新数据</button>
     {message && <p role="alert" style={{ padding: 12, background: '#fff1d6' }}>{message}</p>}
-    {data && <><details style={box}><summary>信源健康与采集审计（{data.sources.length} 个来源）</summary><div style={{ overflowX: 'auto' }}><table style={{ width: '100%', textAlign: 'left' }}><thead><tr><th>来源</th><th>最近检查</th><th>状态／发现／可读</th><th>问题</th></tr></thead><tbody>{data.sources.map(s => { const r = data.runs.find(r => r.source_id === s.id); const stale = !r || loadedAt - Date.parse(r.checked_at) > s.definition.cadenceHours * 2 * 3600000; return <tr key={s.id}><td style={{ padding: 8 }}><a href={s.definition.url} target="_blank" rel="noreferrer">{s.definition.name}</a><p>{s.definition.tier} · {LANE_LABELS[s.definition.lane]}</p></td><td>{r?.checked_at || '尚未检查'}{stale && <strong> · 采集过期</strong>}</td><td>{r ? `${r.report.state} / ${r.report.discovered} / ${r.report.readable}` : '未知'}</td><td>{r?.report.error}</td></tr>; })}</tbody></table></div><p>“可读”表示正文提取通过基础检查，不代表事实已核实。长期无新内容需人工区分停更与采集问题。</p></details>
-      <nav style={{ display: 'flex', gap: 16, margin: '20px 0' }}>{[['pending','待审核'],['filtered','系统筛出'],['published','已发布'],['rejected','已拒绝'],['merged','已合并']].map(([key,label]) => <button disabled={busy} style={{ fontWeight: key === state ? 800 : 400 }} key={key} onClick={() => load(key)}>{label}</button>)}</nav>
+    {data && <><details open={sourcesOnly} style={box}><summary>信源健康与采集审计（{data.sources.length} 个来源）</summary><div style={{ overflowX: 'auto' }}><table style={{ width: '100%', textAlign: 'left' }}><thead><tr><th>来源</th><th>最近检查</th><th>状态／发现／可读</th><th>问题</th></tr></thead><tbody>{data.sources.map(s => { const r = data.runs.find(r => r.source_id === s.id); const stale = !r || loadedAt - Date.parse(r.checked_at) > s.definition.cadenceHours * 2 * 3600000; return <tr key={s.id}><td style={{ padding: 8 }}><a href={s.definition.url} target="_blank" rel="noreferrer">{s.definition.name}</a><p>{s.definition.tier} · {LANE_LABELS[s.definition.lane]}</p></td><td>{r?.checked_at || '尚未检查'}{stale && <strong> · 采集过期</strong>}</td><td>{r ? `${r.report.state} / ${r.report.discovered} / ${r.report.readable}` : '未知'}</td><td>{r?.report.error}</td></tr>; })}</tbody></table></div><p>“可读”表示正文提取通过基础检查，不代表事实已核实。长期无新内容需人工区分停更与采集问题。</p></details>
+      {!sourcesOnly&&<><nav style={{ display: 'flex', gap: 16, margin: '20px 0' }}>{[['pending','待审核'],['filtered','系统筛出'],['published','已发布'],['rejected','已拒绝'],['merged','已合并']].map(([key,label]) => <button disabled={busy} style={{ fontWeight: key === state ? 800 : 400 }} key={key} onClick={() => load(key)}>{label}</button>)}</nav>
       <p>最近 100 条 · {data.queue.length} 条；更早记录保留在数据库。</p>
-      {!data.queue.length && <p style={box}>当前没有条目。完成迁移与采集后运行生成流程，候选会进入这里。</p>}
+      {!data.queue.length && <p style={box}>当前状态没有条目。可切换“系统筛出”查看未达标原因，或切换“已发布”管理线上资讯。</p>}
       {data.queue.map(row => <ReviewItem key={`${row.id}:${row.version}`} row={row} all={data.queue} act={act} busy={busy} />)}
-      <details style={box}><summary>生成失败与证据拦截记录</summary>{data.processing.map(p => <p key={p.id}>{p.outcome} · {p.news_documents.url} · {p.reasons.join('；')}</p>)}</details>
+      </>}<details style={box}><summary>生成失败与证据拦截记录</summary>{data.processing.map(p => <p key={p.id}>{p.outcome} · {p.news_documents.url} · {p.reasons.join('；')}</p>)}</details>
       <details style={box}><summary>最近 30 条审核记录</summary>{data.history.map(h => <p key={h.id}>{h.created_at} · {h.action} · {h.reason}</p>)}</details>
     </>}
   </main>;
