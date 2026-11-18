@@ -19,7 +19,7 @@ export function SiteFooter() {
           <Link href="/opportunities">历史机会案例</Link>
           <Link href="/explore">方向探测器</Link>
           <Link href="/news">精选资讯</Link>
-          <Link href="/archive">周报</Link>
+          <Link href="/weekly">周报</Link>
           <Link href="/news?view=all&source=x">X 来源动态</Link>
         </nav>
         <div className="site-footer-support">

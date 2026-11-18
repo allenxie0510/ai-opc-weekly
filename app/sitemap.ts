@@ -50,7 +50,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       priority: 0.9,
     },
     {
-      url: 'https://www.aiopcnews.com/archive',
+      url: 'https://www.aiopcnews.com/weekly',
       changeFrequency: 'weekly' as const,
       priority: 0.6,
     },

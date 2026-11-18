@@ -40,7 +40,7 @@ export async function POST(request: Request) {
     }
     const { data, error } = await db.rpc('review_news', { p_id: body.id, p_version: body.version, p_action: body.action, p_draft: body.draft || null, p_reason: body.reason, p_confirmed: body.confirmed === true, p_target: body.target || null });
     if (error) return Response.json({ error: error.message }, { status: 409 });
-    if (['publish','unpublish'].includes(body.action)) for (const path of ['/', '/news', '/radar', '/archive', '/feed.xml']) revalidatePath(path);
+    if (['publish','unpublish'].includes(body.action)) for (const path of ['/', '/news', '/radar', '/weekly', '/feed.xml']) revalidatePath(path);
     return Response.json(data);
   } catch { return Response.json({ error: '请求格式无效' }, { status: 400 }); }
 }

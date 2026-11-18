@@ -116,7 +116,7 @@ export function WeeklyIssueView({ issue, items, allIssues }: {
             '@type': 'BreadcrumbList',
             itemListElement: [
               { '@type': 'ListItem', position: 1, name: '首页', item: 'https://www.aiopcnews.com' },
-              { '@type': 'ListItem', position: 2, name: '每周深读', item: 'https://www.aiopcnews.com/archive' },
+              { '@type': 'ListItem', position: 2, name: '每周深读', item: 'https://www.aiopcnews.com/weekly' },
               { '@type': 'ListItem', position: 3, name: `第 ${issue.week_number} 周 · ${issue.title}` },
             ],
           }),
