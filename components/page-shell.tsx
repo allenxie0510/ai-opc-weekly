@@ -38,7 +38,7 @@ function FavBadge() {
  * 已登录：邮箱首字母圆形头像（28px，极紧凑不撑爆单行横滑 header），点击展开菜单：
  *   邮箱全文 / [内容入口] 我的探索 · 归档 · 关注(带计数徽章) / [账号操作] 退出登录。
  * 菜单用 position:fixed 定位——header 移动端 overflow-x:auto 会裁剪绝对定位下拉。
- * 图标统一放固定宽度 .nav-auth-ico 槽位保证文字列对齐；/archive、/favorites 路由
+ * 图标统一放固定宽度 .nav-auth-ico 槽位保证文字列对齐；/weekly、/favorites 路由
  * 本身公开可直访（favorites 基于 localStorage，匿名有空态提示）。
  */
 function AuthSlot() {
@@ -92,7 +92,7 @@ function AuthSlot() {
           <Link href="/explore" className="nav-auth-item" onClick={() => setMenuPos(null)}>
             <span className="nav-auth-ico" aria-hidden="true"><LineIcon name="folder" /></span>我的探索
           </Link>
-          <Link href="/archive" className="nav-auth-item" onClick={() => setMenuPos(null)}>
+          <Link href="/weekly" className="nav-auth-item" onClick={() => setMenuPos(null)}>
             <span className="nav-auth-ico" aria-hidden="true"><LineIcon name="archive" /></span>归档
           </Link>
           <Link href="/favorites" className="nav-auth-item" onClick={() => setMenuPos(null)}>
@@ -148,7 +148,7 @@ export function Header() {
           <Link href="/" className="brand" aria-label="AI OPC 首页"><BrandLogo /></Link>
           <span className="nav-sep">|</span>
           <Link href="/news" className="x-link">资讯</Link>
-          <Link href="/archive" className="x-link">周报</Link>
+          <Link href="/weekly" className="x-link">周报</Link>
           <Link href="/explore" className="x-link">方向探测器</Link>
           {showTools && <Link href="/tools" className="x-link">工具</Link>}
         </div>

@@ -18,6 +18,6 @@ export async function POST(request:Request){
  const payload={slug:b.slug,title:b.title.trim(),summary:b.summary.trim(),item_ids:b.item_ids,status:b.status,published_at:b.status==='published'?new Date().toISOString():null};
  const result=b.id?await db.from('news_briefs').update({...payload,version:b.version+1}).eq('id',b.id).eq('slug',b.slug).eq('version',b.version).select('id').maybeSingle():await db.from('news_briefs').insert(payload).select('id').single();
  if(result.error||!result.data)return Response.json({error:result.error?.code==='23505'?'该周已有周报，请编辑已有版本':'保存失败或版本已变化，请刷新重试'},{status:409});
- for(const path of ['/','/archive',`/briefs/${b.slug}`,'/feed.xml'])revalidatePath(path);
+ for(const path of ['/','/weekly',`/briefs/${b.slug}`,'/feed.xml'])revalidatePath(path);
  return Response.json({ok:true,id:result.data.id});
 }

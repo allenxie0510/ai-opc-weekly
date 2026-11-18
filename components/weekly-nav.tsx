@@ -15,14 +15,14 @@ export function WeeklyNav({ currentSlug, issues }: { currentSlug: string; issues
   const currentIdx = issues.findIndex(issue => issue.slug === currentSlug);
   const newer = currentIdx > 0 ? issues[currentIdx - 1] : null;
   const older = currentIdx >= 0 && currentIdx < issues.length - 1 ? issues[currentIdx + 1] : null;
-  const href = (issue: NavIssue) => issue.slug === issues[0]?.slug ? '/archive' : `/weekly/${issue.slug}`;
+  const href = (issue: NavIssue) => `/weekly/${issue.slug}`;
   const fmt = (issue: NavIssue) => {
     const date = (value: string) => value.slice(5, 10).replace('-', '/');
     return `${issue.slug.slice(0, 4)} · 第 ${issue.week_number} 周 · ${date(issue.week_start)}–${date(issue.week_end)}`;
   };
   return <nav className="weekly-navigation" aria-label="周报期数导航">
     <div className="container weekly-navigation-inner">
-      <Link className="weekly-nav-home" href="/archive">每周深读</Link>
+      <Link className="weekly-nav-home" href="/weekly">每周深读</Link>
       <div className="weekly-switcher">
         <label className="sr-only" htmlFor="weekly-issue-select">切换周报期数</label>
         <select id="weekly-issue-select" aria-label="切换周报期数" value={currentSlug} onChange={event => {
