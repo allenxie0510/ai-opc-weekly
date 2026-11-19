@@ -16,7 +16,7 @@ export function Impression({id,children}:{id:string;children:React.ReactNode}){
 export function OriginalLink({id,url}:{id:string;url:string}){return url?<a href={url} target="_blank" rel="noopener noreferrer" onClick={()=>{void trackReading('source_click',id);}}>查看原文</a>:null;}
 const memoryVotes=new Map<string,string>();
 function subscribeReadingStorage(callback:()=>void){window.addEventListener('storage',callback);window.addEventListener('reading-bookmarks',callback);window.addEventListener('reading-votes',callback);return()=>{window.removeEventListener('storage',callback);window.removeEventListener('reading-bookmarks',callback);window.removeEventListener('reading-votes',callback);};}
-function voteSnapshot(id:string){try{return localStorage.getItem('aiopc_vote_'+id)||memoryVotes.get(id)||'';}catch{return memoryVotes.get(id)||'';}}
+function voteSnapshot(id:string){try{return localStorage.getItem('aiopc_vote_'+id)??memoryVotes.get(id)??'';}catch{return memoryVotes.get(id)||'';}}
 function bookmarksSnapshot(){try{return localStorage.getItem(BOOKMARK_KEY)||'[]';}catch{return '[]';}}
 export function Feedback({id,compact=false}:{id:string;compact?:boolean}){
  const vote=useSyncExternalStore(subscribeReadingStorage,()=>voteSnapshot(id),()=> '');
