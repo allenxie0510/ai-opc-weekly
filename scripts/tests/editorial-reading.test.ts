@@ -11,3 +11,11 @@ test('shortlist excludes unreviewed and stale items and preserves source diversi
 test('search combines case-insensitive terms across title, source and reader relevance',()=>{
  assert.equal(searchReading([item],'agent OPENrouter').length,1);assert.equal(searchReading([item],'个人').length,1);assert.equal(searchReading([item],'missing').length,0);assert.equal(searchReading([item],'   ').length,1);
 });
+
+
+test('every configured source has a reader page distinct from its RSS endpoint',async()=>{
+ const {SOURCES}=await import('../../lib/news/sources');
+ const {SOURCE_PAGES,sourcePageUrl}=await import('../../lib/news/source-pages');
+ assert.equal(Object.keys(SOURCE_PAGES).length,SOURCES.length);
+ for(const source of SOURCES){const page=sourcePageUrl(source);assert.equal(new URL(page).protocol,'https:');assert.ok(SOURCE_PAGES[source.id]);if(source.kind==='rss')assert.notEqual(page,source.url);assert.ok(!/\.(xml|rss|atom)(?:$|\?)/.test(page));}
+});

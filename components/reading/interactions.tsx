@@ -1,6 +1,6 @@
 'use client';
 import Image from 'next/image';
-import { useEffect,useRef,useState,useSyncExternalStore } from 'react';
+import { useEffect,useId,useRef,useState,useSyncExternalStore } from 'react';
 import { trackReading } from '@/lib/reading/client';
 import { LineIcon } from '@/components/icons';
 import { BOOKMARK_KEY,parseBookmarks } from '@/lib/reading/bookmarks';
@@ -16,13 +16,21 @@ export function Impression({id,children}:{id:string;children:React.ReactNode}){
 export function OriginalLink({id,url}:{id:string;url:string}){return url?<a href={url} target="_blank" rel="noopener noreferrer" onClick={()=>{void trackReading('source_click',id);}}>查看原文</a>:null;}
 const memoryVotes=new Map<string,string>();
 function subscribeReadingStorage(callback:()=>void){window.addEventListener('storage',callback);window.addEventListener('reading-bookmarks',callback);window.addEventListener('reading-votes',callback);return()=>{window.removeEventListener('storage',callback);window.removeEventListener('reading-bookmarks',callback);window.removeEventListener('reading-votes',callback);};}
-function voteSnapshot(id:string){try{return localStorage.getItem('aiopc_vote_'+id)||memoryVotes.get(id)||'';}catch{return memoryVotes.get(id)||'';}}
+function voteSnapshot(id:string){try{return localStorage.getItem('aiopc_vote_'+id)??memoryVotes.get(id)??'';}catch{return memoryVotes.get(id)||'';}}
 function bookmarksSnapshot(){try{return localStorage.getItem(BOOKMARK_KEY)||'[]';}catch{return '[]';}}
 export function Feedback({id,compact=false}:{id:string;compact?:boolean}){
  const vote=useSyncExternalStore(subscribeReadingStorage,()=>voteSnapshot(id),()=> '');
  const [busy,setBusy]=useState(false),[message,setMessage]=useState('');
- async function submit(value:string){setBusy(true);const ok=await trackReading('feedback',id,{value});if(ok){memoryVotes.set(id,value);try{localStorage.setItem('aiopc_vote_'+id,value);}catch{}window.dispatchEvent(new Event('reading-votes'));}setMessage(ok?'反馈已记录，可重新选择。':'暂时无法记录反馈；隐私设置或管理员浏览不计入统计。');setBusy(false);}
- return <section className={`reading-feedback ${compact?'is-compact':''}`} aria-label="内容反馈">{!compact&&<strong>这条信息对你有用吗？</strong>}<div>{[['useful','赞','thumb-up'],['irrelevant','踩','thumb-down']].map(([v,l,icon])=><button key={v} disabled={busy} aria-label={l==='赞'?'赞：对我有用':'踩：与我无关'} title={l==='赞'?'对我有用':'与我无关'} aria-pressed={vote===v} onClick={()=>void submit(v)}><LineIcon name={icon as 'thumb-up'|'thumb-down'}/><span>{l}</span></button>)}</div>{message&&<p role="status">{message}</p>}</section>;
+ async function submit(value:string){
+  if(busy)return;
+  const next=vote===value?'':value;
+  memoryVotes.set(id,next);try{localStorage.setItem('aiopc_vote_'+id,next);}catch{}
+  window.dispatchEvent(new Event('reading-votes'));setBusy(true);
+  const ok=await trackReading('feedback',id,{value:next||'neutral'});
+  setMessage(ok?'反馈已记录。':'选择已保存在本浏览器，本次未计入站点统计。');setBusy(false);
+ }
+ useEffect(()=>{if(!message)return;const timer=setTimeout(()=>setMessage(''),3000);return()=>clearTimeout(timer);},[message]);
+ return <section className={`reading-feedback ${compact?'is-compact':''}`} aria-label="内容反馈">{!compact&&<strong>这条信息对你有用吗？</strong>}<div>{[['useful','赞','thumb-up'],['irrelevant','踩','thumb-down']].map(([v,l,icon])=><button key={v} disabled={busy} aria-label={l==='赞'?'赞：对我有用':'踩：与我无关'} title={l==='赞'?'对我有用':'与我无关'} aria-pressed={vote===v} onClick={()=>void submit(v)}><LineIcon name={icon as 'thumb-up'|'thumb-down'} fill={vote===v?'currentColor':'none'}/><span>{l}</span></button>)}</div>{message&&<p role="status">{message}</p>}</section>;
 }
 export function ShareReading({kind,id,title}:{kind:'news'|'briefs';id:string;title:string}){
  const [show,setShow]=useState(false),[message,setMessage]=useState(''); const eventId=kind==='briefs'?`brief-${id}`:id;
@@ -35,7 +43,7 @@ export function Bookmark({item}:{item:ReadingItem}){
  const [message,setMessage]=useState('');
  useEffect(()=>{if(!message)return;const timer=setTimeout(()=>setMessage(''),3000);return()=>clearTimeout(timer);},[message]);
  function toggle(){try{const list=parseBookmarks(localStorage.getItem(BOOKMARK_KEY));const exists=list.some(i=>i.id===item.id);if(!exists&&list.length>=500){setMessage('收藏已满，请先移除部分内容。');return;}localStorage.setItem(BOOKMARK_KEY,JSON.stringify(exists?list.filter(i=>i.id!==item.id):[item,...list]));window.dispatchEvent(new Event('reading-bookmarks'));setMessage(exists?'已取消收藏':'已收藏到本浏览器');}catch{setMessage('浏览器未允许保存收藏，请检查存储设置。');}}
- return <span className="reading-bookmark"><button onClick={toggle} aria-pressed={saved} title="收藏保存在当前浏览器"><LineIcon name="bookmark"/>{saved?'已收藏':'收藏'}</button>{message&&<span className="reading-action-status" role="status">{message}</span>}</span>;
+ return <span className="reading-bookmark"><button onClick={toggle} aria-pressed={saved} title="收藏保存在当前浏览器"><LineIcon name="bookmark" fill={saved?'currentColor':'none'}/>{saved?'已收藏':'收藏'}</button>{message&&<span className="reading-action-status" role="status">{message}</span>}</span>;
 }
 export function ReadingThumbnail({item}:{item:ReadingItem}){
  const [failed,setFailed]=useState(false);if(failed||(!item.imageUrl&&item.kind==='x'))return null;
@@ -43,6 +51,7 @@ export function ReadingThumbnail({item}:{item:ReadingItem}){
 }
 
 export function ReadingSummary({item,detail=false}:{item:ReadingItem;detail?:boolean}){
+ const [expanded,setExpanded]=useState(false);const copyId=useId();
  const [translated,setTranslated]=useState(item.translated?item.summary:'');
  const [state,setState]=useState<'idle'|'loading'|'failed'>('idle');
  const [attempt,setAttempt]=useState(0);const ref=useRef<HTMLDivElement>(null);
@@ -59,5 +68,5 @@ export function ReadingSummary({item,detail=false}:{item:ReadingItem;detail?:boo
   if(ref.current)observer.observe(ref.current);
   return()=>{cancelled=true;observer.disconnect();};
  },[item.id,item.kind,translated,attempt]);
- return <div ref={ref}><p className={detail?'reading-detail-copy':'reading-summary'}>{item.kind==='x'?(translated||(state==='failed'?'中文翻译暂不可用，可重试或展开原文。':'正在准备中文翻译…')):item.summary}</p>{item.kind==='x'&&<>{state==='failed'&&<button className="reading-translate-retry" onClick={()=>setAttempt(n=>n+1)}>重试翻译</button>}<details className="reading-translation"><summary>{translated?'机器翻译 · 查看原文':'查看原文'}</summary><p>{item.originalText||item.summary}</p></details></>}</div>;
+ return <div ref={ref} className={`reading-excerpt ${expanded?'is-expanded':''}`}><div id={copyId}><p className={detail?'reading-detail-copy':'reading-summary'}>{item.kind==='x'?(translated||(state==='failed'?'中文翻译暂不可用，可重试或展开原文。':'正在准备中文翻译…')):item.summary}</p>{!detail&&item.relevance&&<p className="reading-recommendation"><span>{item.reviewed?'推荐理由':'来源说明'}</span>{item.relevance}</p>}{item.kind==='x'&&(detail||expanded)&&<>{state==='failed'&&<button className="reading-translate-retry" onClick={()=>setAttempt(n=>n+1)}>重试翻译</button>}<details className="reading-translation"><summary>{translated?'机器翻译 · 查看原文':'查看原文'}</summary><p>{item.originalText||item.summary}</p></details></>}</div>{!detail&&<button className="reading-expand" aria-expanded={expanded} aria-controls={copyId} onClick={()=>setExpanded(!expanded)}>{expanded?'收起摘要':'展开摘要'}<span aria-hidden="true">⌄</span></button>}</div>;
 }
