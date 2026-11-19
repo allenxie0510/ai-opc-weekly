@@ -7,15 +7,19 @@ const uuid = /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i;
 export async function publishedRadar(ids?: string[]): Promise<ReadingItem[]> {
   const db = createServerSupabase(true) || createServerSupabase();
   if (!db || (ids && !ids.length)) return [];
-  let query = db.from('radar_items').select('*,news_queue!inner(state)').eq('status','published').eq('news_queue.state','published').order('published_at',{ascending:false});
+  let query = db.from('radar_items').select('*,news_queue!inner(state,draft,news_documents(article),news_sources(definition))').eq('status','published').eq('news_queue.state','published').order('published_at',{ascending:false});
   if (ids) query = query.in('id',ids); else query = query.limit(200);
   const { data, error } = await query;
   if (error) { console.error('Reading feed unavailable',error.code); throw new Error('精选暂时无法加载，请稍后重试'); }
-  const rows = (data || []) as RadarItem[];
-  // Only whitelisted public metadata, never bodies, draft records or editorial logs.
-  const { data: meta } = rows.length ? await db.from('news_queue').select('radar_id,draft,news_documents(article),news_sources(definition)').eq('state','published').in('radar_id',rows.map(r=>r.id)) : { data: [] };
-  const byId = new Map((meta||[]).map(m => { const doc = m.news_documents as unknown as {article?: {publishedAt?: string; imageUrl?:string}}; return [m.radar_id,{lane:m.draft?.lane,sourcePublishedAt:doc?.article?.publishedAt,imageUrl:doc?.article?.imageUrl,sourceTier:(m.news_sources as unknown as {definition?:{tier?:string}})?.definition?.tier,claims:Array.isArray(m.draft?.claims)?m.draft.claims.map((c:{text:string;kind:string})=>({text:c.text,kind:c.kind})):[],scores:[m.draft?.importance,m.draft?.usefulness,m.draft?.evidence]}]; }));
-  return rows.map(r => radarItem(r,byId.get(r.id)));
+  // The editorial record is canonical. One joined query makes edits/deletions visible atomically.
+  type PublicRelation={state:string;draft:{title:string;summary:string;relevance:string;lane:string;importance:number;usefulness:number;evidence:number;claims?:{text:string;kind:string}[]};news_documents:{article?:{publishedAt?:string;imageUrl?:string}};news_sources:{definition?:{tier?:string}}};
+  return (data||[]).flatMap(row=>{
+    const related=row.news_queue as unknown as PublicRelation|PublicRelation[];
+    const q=Array.isArray(related)?related.find(q=>q.state==='published'):related;
+    if(!q||q.state!=='published')return [];
+    const d=q.draft,article=q.news_documents?.article;
+    return [radarItem({...row,title:d.title,summary:d.summary,editor_note:d.relevance} as RadarItem,{lane:d.lane,sourcePublishedAt:article?.publishedAt,imageUrl:article?.imageUrl,sourceTier:q.news_sources?.definition?.tier,claims:(d.claims||[]).map(c=>({text:c.text,kind:c.kind})),scores:[d.importance,d.usefulness,d.evidence]})];
+  });
 }
 export async function readingFeed(includeX = false) {
   const radar = await publishedRadar();
