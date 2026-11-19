@@ -53,7 +53,7 @@ test('未登录用户不会获得方向探测器功能界面', () => {
   assert.match(appSource, /const \[authReady, setAuthReady\] = useState\(false\)/);
   assert.match(appSource, /if \(!mounted \|\| !authReady\)/);
   assert.match(appSource, /if \(!user\) \{/);
-  assert.match(appSource, /方向探测器需要邮箱登录/);
+  assert.match(appSource, /邮箱验证码登录/);
   assert.match(appSource, /if \(mounted && user\) saveState/);
 });
 

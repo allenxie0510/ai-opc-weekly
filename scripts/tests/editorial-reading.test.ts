@@ -19,3 +19,10 @@ test('every configured source has a reader page distinct from its RSS endpoint',
  assert.equal(Object.keys(SOURCE_PAGES).length,SOURCES.length);
  for(const source of SOURCES){const page=sourcePageUrl(source);assert.equal(new URL(page).protocol,'https:');assert.ok(SOURCE_PAGES[source.id]);if(source.kind==='rss')assert.notEqual(page,source.url);assert.ok(!/\.(xml|rss|atom)(?:$|\?)/.test(page));}
 });
+
+
+test('weekly options retain issue numbers and omit long editorial titles',async()=>{
+ const {weeklyOptions}=await import('../../lib/reading/weekly-options');
+ const options=weeklyOptions([{slug:'2026-11-16'}],[{slug:'2026-w47',issue_number:53,week_start:'2026-11-16'},{slug:'2026-w46',issue_number:52,week_start:'2026-11-09'}]);
+ assert.equal(options[0].label,'第 54 期 · 2026-11-16');assert.equal(options[1].label,'第 53 期 · 2026-11-16');assert.equal(options[2].label,'第 52 期 · 2026-11-09');
+});
