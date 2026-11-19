@@ -7,7 +7,7 @@ concurrency:
   group: news-weekly-brief
   cancel-in-progress: false
 jobs:
-  draft:
+  publish:
     if: github.event_name == 'workflow_dispatch' || vars.NEWS_PIPELINE_ENABLED == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -20,7 +20,7 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Reuse published news in a weekly draft
+      - name: Publish weekly edition from curated news
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

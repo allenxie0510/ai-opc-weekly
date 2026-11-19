@@ -3,9 +3,11 @@ import { SiteFooter } from '@/components/site-footer';
 import { AnalyticsTracker } from '@/components/analytics-tracker';
 import './globals.css';
 import './reading.css';
+import './editorial.css';
 import '../modules/explore/explore.css';
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://www.aiopcnews.com'),
   alternates: { types: { 'application/rss+xml': 'https://www.aiopcnews.com/feed.xml' } },
   title: 'AI OPC · AI 一人公司精选资讯',
   description: '面向个人创作者、AI开发者与设计师，精选行业变化、工具能力和经营案例。',
@@ -13,6 +15,7 @@ export const metadata: Metadata = {
     title: 'AI OPC',
     description: '看懂行业、改进工作、做好经营。',
     type: 'website',
+    images: [{url:'/editorial/independent-intelligence.webp',width:1536,height:1024,alt:'AI OPC · 为独立创造者精选'}],
   },
 };
 

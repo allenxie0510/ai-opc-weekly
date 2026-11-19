@@ -11,7 +11,7 @@
     "pipeline:product-radar": "tsx scripts/product-radar-pipeline.ts",
     "test:product-radar": "tsx --test scripts/tests/product-radar.test.ts",
     "test:analytics": "tsx --test scripts/tests/analytics.test.ts",
-    "test:admin": "tsx --test scripts/tests/admin-workspace.test.ts scripts/tests/editorial-admin.test.ts",
+    "test:admin": "tsx --test scripts/tests/admin-workspace.test.ts scripts/tests/editorial-admin.test.ts scripts/tests/news-management.test.ts",
     "test:analytics:db": "node --test scripts/tests/analytics-database.test.mjs",
     "test:radar": "node --test scripts/tests/radar-policy.test.mjs scripts/tests/producthunt-source.test.mjs scripts/tests/radar-review.test.mjs scripts/tests/editorial-policy.test.mjs scripts/tests/editorial-database.test.mjs scripts/tests/radar-budget.test.mjs scripts/tests/radar-delivery.test.mjs",
     "test:explore": "node --test scripts/tests/explore-scope-policy.test.mjs",
@@ -26,8 +26,9 @@
     "news:collect": "node --env-file-if-exists=.env.local --import tsx scripts/news/pipeline.ts",
     "news:generate": "node --env-file-if-exists=.env.local --import tsx scripts/news/pipeline.ts --generate --persist",
     "test:news": "tsx --test scripts/tests/news-quality.test.ts",
-    "test:reading": "tsx --test scripts/tests/reading.test.ts scripts/tests/translation.test.ts",
-    "news:brief": "node --env-file-if-exists=.env.local --import tsx scripts/news/brief.ts"
+    "test:reading": "tsx --test scripts/tests/reading.test.ts scripts/tests/translation.test.ts scripts/tests/editorial-reading.test.ts",
+    "news:brief": "node --env-file-if-exists=.env.local --import tsx scripts/news/brief.ts",
+    "news:publish": "node --env-file-if-exists=.env.local --import tsx scripts/news/publish.ts"
   },
   "dependencies": {
     "@mozilla/readability": "^0.6.0",

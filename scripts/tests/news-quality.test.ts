@@ -138,3 +138,24 @@ test('X intake preserves original evidence, rejects short or stale context, and 
   assert.equal(selectDrafts([{article:a,source:s,draft:{...draft,lane:'business'}}]).accepted.length,0);
   assert.equal(selectDrafts([{article:a,source:s,draft:{...draft,importance:2,usefulness:2,evidence:2}}]).accepted.length,0);
 });
+
+test('review budgets cover later sources before taking second articles from early sources',async()=>{
+ const {scheduleCandidates}=await import('../../lib/news/scheduling');
+ const sources=Array.from({length:8},(_,i)=>({...source,id:`source-${i}`,lane:'tools' as const}));
+ const candidates=sources.flatMap(s=>Array.from({length:4},(_,i)=>({source:s,article:{...article,publishedAt:`2026-11-${19-i}T00:00:00Z`},id:`${s.id}-${i}`})));
+ const selected=scheduleCandidates(candidates,{industry:0,tools:10,business:0},4);
+ assert.equal(selected.length,10);assert.equal(new Set(selected.map(c=>c.source.id)).size,8);
+ assert.ok(selected.slice(0,8).every(c=>c.id.endsWith('-0')));
+ assert.equal(scheduleCandidates(candidates,{industry:0,tools:100,business:0},1).length,8);
+});
+
+test('chief editor fails closed on unsupported claims, vague verdicts, stale and sensitive news',async()=>{
+ const {publicationBlocks}=await import('../../lib/news/chief-editor');const now=Date.parse('2026-11-19T00:00:00Z');
+ const verdict={publish:true,reason:'原文逐项支持具体变化且保留适用条件',readerValue:'使用模型API的个人开发者可核对接入费用',factsSupported:true,attributionClear:true,notPromotional:true};
+ assert.deepEqual(publicationBlocks(article,draft,source,verdict,now),[]);
+ assert.ok(publicationBlocks(article,draft,source,{...verdict,factsSupported:false},now).length);
+ assert.ok(publicationBlocks(article,draft,source,{...verdict,readerValue:'值得关注'},now).length);
+ assert.ok(publicationBlocks(article,{...draft,sensitive:true},source,verdict,now).length);
+ assert.ok(publicationBlocks({...article,publishedAt:'2026-10-01'},draft,source,verdict,now).length);
+ assert.ok(publicationBlocks(article,draft,source,{} as typeof verdict,now).length);
+});

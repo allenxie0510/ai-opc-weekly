@@ -11,7 +11,7 @@ export async function GET(request: Request) {
   if (!authorized(request)) return Response.json({ error: '未授权' }, { status: 401 });
   const db = createServerSupabase(true);
   if (!db) return Response.json({ error: '缺少数据库服务端配置' }, { status: 503 });
-  const state = new URL(request.url).searchParams.get('state') || 'pending';
+  const state = new URL(request.url).searchParams.get('state') || 'published';
   if (!['pending','filtered','published','rejected','merged'].includes(state)) return Response.json({ error: '状态无效' }, { status: 400 });
   const results = await Promise.all([
     db.from('news_sources').select('*'),
@@ -30,17 +30,23 @@ export async function POST(request: Request) {
   if (!db) return Response.json({ error: '缺少数据库服务端配置' }, { status: 503 });
   try {
     const body = await request.json();
-    if (!/^[a-f0-9-]{36}$/i.test(body.id || '') || !Number.isInteger(body.version) || !['save','publish','reject','restore','merge','unpublish'].includes(body.action) || typeof body.reason !== 'string' || body.reason.trim().length < 2 || body.reason.length > 1000) return Response.json({ error: '操作参数无效，必须填写审核理由' }, { status: 400 });
-    if (body.draft && ['save','publish'].includes(body.action)) {
+    if (!/^[a-f0-9-]{36}$/i.test(body.id || '') || !Number.isInteger(body.version) || !['update','delete'].includes(body.action)) return Response.json({ error: '操作参数无效' }, { status: 400 });
+    if (body.action === 'update') {
       const { data, error } = await db.from('news_queue').select('news_documents(article)').eq('id', body.id).single();
       if (error || !data) return Response.json({ error: '找不到原文' }, { status: 404 });
       const relation = data.news_documents as unknown as { article: Parameters<typeof validateDraft>[1] };
       const errors = validateDraft(body.draft, relation.article);
       if (errors.length) return Response.json({ error: errors.join('；') }, { status: 422 });
     }
-    const { data, error } = await db.rpc('review_news', { p_id: body.id, p_version: body.version, p_action: body.action, p_draft: body.draft || null, p_reason: body.reason, p_confirmed: body.confirmed === true, p_target: body.target || null });
+    const changes = body.action === 'delete'
+      ? { state:'rejected', reasons:['管理员删除资讯：禁止自动重新推荐'], version:body.version+1, updated_at:new Date().toISOString() }
+      : { draft:body.draft, version:body.version+1, updated_at:new Date().toISOString() };
+    let mutation = db.from('news_queue').update(changes).eq('id',body.id).eq('version',body.version);
+    if(body.action==='update') mutation=mutation.eq('state','published');
+    const { data, error } = await mutation.select('id,version').maybeSingle();
     if (error) return Response.json({ error: error.message }, { status: 409 });
-    if (['publish','unpublish'].includes(body.action)) for (const path of ['/', '/news', '/radar', '/weekly', '/feed.xml']) revalidatePath(path);
+    if (!data) return Response.json({error:'内容已被更新或删除，请刷新后再操作'},{status:409});
+    for (const path of ['/', '/news', '/radar', '/weekly', '/feed.xml']) revalidatePath(path);
     return Response.json(data);
   } catch { return Response.json({ error: '请求格式无效' }, { status: 400 }); }
 }

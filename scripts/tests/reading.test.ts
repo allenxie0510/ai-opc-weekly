@@ -52,8 +52,8 @@ test('P1 migration keeps drafts and anonymous feedback private; writes are idemp
  }finally{await db.close();}
 });
 
-test('new recommendations and weekly generation require the new editorial approval record',async()=>{
- for(const path of ['../../lib/reading/data.ts','../news/brief.ts']){const source=await readFile(new URL(path,import.meta.url),'utf8');assert.match(source,/news_queue!inner\(state\)/);assert.match(source,/eq\('news_queue.state','published'\)/);}
+test('public news and weekly references require a published editorial record',async()=>{
+ for(const path of ['../../lib/reading/data.ts','../news/brief.ts']){const source=await readFile(new URL(path,import.meta.url),'utf8');assert.match(source,/news_queue!inner\(state[,)]/);assert.match(source,/eq\('news_queue.state','published'\)/);}
 });
 
 

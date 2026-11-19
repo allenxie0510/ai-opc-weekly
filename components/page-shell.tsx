@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { BrandLogo } from './brand-logo';
 import { useState, useEffect, useRef } from 'react';
 import type { User } from '@supabase/supabase-js';
+import { usePathname } from 'next/navigation';
 import { WeeklyNav } from './weekly-nav';
 import { getSession, onAuthChange, signOut } from '@/modules/explore/lib/auth';
 import { isProductRadarEnabled } from '@/lib/product-radar/config';
@@ -113,6 +114,7 @@ function AuthSlot() {
 }
 
 export function Header() {
+  const pathname = usePathname();
   const [adminToolsAccess, setAdminToolsAccess] = useState(false);
 
   useEffect(() => {
@@ -147,13 +149,13 @@ export function Header() {
         <div className="nav-left">
           <Link href="/" className="brand" aria-label="AI OPC 首页"><BrandLogo /></Link>
           <span className="nav-sep">|</span>
-          <Link href="/news" className="x-link">资讯</Link>
-          <Link href="/weekly" className="x-link">周报</Link>
-          <Link href="/explore" className="x-link">方向探测器</Link>
+          <Link href="/news" className="x-link" aria-current={pathname.startsWith("/news")?"page":undefined}>精选资讯</Link>
+          <Link href="/weekly" className="x-link" aria-current={pathname.startsWith("/weekly")||pathname.startsWith("/briefs")?"page":undefined}>周报</Link>
+          <Link href="/news?view=all&source=x" className="x-link">X 中文动态</Link><Link href="/sources" className="x-link" aria-current={pathname==="/sources"?"page":undefined}>信源</Link>
           {showTools && <Link href="/tools" className="x-link">工具</Link>}
         </div>
         <div className="nav-links">
-          <Link href="/about" className="nav-auth-link">关于</Link>
+          <Link href="/news/saved" className="nav-auth-link">收藏</Link><Link href="/about" className="nav-auth-link">关于</Link>
           <AuthSlot />
         </div>
       </div>

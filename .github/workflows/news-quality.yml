@@ -3,9 +3,9 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: 'audit 只检查；collect 保存原文；generate 保存并生成待审资讯（永不自动发布）'
+        description: 'audit 只检查；collect 保存原文；generate 采集并经总编Agent复核发布；publish 处理已有候选'
         type: choice
-        options: [audit, collect, generate, backfill, translate, x-review]
+        options: [audit, collect, generate, backfill, translate, x-review, publish]
         default: audit
   schedule:
     - cron: '47 22 * * *'
@@ -39,9 +39,10 @@ jobs:
           case "$NEWS_MODE" in
             audit) npm run news:audit ;;
             collect) npm run news:collect -- --persist ;;
-            generate) npm run news:generate ;;
-            backfill) npm run news:generate -- --backfill ;;
-            x-review) npm run news:generate -- --x-only ;;
+            generate) npm run news:generate; npm run news:publish ;;
+            backfill) npm run news:generate -- --backfill; npm run news:publish ;;
+            x-review) npm run news:generate -- --x-only; npm run news:publish ;;
+            publish) npm run news:publish ;;
             translate) npx tsx scripts/news/translate-tweets.ts ;;
             *) exit 1 ;;
           esac
