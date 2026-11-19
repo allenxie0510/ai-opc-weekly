@@ -17,7 +17,7 @@ export default async function ExplorePage({ searchParams }: { searchParams: Prom
   return (
     <>
       <Header />
-      <header className="explore-editorial-hero"><div><p className="reading-eyebrow">FROM INFORMATION TO ACTION</p><h1>方向探测器</h1><p>找到适合你的方向，明确下一步。</p></div><figure><Image src="/editorial/direction-compass.webp" alt="指南针与纸上岔路，指向一扇绿色的门" width={1200} height={800} sizes="(max-width: 700px) calc(100vw - 40px), (max-width: 1280px) calc(100vw - 64px), 1216px" priority/><figcaption>AI 概念插图</figcaption></figure></header>
+      <header className="explore-editorial-hero"><div><p className="reading-eyebrow">FROM INFORMATION TO ACTION</p><h1>方向探测器</h1><p>找到适合你的方向，明确下一步。</p></div><figure><Image src="/editorial/direction-compass.webp" alt="指南针与纸上岔路，指向一扇绿色的门" width={1200} height={800} sizes="(max-width: 700px) calc(100vw - 40px), (max-width: 1280px) 55vw, 643px" priority/><figcaption>AI 概念插图</figcaption></figure></header>
       <div className="container page-wrap explore-workspace">
 
 
