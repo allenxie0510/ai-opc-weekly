@@ -1,4 +1,4 @@
-import { CategoryHero } from '@/components/category-hero';
+import Image from 'next/image';
 import type { Metadata } from 'next';
 import { Header } from '@/components/page-shell';
 import { ExploreApp } from '@/modules/explore/ExploreApp';
@@ -17,7 +17,7 @@ export default async function ExplorePage({ searchParams }: { searchParams: Prom
   return (
     <>
       <Header />
-      <CategoryHero section="explore" title="方向探测器"><p>从技能、资源和限制出发，比较方向，明确取舍，安排下一步验证。</p></CategoryHero>
+      <header className="explore-editorial-hero"><div><p className="reading-eyebrow">FROM INFORMATION TO ACTION</p><h1>方向探测器</h1><p>找到适合你的方向，明确下一步。</p></div><figure><Image src="/editorial/direction-compass.webp" alt="指南针与纸上岔路，指向一扇绿色的门" width={1200} height={800} priority/><figcaption>AI 概念插图</figcaption></figure></header>
       <div className="container page-wrap">
 
 

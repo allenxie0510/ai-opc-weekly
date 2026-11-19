@@ -1,166 +1,21 @@
 'use client';
-
 import Link from 'next/link';
-import { BrandLogo } from './brand-logo';
-import { useState, useEffect, useRef } from 'react';
-import type { User } from '@supabase/supabase-js';
-import { usePathname } from 'next/navigation';
-import { WeeklyNav } from './weekly-nav';
-import { getSession, onAuthChange, signOut } from '@/modules/explore/lib/auth';
-import { isProductRadarEnabled } from '@/lib/product-radar/config';
-import { LineIcon } from '@/components/icons';
+import {BrandLogo} from './brand-logo';
+import {useEffect,useRef,useState} from 'react';
+import type {User} from '@supabase/supabase-js';
+import {usePathname} from 'next/navigation';
+import {WeeklyNav} from './weekly-nav';
+import {getSession,onAuthChange,signOut} from '@/modules/explore/lib/auth';
 
-/** 关注数量徽章：读 localStorage，供 AuthSlot 菜单内「关注」项使用 */
-function FavBadge() {
-  const [count, setCount] = useState(0);
-
-  const refresh = () => {
-    try {
-      const favs = JSON.parse(localStorage.getItem('ai_trends_favorites') || '[]');
-      setCount(favs.length);
-    } catch {}
-  };
-
-  useEffect(() => {
-    const timer = window.setTimeout(refresh, 0);
-    window.addEventListener('fav-count-change', refresh);
-    return () => {
-      window.clearTimeout(timer);
-      window.removeEventListener('fav-count-change', refresh);
-    };
-  }, []);
-  return count > 0 ? <span className="fav-badge">{count}</span> : null;
-}
-
-/**
- * 全局登录态（2026-08-20 信息架构调整：从探索页工具栏上移全站 header；
- * 2026-08-21 再调整：归档/关注从 header 一级导航收进本菜单，header 只剩内容主导航 + 登录/头像）。
- * 未登录：紧凑「登录」文字链 → /explore?login=1（ExploreApp 自动开登录弹窗）。
- * 已登录：邮箱首字母圆形头像（28px，极紧凑不撑爆单行横滑 header），点击展开菜单：
- *   邮箱全文 / [内容入口] 我的探索 · 归档 · 关注(带计数徽章) / [账号操作] 退出登录。
- * 菜单用 position:fixed 定位——header 移动端 overflow-x:auto 会裁剪绝对定位下拉。
- * 图标统一放固定宽度 .nav-auth-ico 槽位保证文字列对齐；/weekly、/favorites 路由
- * 本身公开可直访（favorites 基于 localStorage，匿名有空态提示）。
- */
-function AuthSlot() {
-  const [user, setUser] = useState<User | null>(null);
-  const [ready, setReady] = useState(false);
-  const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
-  const wrapRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    getSession().then((s) => { setUser(s?.user ?? null); setReady(true); });
-    return onAuthChange((s) => setUser(s?.user ?? null));
-  }, []);
-
-  // 点击菜单外关闭
-  useEffect(() => {
-    if (!menuPos) return;
-    const close = (e: MouseEvent) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setMenuPos(null);
-    };
-    document.addEventListener('click', close);
-    return () => document.removeEventListener('click', close);
-  }, [menuPos]);
-
-  if (!ready) return null;
-
-  if (!user) {
-    return <Link href="/explore?login=1" className="nav-auth-link">登录</Link>;
-  }
-
-  const label = user.email || user.phone || '已登录';
-  const initial = label.slice(0, 1).toUpperCase();
-
-  return (
-    <div className="nav-auth" ref={wrapRef}>
-      <button
-        className="nav-avatar"
-        aria-label={`账户：${label}`}
-        title={label}
-        onClick={(e) => {
-          e.stopPropagation();
-          if (menuPos) { setMenuPos(null); return; }
-          const r = e.currentTarget.getBoundingClientRect();
-          setMenuPos({ top: r.bottom + 8, right: Math.max(8, window.innerWidth - r.right) });
-        }}
-      >
-        {initial}
-      </button>
-      {menuPos && (
-        <div className="nav-auth-menu" style={{ top: menuPos.top, right: menuPos.right }}>
-          <div className="nav-auth-email">{label}</div>
-          <Link href="/explore" className="nav-auth-item" onClick={() => setMenuPos(null)}>
-            <span className="nav-auth-ico" aria-hidden="true"><LineIcon name="folder" /></span>我的探索
-          </Link>
-          <Link href="/weekly" className="nav-auth-item" onClick={() => setMenuPos(null)}>
-            <span className="nav-auth-ico" aria-hidden="true"><LineIcon name="archive" /></span>归档
-          </Link>
-          <Link href="/favorites" className="nav-auth-item" onClick={() => setMenuPos(null)}>
-            <span className="nav-auth-ico" aria-hidden="true"><LineIcon name="star" /></span>关注
-            <FavBadge />
-          </Link>
-          <div className="nav-auth-divider" role="separator" />
-          <button
-            className="nav-auth-item nav-auth-signout"
-            onClick={async () => { await signOut(); setMenuPos(null); }}
-          >
-            <span className="nav-auth-ico" aria-hidden="true" />退出登录
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-export function Header() {
-  const pathname = usePathname();
-  const [adminToolsAccess, setAdminToolsAccess] = useState(false);
-
-  useEffect(() => {
-    let active = true;
-    const refresh = async () => {
-      try {
-        const token = localStorage.getItem('ai_opc_admin_token');
-        const response = await fetch('/api/admin/session', token ? {
-          method: 'POST',
-          headers: { 'x-admin-token': token },
-          cache: 'no-store',
-        } : { cache: 'no-store' });
-        const data = await response.json();
-        if (active) setAdminToolsAccess(response.ok && data.authenticated === true);
-      } catch {
-        if (active) setAdminToolsAccess(false);
-      }
-    };
-    const handleSessionChange = () => void refresh();
-    void refresh();
-    window.addEventListener('aiopc-admin-session-change', handleSessionChange);
-    return () => {
-      active = false;
-      window.removeEventListener('aiopc-admin-session-change', handleSessionChange);
-    };
-  }, []);
-
-  const showTools = isProductRadarEnabled() || adminToolsAccess;
-  return (
-    <nav className="nav">
-      <div className="nav-inner">
-        <div className="nav-left">
-          <Link href="/" className="brand" aria-label="AI OPC 首页"><BrandLogo /></Link>
-          <span className="nav-sep">|</span>
-          <Link href="/news" className="x-link" aria-current={pathname.startsWith("/news")?"page":undefined}>精选资讯</Link>
-          <Link href="/weekly" className="x-link" aria-current={pathname.startsWith("/weekly")||pathname.startsWith("/briefs")?"page":undefined}>周报</Link>
-          <Link href="/news?view=all&source=x" className="x-link">X 中文动态</Link><Link href="/sources" className="x-link" aria-current={pathname==="/sources"?"page":undefined}>信源</Link>
-          {showTools && <Link href="/tools" className="x-link">工具</Link>}
-        </div>
-        <div className="nav-links">
-          <Link href="/news/saved" className="nav-auth-link">收藏</Link><Link href="/about" className="nav-auth-link">关于</Link>
-          <AuthSlot />
-        </div>
-      </div>
-    </nav>
-  );
+const MAIN_LINKS=[{href:'/news',label:'资讯'},{href:'/weekly',label:'周报'},{href:'/explore',label:'方向探测器'}];
+export function Header(){
+ const pathname=usePathname();const [open,setOpen]=useState<'main'|'account'|null>(null);const [user,setUser]=useState<User|null>(null);
+ const root=useRef<HTMLElement>(null);const mainButton=useRef<HTMLButtonElement>(null);const accountButton=useRef<HTMLButtonElement>(null);
+ useEffect(()=>{let active=true;getSession().then(s=>{if(active)setUser(s?.user??null);}).catch(()=>{});const off=onAuthChange(s=>setUser(s?.user??null));return()=>{active=false;off();};},[]);
+ useEffect(()=>{if(!open)return;const close=(event:PointerEvent)=>{if(!root.current?.contains(event.target as Node))setOpen(null);};const escape=(event:KeyboardEvent)=>{if(event.key==='Escape'){setOpen(null);(open==='main'?mainButton:accountButton).current?.focus();}};document.addEventListener('pointerdown',close);document.addEventListener('keydown',escape);return()=>{document.removeEventListener('pointerdown',close);document.removeEventListener('keydown',escape);};},[open]);
+ const active=(href:string)=>href==='/weekly'?pathname.startsWith('/weekly')||pathname.startsWith('/briefs'):href==='/news'?pathname.startsWith('/news')&&pathname!=='/news/saved':pathname.startsWith(href);
+ const links=MAIN_LINKS.map(link=><Link key={link.href} href={link.href} aria-current={active(link.href)?'page':undefined} onClick={()=>setOpen(null)}>{link.label}</Link>);
+ return <header className="site-header" ref={root}><div className="site-bar"><button ref={mainButton} className="site-icon site-menu-toggle" aria-label={open==='main'?'关闭导航':'打开导航'} aria-expanded={open==='main'} aria-controls="mobile-primary-nav" onClick={()=>setOpen(open==='main'?null:'main')}><svg viewBox="0 0 24 24" aria-hidden="true">{open==='main'?<path d="m6 6 12 12M18 6 6 18"/>:<path d="M4 7h16M4 12h16M4 17h16"/>}</svg></button><Link href="/" className="site-brand" aria-label="AI OPC 首页" onClick={()=>setOpen(null)}><BrandLogo/></Link><nav className="site-primary" aria-label="主导航">{links}</nav><button ref={accountButton} className="site-icon site-account-toggle" aria-label="个人菜单" aria-expanded={open==='account'} aria-controls="site-account-panel" onClick={()=>setOpen(open==='account'?null:'account')}><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M4.5 21v-2a7.5 7.5 0 0 1 15 0v2"/></svg></button></div>{open==='main'&&<nav id="mobile-primary-nav" className="site-mobile-panel" aria-label="移动主导航">{links}</nav>}{open==='account'&&<nav id="site-account-panel" className="site-account-panel" aria-label="个人与网站"><p>{user?.email||'你的 AI OPC'}</p><Link href="/news/saved" onClick={()=>setOpen(null)}>我的收藏</Link><Link href="/sources" onClick={()=>setOpen(null)}>信源与编辑标准</Link><Link href="/about" onClick={()=>setOpen(null)}>关于 AI OPC</Link>{user?<button onClick={async()=>{await signOut();setOpen(null);}}>退出登录</button>:<Link href="/explore?login=1" onClick={()=>setOpen(null)}>登录 / 注册 ↗</Link>}</nav>}</header>;
 }
 
 export function PageShell({
@@ -169,8 +24,8 @@ export function PageShell({
   children,
   hero,
 }: {
-  issue: { slug: string; week_number: number; week_start: string; week_end: string };
-  issues: { slug: string; week_number: number; week_start: string; week_end: string }[];
+  issue: { slug: string; week_number: number; issue_number?: number; week_start: string; week_end: string };
+  issues: { slug: string; week_number: number; issue_number?: number; week_start: string; week_end: string }[];
   children: React.ReactNode;
   hero: React.ReactNode;
 }) {

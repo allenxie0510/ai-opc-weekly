@@ -1,1 +1,2 @@
-export default function Loading(){return <main className="reading-wrap" aria-busy="true"><p className="reading-eyebrow">AI OPC / NEWS</p><h1>正在加载精选资讯…</h1><p className="reading-note">为你整理有依据、有用途的信息。</p></main>}
+import {Header} from '@/components/page-shell';
+export default function Loading(){return <><Header/><main className="reading-wrap news-loading" aria-busy="true"><div role="status" className="loading-status"><span className="loading-orbit" aria-hidden="true"/>正在更新资讯<span className="sr-only">，请稍候</span></div><div aria-hidden="true" className="loading-rows">{[0,1,2].map(n=><div className="loading-row" key={n}><i/><b/><span/></div>)}</div></main></>}

@@ -328,19 +328,13 @@ export function ExploreApp({ example = null, initialDirection = '' }: { example?
   if (!user) {
     return (
       <div className="xpl-wrap">
-        <section className="explore-preview" aria-labelledby="explore-value-title">
-          <h2 id="explore-value-title">把一个方向，研究到可以做取舍。</h2>
-          <p>输入你的技能、每周可用时间、预算和客户资源，AI 会在你选定的方向内部扩展候选，再按你的标准比较。生成结果是待验证假设，需要你继续核对来源与客户需求。</p>
-          <div className="decision-grid"><article><h3>你提供</h3><p>擅长什么、能接触谁、愿意投入多少，以及明确不做的事。</p></article><article><h3>你得到</h3><p>候选对比、适合与不适合的理由、风险和分阶段行动计划。</p></article><article><h3>下一步</h3><p>选少量方向，记录访谈和试用行为，保存结果后继续调整。</p></article></div>
-          {example && <details className="public-example"><summary>查看已发布机会示例：{example.title}</summary><p className="product-note">这是机会库的真实已发布内容示例，不是个性化报告，也不代表假设已经验证。</p><dl><dt>机会假设</dt><dd>{example.thesis}</dd><dt>目标客户</dt><dd>{example.customer || '尚未明确'}</dd><dt>反对理由</dt><dd>{example.risk || '尚需补充'}</dd><dt>第一个动作</dt><dd>{example.firstStep || '先明确需要检验的核心假设'}</dd></dl><Link href={`/opportunities/${example.slug}`}>打开完整分析与来源</Link></details>}
-        </section>
         <section className="xpl-auth-gate" aria-labelledby="xpl-auth-gate-title">
           <div className="xpl-auth-gate-icon" aria-hidden="true"><LineIcon name="external-link" /></div>
           <div className="xpl-auth-gate-copy">
             <span className="xpl-kicker">登录后使用</span>
-            <h2 id="xpl-auth-gate-title">方向探测器需要邮箱登录</h2>
+            <h2 id="xpl-auth-gate-title">开始你的探索</h2>
             <p>
-              登录后可开始 AI 研究，并手动保存探索以便跨设备继续。请回到当前浏览器输入邮件验证码。
+              邮箱验证码登录，保存探索并跨设备继续。
             </p>
             <div className="xpl-auth-gate-points" aria-label="登录后可使用的功能">
               <span>定方向</span>
@@ -348,10 +342,16 @@ export function ExploreApp({ example = null, initialDirection = '' }: { example?
               <span>系统筛选</span>
               <span>逆向规划</span>
             </div>
-            <Button onClick={() => setLoginOpen(true)}>使用邮箱登录</Button>
+            <Button onClick={() => setLoginOpen(true)}>登录并开始</Button>
             <p className="product-note">当前无需付款即可使用；服务繁忙时请稍后重试。{initialDirection && `登录后可将「${initialDirection}」设为研究方向。`}</p>
           </div>
         </section>
+        <details className="explore-preview"><summary>使用方式与示例</summary>
+          <h2 id="explore-value-title">从你的条件出发。</h2>
+          <p>填写技能与资源，获得候选对比和验证计划。AI 提供假设，由你验证。</p>
+          <div className="decision-grid"><article><h3>你提供</h3><p>擅长什么、能接触谁、愿意投入多少，以及明确不做的事。</p></article><article><h3>你得到</h3><p>候选对比、适合与不适合的理由、风险和分阶段行动计划。</p></article><article><h3>下一步</h3><p>选少量方向，记录访谈和试用行为，保存结果后继续调整。</p></article></div>
+          {example && <details className="public-example"><summary>查看已发布机会示例：{example.title}</summary><p className="product-note">这是机会库的真实已发布内容示例，不是个性化报告，也不代表假设已经验证。</p><dl><dt>机会假设</dt><dd>{example.thesis}</dd><dt>目标客户</dt><dd>{example.customer || '尚未明确'}</dd><dt>反对理由</dt><dd>{example.risk || '尚需补充'}</dd><dt>第一个动作</dt><dd>{example.firstStep || '先明确需要检验的核心假设'}</dd></dl><Link href={`/opportunities/${example.slug}`}>打开完整分析与来源</Link></details>}
+        </details>
         {loginOpen && <LoginModal open user={null} onClose={() => setLoginOpen(false)} />}
       </div>
     );
@@ -367,7 +367,7 @@ export function ExploreApp({ example = null, initialDirection = '' }: { example?
       {sessionError && <div role="alert" className="xpl-error">{sessionError} <button type="button" disabled={saving} onClick={() => void saveSession('')}>重试保存</button></div>}
       <div className="xpl-tabs">
         <button className={`xpl-tab ${view === 'engine' ? 'on' : ''}`} onClick={() => setView('engine')}>
-          探索引擎
+          方向探索
         </button>
         <button className={`xpl-tab ${view === 'method' ? 'on' : ''}`} onClick={() => setView('method')}>
           方法论

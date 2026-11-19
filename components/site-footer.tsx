@@ -20,7 +20,7 @@ export function SiteFooter() {
           <Link href="/news/saved">我的收藏</Link>
           <Link href="/news">精选资讯</Link>
           <Link href="/weekly">周报</Link>
-          <Link href="/news?view=all&source=x">X 中文动态</Link><a href="/feed.xml">RSS 订阅</a><Link href="/explore">方向探测器 · 实验工具</Link>
+          <Link href="/news?view=all&source=x">X 中文动态</Link><a href="/feed.xml">RSS 订阅</a><Link href="/explore">方向探测器</Link>
         </nav>
         <div className="site-footer-support">
           <h2 className="site-footer-heading">关于与联系</h2>
