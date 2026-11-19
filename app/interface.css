@@ -68,11 +68,11 @@ header.explore-editorial-hero img{display:block;width:100%;height:auto;max-heigh
 .reading-list .reading-card{padding-block:22px}.reading-card .reading-meta{margin-bottom:8px}.brief-reader .brief-section{margin-top:56px}.brief-reader .brief-section>header{margin-bottom:22px}.brief-reader .brief-tools{padding-block:18px;border-block:1px solid #ddd;margin-top:36px}
 @media(max-width:700px){.editorial-home .editorial-focus{margin-block:36px}.editorial-home .editorial-columns{margin-top:40px}.editorial-home .editorial-picks{gap:28px}.editorial-picks .reading-thumbnail{height:160px}.editorial-home .editorial-picks h3{font-size:19px}.focus-story,.focus-story:has(>.reading-thumbnail){grid-template-columns:1fr;gap:18px;padding:22px 0 24px;margin-bottom:30px}.focus-story>.reading-thumbnail{grid-row:2;max-height:190px;width:100%;object-fit:contain}.focus-story h2{font-size:23px}.focus-meta{margin-top:14px}.reading-list .reading-card{padding-block:20px}.brief-reader .brief-section{margin-top:36px}.feed-list-heading{margin-bottom:12px}}
 
-/* Direction discovery uses a full editorial frontispiece, not a news thumbnail. */
-header.explore-editorial-hero{display:block;padding-top:36px;padding-bottom:28px}
+/* Match the homepage: generous side-by-side artwork, stacked on small screens. */
+header.explore-editorial-hero{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr);padding-top:36px;padding-bottom:28px}
 header.explore-editorial-hero>div{max-width:800px}
 header.explore-editorial-hero h1{font-size:42px;margin:10px 0 14px}
-header.explore-editorial-hero figure{width:100%;margin:28px 0 0}
+header.explore-editorial-hero figure{width:100%;margin:0}
 header.explore-editorial-hero img{width:100%;height:auto;max-height:none;object-fit:contain}
 header.explore-editorial-hero figcaption{font-size:10px;margin-top:10px}
-@media(max-width:700px){header.explore-editorial-hero{padding-top:24px;padding-bottom:20px}header.explore-editorial-hero h1{font-size:30px}header.explore-editorial-hero figure{margin-top:20px}header.explore-editorial-hero p:not(.reading-eyebrow){font-size:14px}}
+@media(max-width:700px){header.explore-editorial-hero{grid-template-columns:minmax(0,1fr);gap:24px;padding-top:24px;padding-bottom:20px}header.explore-editorial-hero h1{font-size:30px}header.explore-editorial-hero figure{margin:0}header.explore-editorial-hero p:not(.reading-eyebrow){font-size:14px}}
