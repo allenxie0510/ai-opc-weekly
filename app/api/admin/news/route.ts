@@ -11,18 +11,26 @@ export async function GET(request: Request) {
   if (!authorized(request)) return Response.json({ error: '未授权' }, { status: 401 });
   const db = createServerSupabase(true);
   if (!db) return Response.json({ error: '缺少数据库服务端配置' }, { status: 503 });
-  const state = new URL(request.url).searchParams.get('state') || 'published';
+  const params = new URL(request.url).searchParams;
+  const state = params.get('state') || 'published';
+  const page = Math.max(1, Math.min(100000, Math.floor(Number(params.get('page')) || 1)));
+  const pageSize = 25;
+  const query = (params.get('q') || '').trim().slice(0, 100);
   if (!['pending','filtered','published','rejected','merged'].includes(state)) return Response.json({ error: '状态无效' }, { status: 400 });
+  let queueQuery = db.from('news_queue')
+    .select('*,news_documents(article,url),news_sources(definition)', { count: 'exact' })
+    .eq('state', state).order('created_at', { ascending: false }).order('id', { ascending: false });
+  if (query) queueQuery = queueQuery.ilike('draft->>title', `%${query.replace(/[\\%_]/g, '\\$&')}%`);
   const results = await Promise.all([
     db.from('news_sources').select('*'),
     db.from('news_source_runs').select('*').order('checked_at', { ascending: false }).limit(200),
-    db.from('news_queue').select('*,news_documents(article,url),news_sources(definition)').eq('state', state).order('created_at', { ascending: false }).limit(100),
+    queueQuery.range((page - 1) * pageSize, page * pageSize - 1),
     db.from('news_review_log').select('*').order('created_at', { ascending: false }).limit(30),
     db.from('news_processing_log').select('*,news_documents(url)').order('created_at', { ascending: false }).limit(30),
   ]);
   const error = results.find(r => r.error)?.error;
   if (error) return Response.json({ error: `采编数据不可用，请检查迁移：${error.message}` }, { status: 503 });
-  return Response.json({ sources: results[0].data, runs: results[1].data, queue: results[2].data, history: results[3].data, processing: results[4].data }, { headers: { 'Cache-Control': 'no-store' } });
+  return Response.json({ sources: results[0].data, runs: results[1].data, queue: results[2].data, total: results[2].count || 0, page, pageSize, query, history: results[3].data, processing: results[4].data }, { headers: { 'Cache-Control': 'no-store' } });
 }
 export async function POST(request: Request) {
   if (!authorized(request)) return Response.json({ error: '未授权' }, { status: 401 });
