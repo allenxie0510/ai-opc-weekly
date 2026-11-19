@@ -76,3 +76,7 @@ header.explore-editorial-hero figure{width:100%;margin:0}
 header.explore-editorial-hero img{width:100%;height:auto;max-height:none;object-fit:contain}
 header.explore-editorial-hero figcaption{font-size:10px;margin-top:10px}
 @media(max-width:700px){header.explore-editorial-hero{grid-template-columns:minmax(0,1fr);gap:24px;padding-top:24px;padding-bottom:20px}header.explore-editorial-hero h1{font-size:30px}header.explore-editorial-hero figure{margin:0}header.explore-editorial-hero p:not(.reading-eyebrow){font-size:14px}}
+
+/* Shared headline weight across feeds and article detail pages. */
+.reading-card h2,.focus-story h2,.editorial-picks h3,.reading-detail h1{font-weight:800;color:#111}
+.reading-detail h2,.reading-detail h3{font-weight:700}
