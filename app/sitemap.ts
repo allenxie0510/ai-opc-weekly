@@ -37,6 +37,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: 'https://www.aiopcnews.com/news', changeFrequency: 'daily', priority: 1 },
     ...briefs.map(b => ({ url: `https://www.aiopcnews.com/briefs/${b.slug}`, lastModified: new Date(b.published_at!), priority: 0.8 })),
     ...news.map(n => ({ url: `https://www.aiopcnews.com/news/${n.id}`, lastModified: new Date(n.publishedAt), priority: 0.8 })),
+    { url: 'https://www.aiopcnews.com/sources', changeFrequency: 'monthly', priority: 0.7 },
     { url: 'https://www.aiopcnews.com/about', changeFrequency: 'monthly', priority: 0.5 },
     { url: 'https://www.aiopcnews.com/explore', changeFrequency: 'monthly', priority: 0.9 },
     {

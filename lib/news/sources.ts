@@ -4,6 +4,8 @@ function source(id: string, name: string, url: string, kind: SourceKind, tier: T
 }
 // Each endpoint is a discovery channel, never a blanket endorsement of its claims.
 export const SOURCES: Source[] = [
+  source('stripe', 'Stripe Blog', 'https://stripe.com/blog/feed.rss', 'rss', 'official', 'business', '支付、订阅与经营工具；企业规模案例不直接外推为个人收益。'),
+  source('replicate', 'Replicate Blog', 'https://replicate.com/blog/rss', 'rss', 'official', 'tools', '图像、视频与音频模型接入，核对费用、开放条件与商用限制。'),
   source('deepmind', 'Google DeepMind', 'https://deepmind.google/blog/rss.xml', 'rss', 'official', 'industry', '模型能力与开放条件；研究基准不能替代实际收益。'),
   source('openrouter', 'OpenRouter Blog', 'https://openrouter.ai/blog/feed.xml', 'rss', 'official', 'tools', '模型接入、路由、价格与开发实践。'),
   source('elevenlabs', 'ElevenLabs Blog', 'https://elevenlabs.io/blog', 'index', 'official', 'tools', '语音、配音、内容制作与 Agent 交互能力。', '^/blog/(?!category|page)[^/]+/?$'),

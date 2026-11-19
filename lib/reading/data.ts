@@ -10,11 +10,11 @@ export async function publishedRadar(ids?: string[]): Promise<ReadingItem[]> {
   let query = db.from('radar_items').select('*,news_queue!inner(state)').eq('status','published').eq('news_queue.state','published').order('published_at',{ascending:false});
   if (ids) query = query.in('id',ids); else query = query.limit(200);
   const { data, error } = await query;
-  if (error) { console.error('Reading feed unavailable',error.code); return []; }
+  if (error) { console.error('Reading feed unavailable',error.code); throw new Error('精选暂时无法加载，请稍后重试'); }
   const rows = (data || []) as RadarItem[];
   // Only whitelisted public metadata, never bodies, draft records or editorial logs.
-  const { data: meta } = rows.length ? await db.from('news_queue').select('radar_id,draft,news_documents(article)').eq('state','published').in('radar_id',rows.map(r=>r.id)) : { data: [] };
-  const byId = new Map((meta||[]).map(m => { const doc = m.news_documents as unknown as {article?: {publishedAt?: string; imageUrl?:string}}; return [m.radar_id,{lane:m.draft?.lane,sourcePublishedAt:doc?.article?.publishedAt,imageUrl:doc?.article?.imageUrl,scores:[m.draft?.importance,m.draft?.usefulness,m.draft?.evidence]}]; }));
+  const { data: meta } = rows.length ? await db.from('news_queue').select('radar_id,draft,news_documents(article),news_sources(definition)').eq('state','published').in('radar_id',rows.map(r=>r.id)) : { data: [] };
+  const byId = new Map((meta||[]).map(m => { const doc = m.news_documents as unknown as {article?: {publishedAt?: string; imageUrl?:string}}; return [m.radar_id,{lane:m.draft?.lane,sourcePublishedAt:doc?.article?.publishedAt,imageUrl:doc?.article?.imageUrl,sourceTier:(m.news_sources as unknown as {definition?:{tier?:string}})?.definition?.tier,claims:Array.isArray(m.draft?.claims)?m.draft.claims.map((c:{text:string;kind:string})=>({text:c.text,kind:c.kind})):[],scores:[m.draft?.importance,m.draft?.usefulness,m.draft?.evidence]}]; }));
   return rows.map(r => radarItem(r,byId.get(r.id)));
 }
 export async function readingFeed(includeX = false) {

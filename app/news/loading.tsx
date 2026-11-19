@@ -1,0 +1,1 @@
+export default function Loading(){return <main className="reading-wrap" aria-busy="true"><p className="reading-eyebrow">AI OPC / NEWS</p><h1>正在加载精选资讯…</h1><p className="reading-note">为你整理有依据、有用途的信息。</p></main>}

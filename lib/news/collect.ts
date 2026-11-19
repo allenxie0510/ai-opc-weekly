@@ -126,7 +126,7 @@ export async function collect(source: Source, limit = 3, maxAgeDays = 14): Promi
       }
     }
     run.readable = articles.filter(a => a.state === 'ready').length;
-    run.state = !items.length ? 'empty' : articles.length && !run.readable ? 'error' : run.readable < articles.length ? 'partial' : 'healthy';
+    run.state = !items.length || !articles.length ? 'empty' : articles.length && !run.readable ? 'error' : run.readable < articles.length ? 'partial' : 'healthy';
     if (['error', 'partial'].includes(run.state)) run.error = articles.filter(a => a.state === 'blocked').map(a => a.issues.join('; ')).join(' | ').slice(0, 1000);
   } catch (e) { run.error = String(e).slice(0, 1000); }
   run.durationMs = Date.now() - start;

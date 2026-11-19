@@ -1,42 +1,6 @@
 import Link from 'next/link';
-import { Header } from '@/components/page-shell';
-import { AboutFaq, FaqItem } from '@/components/about-faq';
-import { WechatContact } from '@/components/wechat-contact';
-import type { Metadata } from 'next';
-
-export const metadata: Metadata = { title: '关于与编辑方法 · AI OPC', description: '了解 AI OPC 如何筛选一人公司机会、区分来源与判断，以及反馈纠错。' };
-
-export default function AboutPage() {
-  return <><Header /><main className="container page-wrap editorial-page">
-    <header className="product-intro"><p className="product-eyebrow">AI OPC · 一人公司机会情报</p><h1>帮助一个人，<br />更有依据地选择和行动。</h1><p>面向设计师、开发者和专业服务者：从真实的 AI 应用信号出发，理解具体客户的痛点，再决定值得测试什么。</p></header>
-    <h2 className="faq-heading">Q&amp;A</h2>
-    <AboutFaq>
-      <FaqItem id="team" title="谁在做这件事" defaultOpen>
-        <p>AI OPC 由 Allen 维护。AI 协助整理信息与生成研究草稿，公开内容通过网站审核台发布。内容仍可能存在遗漏或推断错误，欢迎带着原始证据反馈。</p>
-      </FaqItem>
-      <FaqItem id="method" title="如何阅读一条机会">
-        <div className="decision-grid"><article><h4>来源与摘录</h4><p>查看原始链接、日期和适用范围。来源等级描述信息出处，不代表它支持文章中的每一个结论；摘录也需要回到原文核对上下文。</p></article><article><h4>分析与推断</h4><p>机会论断、评分与编辑判断是研究意见。OPC 分数帮助比较候选，不是成功概率、收入预测或回报保证。</p></article><article><h4>待验证假设</h4><p>验证计划是待执行的实验。口头认可、参与试用、持续使用和真实付款是不同强度的信号，必须分别记录。</p></article></div>
-      </FaqItem>
-      <FaqItem id="evidence" title="来源等级与证据边界">
-        <p>S / A / B / C / D 是来源类型标记，从一手材料、结构化资料到媒体、社区和二手信息。我们会检查链接及可核对的摘录，但来源权威、链接可达，都不能单独证明某个创业机会成立。</p><p>历史内容如缺少逐条核对记录，会显示“支持程度未复核”。跨行业案例应作为背景材料，不能直接证明目标客户愿意付费。收入缺少来源时标为“来源待核实”；估算必须与实际披露区分。</p>
-      </FaqItem>
-      <FaqItem id="validation" title="从阅读到一次小实验">
-        <ol><li>核对机会的目标客户是否与你能接触的人重合。</li><li>写下最可能不成立的假设和可承受的时间、预算。</li><li>先收集客户行为，再决定是否投入原型开发。</li><li>保存探索，记录支持与反对的证据，再回来调整判断。</li></ol><Link className="product-action" href="/explore">了解方向探测器</Link>
-      </FaqItem>
-      <FaqItem id="corrections" title="反馈与纠错">
-        <p>发现链接失效、摘录不符、收入缺少依据或结论过度推断，请提供页面地址、具体问题及原始来源。请加入管理员微信进行反馈，多谢您的支持。</p>
-        <WechatContact />
-      </FaqItem>
-      <FaqItem id="cooperation" title="商业合作边界">
-        <p>赞助、付费介绍及佣金链接须明确标注。商业合作不能购买高分、修改证据标准或替代编辑结论。合作提议请扫描页面底部二维码添加管理员微信，初期不承诺未经核实的曝光量和获客效果。</p><a href="#contact">查看管理员微信二维码</a>
-      </FaqItem>
-      <FaqItem id="reading" title="免费阅读与订阅">
-        <p>资讯、公开机会和历史周报无需登录。方向探测器目前没有付款入口。登录仅用于使用 AI 功能和保存探索；具体服务可用性以页面提示为准。</p>
-      </FaqItem>
-      <FaqItem id="usage-data" title="网站如何统计使用情况">
-        <p>我们使用有效期 90 天的本站匿名浏览器标识，统计访问、机会阅读和方向探测器使用情况。登录后会关联账号标识，用于分析从阅读到保存结果的路径。统计事件不记录邮箱、IP、完整网址参数或研究正文，仅管理员可查看统计概览。</p>
-        <p>浏览器发送 DNT 或 GPC 隐私信号时，不记录行为统计；清除本站 Cookie 可重置浏览器标识。首次邮箱验证时间用于统计新增注册，与行为统计分开处理。统计可能因拦截、跨设备或清除 Cookie 而存在遗漏。</p>
-      </FaqItem>
-    </AboutFaq>
-  </main></>;
-}
+import {Header} from '@/components/page-shell';
+import {WechatContact} from '@/components/wechat-contact';
+import type {Metadata} from 'next';
+export const metadata:Metadata={title:'关于与编辑标准 · AI OPC',description:'为个人创作者、AI 开发者、设计师和一人公司经营者筛选有依据、有用途的全球 AI 信息。'};
+export default function AboutPage(){return <><Header/><main className="editorial-document"><p className="reading-eyebrow">ABOUT AI OPC</p><h1>信息的价值，<br/>在于帮助你做出判断。</h1><p className="intro">AI OPC 是面向一人公司的 AI 资讯编辑台。我们服务独立创作者、AI 开发者、设计师与自媒体经营者，帮助你理解变化、改进工作、做好经营。</p><section><h2>三个问题，决定我们报道什么</h2><div className="editorial-method-grid"><article><b>01 / 看懂行业</b><h3>哪些变化不能错过？</h3><p>模型供给、平台规则与使用成本发生了什么实质变化。</p></article><article><b>02 / 改进工作</b><h3>哪些能力与我有关？</h3><p>创作、设计、开发和交付中的新方法，以及使用条件和限制。</p></article><article><b>03 / 做好经营</b><h3>别人如何经营？</h3><p>如何找到用户、定价、交付与获得收入。区分可验证经验与营销故事。</p></article></div></section><section id="method"><h2>如何选出一条资讯</h2><ol><li><strong>先读原文：</strong>核对来源、发布时间与完整正文。网页访问失败时不根据标题补写内容。</li><li><strong>再判断价值：</strong>说清对哪类读者有用、什么工作或决策受到影响，以及适用条件。</li><li><strong>逐项留证据：</strong>关键事实与数字必须有原文摘录。厂商与作者自述保留归属，不包装成独立实测。</li><li><strong>审核后发布：</strong>AI 协助提取、翻译和评分，候选进入采编台审核。重大争议需要进一步核实。</li><li><strong>持续纠错：</strong>修正会同步到引用该条资讯的周报；撤回内容不继续出现在公开精选中。</li></ol><p>不以热度、融资规模、公司名气或“含 AI”作为入选理由。无法说明读者价值的新闻，即使热门，也可以不推荐。</p><Link href="/sources">查看信源目录 ↗</Link></section><section id="scores"><h2>AI 评分是什么意思</h2><p>重要性、实用性、证据质量各 0–5 分，总分按 15 分换算成百分制。它帮助编辑筛选，不是事实正确率、产品排名或成功概率。</p><div className="editorial-method-grid"><article><h3>重要性 / 5</h3><p>是否影响模型供给、平台选择、商业规则或行业结构。</p></article><article><h3>实用性 / 5</h3><p>是否对某类核心读者有具体、可核对的工作流程、费用或交付影响。</p></article><article><h3>证据质量 / 5</h3><p>正文是否充分支持关键事实，是否保留声明归属及使用限制。</p></article></div><p>候选最低要求：证据质量 ≥ 3，且重要性或实用性至少一项 ≥ 4。达到门槛仍不等于发布，还需检查事实、重复事件和适用范围。</p></section><section id="team"><h2>谁在做这件事</h2><p>由 Allen 维护。AI 参与整理、翻译和草稿生成，编辑判断与事实依据分开呈现。网站不会把厂商自述当成我们的产品实测；概念插图会明确标注。</p></section><section id="corrections"><h2>反馈与纠错</h2><p>赞和踩帮助我们了解什么对读者有用。事实错误、过时价格、失效链接或翻译问题，请提供页面地址、具体问题和原始依据，通过管理员微信反馈。</p><WechatContact/></section><section id="cooperation"><h2>商业合作边界</h2><p>赞助、付费介绍及佣金链接须明确标注。合作不能购买高分、改变事实或绕过审核。阅读公开资讯与周报无需付费或登录。</p></section><section id="privacy"><h2>收藏、订阅与隐私</h2><p>收藏保存在当前浏览器，不跨设备同步；清除浏览器数据会移除收藏。RSS 可用任意兼容阅读器订阅。方向探测器作为实验工具提供独立入口。</p><p>使用匿名浏览器标识统计阅读与反馈；DNT 或 GPC 隐私信号开启时不记录行为统计。行为统计不记录邮箱、IP、完整网址参数或研究正文。登录后的账号使用统计与匿名阅读可能存在跨设备遗漏。</p><Link href="/feed.xml">订阅 RSS ↗</Link></section></main></>}

@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { createClient } from '@supabase/supabase-js';
 import { newsModelConfig, requestModel } from '../../lib/news/model-request';
+import { scheduleCandidates } from '../../lib/news/scheduling';
 import { SOURCES } from '../../lib/news/sources';
 import { collect, hash } from '../../lib/news/collect';
 import { EDITOR_PROMPT, eventIdentity, selectDrafts, validateDraft } from '../../lib/news/policy';
@@ -57,7 +58,6 @@ if (xOnly) {
   tweets = data || [];
 }
 const seenBodies = new Set<string>();
-const generationCounts = { industry: 0, tools: 0, business: 0 };
 const generationLimits = backfill ? { industry: 60, tools: 90, business: 35 } : { industry: 12, tools: 18, business: 10 };
 const candidates: { article: Article; source: Source; id: string }[] = [];
 // Bounded concurrency, one source's outage never hides the rest.
@@ -73,7 +73,6 @@ for (let i = 0; i < sources.length; i += 3) {
     const { source, run, articles: found } = result.value;
     runs.push(run); articles.push(...found);
     await save('news_source_runs', { source_id: source.id, checked_at: run.checkedAt, report: run });
-    let sourceGenerated = 0;
     for (const article of found) {
       const id = hash(`${article.url}:${article.bodyHash}`);
       await save('news_documents', { id, source_id: source.id, url: article.url, body_hash: article.bodyHash, article }, 'id');
@@ -88,23 +87,23 @@ for (let i = 0; i < sources.length; i += 3) {
         if (error) throw new Error(error.message);
         if (data?.length) continue;
       }
-      if (sourceGenerated >= (backfill ? 16 : 4) || generationCounts[source.lane] >= generationLimits[source.lane]) continue;
-      sourceGenerated++; generationCounts[source.lane]++;
       candidates.push({article, source, id});
     }
   }
 }
+const scheduled = scheduleCandidates(candidates,generationLimits,backfill?16:4);
+console.log(`Review coverage: ${new Set(scheduled.map(c=>c.source.id)).size} sources, ${scheduled.length}/${candidates.length} eligible articles`);
 // Three bounded model workers; preserve all valid results when a provider fails.
 let cursor = 0;
 await Promise.all(Array.from({length: 3}, async () => {
-  while (cursor < candidates.length) {
-    const {article, source, id} = candidates[cursor++];
+  while (cursor < scheduled.length) {
+    const {article, source, id} = scheduled[cursor++];
     try {
       const draft = await generate(article, source); const errors = validateDraft(draft, article);
       if (errors.length) { failures.push({ url: article.url, reasons: errors }); await save('news_processing_log', { document_id: id, outcome: 'blocked', reasons: errors }); }
       else drafts.push({ article, draft, source });
     } catch (e) { modelErrors++; failures.push({ url: article.url, reasons: [String(e)] }); await save('news_processing_log', { document_id: id, outcome: 'error', reasons: [String(e)] }); }
-    console.log(`Reviewed candidate ${cursor}/${candidates.length}: ${source.id}`);
+    console.log(`Reviewed candidate ${cursor}/${scheduled.length}: ${source.id}`);
   }
 }));
 const selection = selectDrafts(drafts, backfill ? 120 : 24, backfill ? 10 : 3);
@@ -117,7 +116,7 @@ for (const row of drafts) {
 }
 await mkdir('output/news-audit', { recursive: true });
 const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-const report = { generatedAt: new Date().toISOString(), mode: { persist, modelEnabled }, model: modelConfig ? { provider: 'deepseek', name: modelConfig.model } : null, modelErrors, runs, samples: articles, selection, failures };
+const report = { generatedAt: new Date().toISOString(), mode: { persist, modelEnabled }, model: modelConfig ? { provider: 'deepseek', name: modelConfig.model } : null, modelErrors, coverage: {eligible: candidates.length, scheduled: scheduled.length, sourceIds: [...new Set(scheduled.map(c=>c.source.id))]}, runs, samples: articles, selection, failures };
 await writeFile(`output/news-audit/${stamp}.json`, JSON.stringify(report, null, 2));
 await writeFile('output/news-audit/latest.json', JSON.stringify(report, null, 2));
 await writeFile('output/news-audit/latest.md', `# 信源检查\n\n检查时间：${report.generatedAt}\n\n|信源|状态|发现|原文可读|问题|\n|---|---|---:|---:|---|\n${runs.map(r => `|${r.sourceId}|${r.state}|${r.discovered}|${r.readable}|${(r.error || '').replace(/\|/g, '/')}|`).join('\n')}\n\n只表示本次采集结果，健康不代表每篇内容可信。正文样本和筛选原因见 latest.json。\n`);

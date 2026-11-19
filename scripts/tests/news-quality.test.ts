@@ -138,3 +138,13 @@ test('X intake preserves original evidence, rejects short or stale context, and 
   assert.equal(selectDrafts([{article:a,source:s,draft:{...draft,lane:'business'}}]).accepted.length,0);
   assert.equal(selectDrafts([{article:a,source:s,draft:{...draft,importance:2,usefulness:2,evidence:2}}]).accepted.length,0);
 });
+
+test('review budgets cover later sources before taking second articles from early sources',async()=>{
+ const {scheduleCandidates}=await import('../../lib/news/scheduling');
+ const sources=Array.from({length:8},(_,i)=>({...source,id:`source-${i}`,lane:'tools' as const}));
+ const candidates=sources.flatMap(s=>Array.from({length:4},(_,i)=>({source:s,article:{...article,publishedAt:`2026-11-${19-i}T00:00:00Z`},id:`${s.id}-${i}`})));
+ const selected=scheduleCandidates(candidates,{industry:0,tools:10,business:0},4);
+ assert.equal(selected.length,10);assert.equal(new Set(selected.map(c=>c.source.id)).size,8);
+ assert.ok(selected.slice(0,8).every(c=>c.id.endsWith('-0')));
+ assert.equal(scheduleCandidates(candidates,{industry:0,tools:100,business:0},1).length,8);
+});

@@ -16,11 +16,11 @@ export function SiteFooter() {
         </div>
         <nav className="site-footer-content" aria-label="页脚内容导航">
           <h2 className="site-footer-heading">探索内容</h2>
-          <Link href="/opportunities">历史机会案例</Link>
-          <Link href="/explore">方向探测器</Link>
+          <Link href="/sources">信源与编辑标准</Link>
+          <Link href="/news/saved">我的收藏</Link>
           <Link href="/news">精选资讯</Link>
           <Link href="/weekly">周报</Link>
-          <Link href="/news?view=all&source=x">X 来源动态</Link>
+          <Link href="/news?view=all&source=x">X 中文动态</Link><a href="/feed.xml">RSS 订阅</a><Link href="/explore">方向探测器 · 实验工具</Link>
         </nav>
         <div className="site-footer-support">
           <h2 className="site-footer-heading">关于与联系</h2>
