@@ -1,7 +1,7 @@
 /* ═══════════════════════════════════════════════════════════════
    方向探测器 · 独立模块样式（modules/explore）
    设计语言对齐 ai-opc-weekly：浅色 / 白卡片 / 细边框 /
-   Bebas Neue 标题 + DM Sans 正文 / 蓝=数字与动作 / 橙=品牌强调
+   Bebas Neue 标题 + DM Sans 正文 / 蓝=数字与动作 / 黑=主要操作 / 灰=辅助说明
    ═══════════════════════════════════════════════════════════════ */
 
 .xpl-wrap { display: flex; flex-direction: column; gap: 24px; margin-bottom: 56px; }
@@ -80,7 +80,7 @@
 .xpl-head { margin-bottom: 24px; }
 .xpl-kicker {
   font-family: var(--font-brand); font-size: 14px; font-weight: 600;
-  letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-brand);
+  letter-spacing: 0.08em; text-transform: uppercase; color: var(--color-blue);
   margin-bottom: 6px;
 }
 .xpl-h2 { font-family: var(--font-brand); font-size: 24px; font-weight: 600; letter-spacing: 0.02em; color: var(--color-ink); margin: 0 0 8px; }
@@ -128,31 +128,31 @@
 .xpl-btn-ghost:hover:not(:disabled) { color: var(--color-ink); border-color: var(--color-muted); background: var(--color-surface-soft); }
 .xpl-btn-outline { background: transparent; color: var(--color-blue); border-color: var(--color-blue); }
 .xpl-btn-danger { background: var(--color-down); border-color: var(--color-down); color: #fff; }
-.xpl-btn-accent { background: var(--color-brand); border-color: var(--color-brand); color: #fff; }
+.xpl-btn-accent { background: var(--color-ink); border-color: var(--color-ink); color: #fff; }
 .xpl-btn-ink { background: var(--color-ink); border-color: var(--color-ink); color: #fff; }
 
 /* ── pill / grade ── */
 .xpl-pill { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 9999px; background: var(--color-surface-soft); color: var(--color-slate); }
 .xpl-pill-good { color: #0a7d4f; background: rgba(10,125,79,0.09); }
-.xpl-pill-warn { color: #b45309; background: rgba(180,83,9,0.09); }
+.xpl-pill-warn { color: #545454; background: rgba(0,0,0,0.09); }
 .xpl-pill-bad { color: #b91c1c; background: rgba(185,28,28,0.08); }
-.xpl-pill-accent { color: var(--color-brand); background: rgba(255,85,48,0.09); }
+.xpl-pill-accent { color: var(--color-blue); background: rgba(23,75,255,0.09); }
 .xpl-pill-blue { color: var(--color-blue); background: rgba(20,86,240,0.08); }
 
 .xpl-grade { font-weight: 700; font-size: 12px; padding: 3px 9px; border-radius: 7px; white-space: nowrap; }
 .xpl-grade-s { color: #0a7d4f; background: rgba(10,125,79,0.1); border: 1px solid rgba(10,125,79,0.3); }
 .xpl-grade-a { color: var(--color-blue); background: rgba(20,86,240,0.08); border: 1px solid rgba(20,86,240,0.25); }
 .xpl-grade-b { color: #1d4ed8; background: rgba(29,78,216,0.07); border: 1px solid rgba(29,78,216,0.22); }
-.xpl-grade-c { color: #b45309; background: rgba(180,83,9,0.08); border: 1px solid rgba(180,83,9,0.25); }
+.xpl-grade-c { color: #545454; background: rgba(0,0,0,0.08); border: 1px solid rgba(0,0,0,0.25); }
 .xpl-grade-d { color: var(--color-steel); background: var(--color-surface); border: 1px solid var(--color-hairline); }
 
 /* ── 评分条 ── */
 .xpl-scorebar-label { display: flex; justify-content: space-between; font-size: 12px; color: var(--color-steel); margin-bottom: 3px; }
 .xpl-scorebar-val { color: var(--color-ink); font-weight: 700; }
-.xpl-scorebar-val.accent { color: var(--color-brand); }
+.xpl-scorebar-val.accent { color: var(--color-blue); }
 .xpl-scorebar-track { height: 6px; border-radius: 9999px; background: var(--color-surface-soft); overflow: hidden; }
 .xpl-scorebar-fill { height: 100%; background: var(--color-blue); border-radius: 9999px; }
-.xpl-scorebar-fill.accent { background: var(--color-brand); }
+.xpl-scorebar-fill.accent { background: var(--color-blue); }
 
 /* ── 通用行 ── */
 .xpl-action-row { display: flex; align-items: center; gap: 14px; margin: 18px 0 6px; flex-wrap: wrap; }
@@ -195,7 +195,7 @@
 }
 .xpl-card:hover { border-color: var(--color-muted); }
 .xpl-card.status-rejected { opacity: 0.5; }
-.xpl-card.status-favorite { border-color: rgba(180,83,9,0.4); }
+.xpl-card.status-favorite { border-color: rgba(0,0,0,0.4); }
 .xpl-card.status-shortlist { border-color: rgba(20,86,240,0.45); }
 .xpl-card.selected { border-color: var(--color-blue); box-shadow: 0 0 0 1px var(--color-blue); }
 .xpl-card-head { display: flex; align-items: flex-start; gap: 8px; }
@@ -211,7 +211,7 @@
   flex: 1; background: var(--color-surface); border: 1px solid var(--color-hairline); color: var(--color-steel);
   padding: 7px; border-radius: 8px; cursor: pointer; font-size: 12px; font-weight: 500;
 }
-.xpl-minibtn.on { color: #b45309; border-color: rgba(180,83,9,0.4); background: rgba(180,83,9,0.06); }
+.xpl-minibtn.on { color: #545454; border-color: rgba(0,0,0,0.4); background: rgba(0,0,0,0.06); }
 .xpl-minibtn.reject.on { color: #b91c1c; border-color: rgba(185,28,28,0.4); background: rgba(185,28,28,0.06); }
 
 /* ── 筛选布局 ── */
@@ -254,7 +254,7 @@
 .xpl-rank-list { display: flex; flex-direction: column; gap: 10px; }
 .xpl-rank-card { background: var(--color-canvas); border: 1px solid var(--color-hairline-soft); border-radius: 14px; padding: 13px 15px; }
 .xpl-rank-card.status-shortlist { border-color: rgba(20,86,240,0.45); }
-.xpl-rank-card.status-favorite { border-color: rgba(180,83,9,0.4); }
+.xpl-rank-card.status-favorite { border-color: rgba(0,0,0,0.4); }
 .xpl-rank-card.status-rejected { opacity: 0.5; }
 .xpl-rank-head { display: grid; grid-template-columns: auto auto auto minmax(0, 1fr); align-items: center; gap: 10px; cursor: pointer; }
 .xpl-rank-no { font-size: 13px; color: var(--color-stone); font-weight: 700; min-width: 30px; font-variant-numeric: tabular-nums; }
@@ -353,7 +353,7 @@
 .xpl-method-hero { padding: 8px 0 4px; }
 .xpl-quote {
   font-size: 19px; line-height: 1.65; color: var(--color-charcoal);
-  border-left: 3px solid var(--color-brand); padding: 8px 20px; background: var(--color-surface);
+  border-left: 3px solid var(--color-blue); padding: 8px 20px; background: var(--color-surface);
   border-radius: 0 12px 12px 0;
 }
 .xpl-quote-by { display: block; margin-top: 10px; font-size: 13px; color: var(--color-steel); }
@@ -372,7 +372,7 @@
 @media (max-width: 760px) { .xpl-map-row { grid-template-columns: 1fr; } }
 .xpl-map-row > span { background: var(--color-canvas); padding: 12px 14px; font-size: 13px; color: var(--color-charcoal); }
 .xpl-map-head > span { background: var(--color-surface-soft); font-weight: 700; color: var(--color-ink); }
-.xpl-human-note { background: rgba(255,85,48,0.05); border: 1px solid rgba(255,85,48,0.28); border-radius: 14px; padding: 18px; margin-top: 8px; }
+.xpl-human-note { background: rgba(23,75,255,0.05); border: 1px solid rgba(23,75,255,0.28); border-radius: 14px; padding: 18px; margin-top: 8px; }
 .xpl-human-note p { margin: 10px 0 0; color: var(--color-charcoal); font-size: 14px; line-height: 1.7; }
 .xpl-refs { margin: 4px 0 0; padding-left: 18px; color: var(--color-steel); font-size: 13px; }
 .xpl-refs a { color: var(--color-blue); text-decoration: none; }

@@ -5,6 +5,7 @@ import './globals.css';
 import './reading.css';
 import './editorial.css';
 import '../modules/explore/explore.css';
+import './interface.css';
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://www.aiopcnews.com'),

@@ -18,7 +18,7 @@ export default async function ExplorePage({ searchParams }: { searchParams: Prom
     <>
       <Header />
       <header className="explore-editorial-hero"><div><p className="reading-eyebrow">FROM INFORMATION TO ACTION</p><h1>方向探测器</h1><p>找到适合你的方向，明确下一步。</p></div><figure><Image src="/editorial/direction-compass.webp" alt="指南针与纸上岔路，指向一扇绿色的门" width={1200} height={800} priority/><figcaption>AI 概念插图</figcaption></figure></header>
-      <div className="container page-wrap">
+      <div className="container page-wrap explore-workspace">
 
 
         <ExploreApp example={example ? { title: example.title, slug: example.slug, customer: example.customer, thesis: example.thesis, risk: example.bear_case, firstStep: example.validation_plan?.steps?.[0] || '' } : null} initialDirection={imported?.title || ''} />
