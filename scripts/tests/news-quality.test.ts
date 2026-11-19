@@ -159,3 +159,10 @@ test('chief editor fails closed on unsupported claims, vague verdicts, stale and
  assert.ok(publicationBlocks({...article,publishedAt:'2026-10-01'},draft,source,verdict,now).length);
  assert.ok(publicationBlocks(article,draft,source,{} as typeof verdict,now).length);
 });
+
+ test('chief editor excludes specialist training scheduling but retains API pricing changes',async()=>{
+ const {publicationBlocks}=await import('../../lib/news/chief-editor');const now=Date.parse('2026-11-19T00:00:00Z');
+ const specialist={...article,title:'Predicting fine-tuning time: FLOPs and scheduling'};
+ assert.ok(publicationBlocks(specialist,draft,source,undefined,now).some(r=>r.includes('训练时长预测')));
+ assert.ok(!publicationBlocks({...article,title:'Fine-tuning API pricing reduced'},draft,source,undefined,now).some(r=>r.includes('训练时长预测')));
+ });
