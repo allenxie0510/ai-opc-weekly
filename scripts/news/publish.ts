@@ -22,7 +22,7 @@ async function main(){
     const {data:duplicate,error:duplicateError}=await db.from('news_queue').select('id').eq('event_key',row.event_key).eq('state','published').limit(1);
     if(duplicateError)throw duplicateError;if(duplicate?.length)blocks.push('同一事件已有精选报道');
     if(!blocks.length){
-     const response=await requestModel(()=>fetch(model.endpoint,{method:'POST',signal:AbortSignal.timeout(90000),headers:{Authorization:`Bearer ${model.apiKey}`,'Content-Type':'application/json'},body:JSON.stringify({model:model.model,temperature:.1,max_tokens:1800,thinking:{type:'disabled'},response_format:{type:'json_object'},messages:[{role:'system',content:CHIEF_EDITOR_PROMPT},{role:'user',content:JSON.stringify({source:source.name,tier:source.tier,publishedAt:article.publishedAt,body:article.body.slice(0,30000),draft})}]})}));
+     const response=await requestModel(()=>fetch(model.endpoint,{method:'POST',signal:AbortSignal.timeout(90000),headers:{Authorization:`Bearer ${model.apiKey}`,'Content-Type':'application/json'},body:JSON.stringify({model:model.model,temperature:.1,max_tokens:1800,thinking:{type:'disabled'},response_format:{type:'json_object'},messages:[{role:'system',content:CHIEF_EDITOR_PROMPT},{role:'user',content:JSON.stringify({source:source.name,tier:source.tier,note:source.note,publishedAt:article.publishedAt,body:article.body.slice(0,30000),draft})}]})}));
      const payload=await response.json();if(payload.choices?.[0]?.finish_reason==='length')throw Error('总编输出截断');
      verdict=JSON.parse(payload.choices?.[0]?.message?.content||'null');
      if(!verdict||typeof verdict!=='object')throw Error('总编裁决不可用');
