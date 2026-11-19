@@ -9,7 +9,7 @@ export default function NotFound() {
         <h1 className="text-2xl font-bold mb-4" style={{ fontFamily: 'var(--font-brand)', letterSpacing: '0.04em' }}>
           404 · 未找到
         </h1>
-        <p className="text-[var(--color-steel)] mb-6">该期周报不存在或尚未发布。</p>
+        <p className="text-[var(--color-steel)] mb-6">这篇内容不存在、已下架或尚未发布。</p>
         <Link href="/" className="text-sm text-[var(--color-blue)] hover:underline">返回首页</Link>
       </main>
     </>
