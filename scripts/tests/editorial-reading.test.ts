@@ -26,3 +26,10 @@ test('weekly options retain issue numbers and omit long editorial titles',async(
  const options=weeklyOptions([{slug:'2026-11-16'}],[{slug:'2026-w47',issue_number:53,week_start:'2026-11-16'},{slug:'2026-w46',issue_number:52,week_start:'2026-11-09'}]);
  assert.equal(options[0].label,'第 54 期 · 2026-11-16');assert.equal(options[1].label,'第 53 期 · 2026-11-16');assert.equal(options[2].label,'第 52 期 · 2026-11-09');
 });
+
+test('focus rejects raw, stale, future and low-value items, and ranks within the supplied scope',async()=>{
+ const {focusStory}=await import('../../lib/reading/editorial');
+ assert.equal(focusStory([{...item,id:'raw',reviewed:false,score:100},{...item,id:'stale',publishedAt:'2026-10-01',score:100},{...item,id:'future',publishedAt:'2026-12-01',score:100},{...item,id:'weak',score:60}],now),undefined);
+ assert.equal(focusStory([item,{...item,id:'stronger',score:93}],now)?.id,'stronger');
+ assert.equal(focusStory([{...item,lane:'business'}],now)?.lane,'business');
+});
