@@ -88,3 +88,9 @@ header.explore-editorial-hero figcaption{font-size:10px;margin-top:10px}
 /* Shared headline weight across feeds and article detail pages. */
 .reading-card h2,.focus-story h2,.editorial-picks h3,.reading-detail h1{font-weight:800;color:#111}
 .reading-detail h2,.reading-detail h3{font-weight:700}
+
+/* Icon state changes are immediate, including while feedback is being saved. */
+.reading-feedback button,.reading-bookmark button,.reading-share>button{min-width:44px;min-height:44px;justify-content:center;transition:transform 180ms ease,background-color 160ms ease}
+.reading-feedback button:disabled{opacity:1}
+.reading-feedback button[aria-pressed=true],.reading-bookmark button[aria-pressed=true]{color:#000}
+.reading-feedback button svg,.reading-bookmark button svg,.reading-share>button svg{transition:transform 180ms ease}
